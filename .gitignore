@@ -1,0 +1,18 @@
+# Ambientes Virtuais e Node
+node_modules/
+venv/
+env/
+__pycache__/
+*.pyc
+.env
+.env.*
+firebase-adminsdk.json
+
+# Logs e builds
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/frontend/.expo/
+/frontend/dist/
+/frontend/web-build/
