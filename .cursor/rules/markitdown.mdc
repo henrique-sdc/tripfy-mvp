@@ -1,0 +1,16 @@
+---
+description: Instructs the AI agent to use MarkItDown to read complex binary documents (PDF, DOCX, XLSX, etc.) by converting them to Markdown first.
+globs: *
+alwaysApply: false
+---
+# MARKITDOWN USAGE GUIDELINES
+
+If the user asks you to read, analyze, or extract information from a binary or complex document (like PDF, PPTX, DOCX, XLSX, EPUB, or HTML), you MUST NOT try to read the binary file directly.
+
+Instead, use the `markitdown` CLI tool installed in the Python environment to convert it to Markdown first.
+
+## Usage Command
+Run this in the terminal to convert the file:
+`markitdown <path-to-file> > <output-file.md>`
+
+Then, read the resulting `.md` file to answer the user's request or implement the requested logic.

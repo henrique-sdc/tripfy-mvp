@@ -1,0 +1,30 @@
+---
+description: Comprehensive guidelines for networking, API calls, caching, React Query, and SecureStore in Expo.
+globs: frontend/**/*.tsx, frontend/**/*.ts, frontend/hooks/**/*.ts, frontend/services/**/*.ts, frontend/api/**/*.ts
+alwaysApply: false
+---
+# EXPO NETWORKING & DATA FETCHING GUIDELINES
+
+You MUST use these rules for ANY networking work including API requests, data fetching, caching, or network debugging in the Expo app.
+
+## 1. Core Networking Rules
+- **Prefer `fetch`:** Avoid axios; use the native `fetch` API.
+- **Always Check `response.ok`:** NEVER do `await fetch(url).then(r => r.json())` without checking `if (!response.ok)`. Throw structured `ApiError` instances.
+- **Cancellation:** Pass `AbortController.signal` to fetch calls so they can be cancelled on component unmount or by React Query.
+
+## 2. React Query (TanStack Query)
+- Use **React Query** for server state management (caching, background updates, retry logic).
+- Setup the `QueryClient` in `app/_layout.tsx` with sensible defaults (e.g., `staleTime: 1000 * 60 * 5`, `retry: 2`).
+- Use `useMutation` for POST/PUT/DELETE requests and always `invalidateQueries` on success.
+
+## 3. Environment Variables (.env)
+- **Client-Side:** API URLs must use the `EXPO_PUBLIC_` prefix (e.g., `EXPO_PUBLIC_API_URL`).
+- **Secrets:** NEVER put secret API keys in `EXPO_PUBLIC_`. Secrets belong in the backend (FastAPI `.env`).
+- Provide a typed config `apiClient` that reads from `process.env.EXPO_PUBLIC_API_URL`.
+
+## 4. Authentication & Security
+- **Tokens:** NEVER store authentication tokens in `AsyncStorage`. You MUST use `expo-secure-store` (`SecureStore.setItemAsync`).
+- **Fetch Wrapper:** Create an `authFetch` wrapper that automatically injects the Bearer token from `SecureStore` into the headers.
+
+## 5. Streaming (SSE) - Tripfy Specific
+- The Trip Generation endpoint from FastAPI uses Server-Sent Events (SSE). Ensure the networking logic here can process incoming streams chunk-by-chunk to update the UI fluidly, rather than waiting for a single JSON response.

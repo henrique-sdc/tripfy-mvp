@@ -1,0 +1,27 @@
+---
+description: Applies the Headroom context compression layer when communicating with LLM providers (like Gemini) to save tokens and costs.
+globs: backend/services/**/*.py, backend/api/**/*.py
+alwaysApply: false
+---
+# HEADROOM COMPRESSION GUIDELINES
+
+When writing code in the Python backend that constructs prompts or sends data (like large JSONs, file contents, or conversation histories) to an LLM provider (like Gemini), you MUST use `headroom-ai` to compress the context BEFORE sending it to the LLM.
+
+## Principles:
+1. **Cost & Token Efficiency:** The primary goal is reducing the variable cost of API usage (PRD Section 7).
+2. **Implementation:** Use the inline library approach: `from headroom import compress` instead of the proxy, as we want programmatic control over what gets compressed.
+3. **Reversibility:** Understand that Headroom uses CCR (Reversible Compression). The LLM can retrieve the original if needed.
+
+## Example Usage:
+```python
+from headroom import compress
+
+# Instead of passing the raw prompt:
+# response = llm.generate(raw_prompt)
+
+# Do this:
+compressed_prompt = compress(raw_prompt)
+response = llm.generate(compressed_prompt)
+```
+
+Always prefer compressing structured data (JSONs of user preferences) and large logs before LLM ingestion.

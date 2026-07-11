@@ -1,0 +1,7 @@
+---
+description: Reverse-lookup glossary for web animation and motion effects (e.g., Rubber-banding, Stagger).
+globs: *
+alwaysApply: false
+---
+# ANIMATION VOCABULARY
+When discussing, naming, or conceptualizing animations, refer to `.cursor/rules/emil-design-refs/vocabulary.md` to use the exact industry terms.

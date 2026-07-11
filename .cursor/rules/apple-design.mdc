@@ -1,0 +1,7 @@
+---
+description: Apple's approach to interface design and fluid, physical motion (springs, momentum, translucent materials).
+globs: frontend/app/**/*.tsx, frontend/components/**/*.tsx
+alwaysApply: false
+---
+# APPLE DESIGN & FLUID INTERFACES
+When building gesture-driven UI, bottom sheets, or Liquid Glass effects, you MUST follow the guidelines in `.cursor/rules/emil-design-refs/apple-design.md`. Focus on interruptibility, springs over fixed durations, and momentum projection.

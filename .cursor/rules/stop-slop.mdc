@@ -1,0 +1,16 @@
+---
+description: Applies the Stop Slop writing guidelines to remove AI cliches, predictable phrases, and bloated text from UI and docs.
+globs: *
+alwaysApply: false
+---
+# STOP SLOP WRITING GUIDELINES
+
+When writing, reviewing, or generating TEXT intended for human reading (like UI copy, user notifications, error messages, READMEs, or documentation), you MUST follow the "Stop Slop" guidelines to sound human, direct, and authentic.
+
+Read and apply the rules from these local reference files:
+- Core Rules: `.cursor/rules/stop-slop-refs/SKILL.md`
+- Banned Phrases: `.cursor/rules/stop-slop-refs/phrases.md`
+- Cliches to Avoid: `.cursor/rules/stop-slop-refs/structures.md`
+
+Avoid robotic intros, throat-clearing, business jargon, and passive voice. 
+Keep it simple, punchy, and human.

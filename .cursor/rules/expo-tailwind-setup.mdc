@@ -1,0 +1,25 @@
+---
+description: Crucial setup and usage guidelines for Tailwind CSS v4 + NativeWind v5 + react-native-css in Expo.
+globs: frontend/**/*.tsx, frontend/**/*.ts, frontend/**/*.css, frontend/metro.config.js
+alwaysApply: false
+---
+# TAILWIND CSS V4 + NATIVEWIND V5 GUIDELINES
+
+When working with styling in this Expo project, you MUST follow the new Tailwind v4 and NativeWind v5 architecture. Do NOT use outdated v3 patterns.
+
+## 1. Configuration (CSS-First)
+- NO `babel.config.js` is needed for Tailwind/NativeWind.
+- NO `tailwind.config.js` is needed.
+- All theme customizations (fonts, colors, spacing) are done in `global.css` using the `@theme` directive.
+- Platform-specific colors (Light/Dark mode) use CSS variables with `light-dark()` and `@media ios { ... platformColor(...) }`.
+
+## 2. Component Usage (Wrappers are Mandatory)
+Because `react-native-css` requires explicit CSS element wrapping, you CANNOT use standard `react-native` components directly with `className`.
+- Always import UI components (`View`, `Text`, `ScrollView`, `Pressable`, `Image`, `Link`) from our custom wrapper directory (e.g., `@/tw` or `@/components/ui/tw`).
+- Example: `import { View, Text } from "@/tw";` (NOT from `react-native`).
+
+## 3. Metro Config
+`metro.config.js` must use `withNativewind(config, { inlineVariables: false, globalClassNamePolyfill: false })`.
+
+## 4. Reading CSS Variables in JS
+If you need to pass a Tailwind color to a prop that doesn't accept classNames, use the hook `useCSSVariable("--color-name")`.

@@ -1,0 +1,29 @@
+---
+description: Guidelines for building beautiful, native-feeling Expo screens using NativeWind v5 (Tailwind v4) and Expo best practices.
+globs: frontend/**/*.tsx, frontend/**/*.ts
+alwaysApply: false
+---
+# EXPO NATIVE UI GUIDELINES (WITH TAILWIND)
+
+When building screens and UI components for the React Native / Expo app, follow these architectural and styling rules:
+
+## Styling & Tailwind (NativeWind v5)
+- **Use Tailwind classes (`className`) for EVERYTHING.** Do not use `StyleSheet.create` or inline `style={{...}}` unless dynamically calculating a value that Tailwind cannot handle.
+- Prefer Flexbox (`flex`, `flex-row`, `gap-x`, `gap-y`) over margin math.
+- Always account for Safe Areas. Use Tailwind's padding utilities (`pt-safe`, `pb-safe` if configured, or rely on `SafeAreaView` / `ScrollView` insets).
+
+## Component Choices
+- NEVER use intrinsic HTML elements (`div`, `img`, `span`). Use `View`, `Text`, `Image`, etc.
+- Use `expo-image` for all images, not the React Native `<Image>`.
+- For icons, prefer `expo-image` using SF Symbols (e.g., `source="sf:house"`), not vector icons, to get native Apple visuals.
+- Use `expo-audio` and `expo-video` (not `expo-av`).
+- Always wrap the root component in a `ScrollView` for responsiveness, using `contentInsetAdjustmentBehavior="automatic"`.
+
+## UI/UX Best Practices (Apple HIG)
+- Add `entering` and `exiting` animations for state changes (using `react-native-reanimated`).
+- Make important text selectable: `<Text selectable className="...">`.
+- Use `expo-haptics` conditionally to make interactions delightful (e.g., when toggling a switch or clicking a major call-to-action).
+- Use native semantic colors where appropriate (mapped through Tailwind config if possible), to ensure perfect Dark/Light mode transition.
+
+## Running the App
+- Always prioritize testing in **Expo Go**. Do not run custom iOS/Android builds (`npx expo run:ios`) unless we introduce custom native code or third-party modules not supported by Expo Go.

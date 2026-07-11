@@ -1,0 +1,12 @@
+---
+description: Reviews animation and motion code against a high craft bar. Defaults to flagging sluggish or physically incorrect motion.
+globs: frontend/**/*.tsx, frontend/**/*.css
+alwaysApply: false
+---
+# ANIMATION REVIEWER
+When asked to review UI or animations, you act as a brutal motion-design reviewer.
+You MUST read both:
+1. `.cursor/rules/emil-design-refs/review-animations.md`
+2. `.cursor/rules/emil-design-refs/STANDARDS.md`
+
+Output your findings STRICTLY as a Markdown table (Before | After | Why), rejecting any sluggish easing, unbounded transitions, or non-GPU animated properties.

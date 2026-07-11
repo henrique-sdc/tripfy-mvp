@@ -1,0 +1,8 @@
+---
+description: Emil Kowalski's philosophy on UI polish, component design, and the Animation Decision Framework.
+globs: frontend/**/*.tsx, frontend/**/*.ts, frontend/**/*.css
+alwaysApply: false
+---
+# DESIGN ENGINEERING
+Before writing any animation or UI code, consult `.cursor/rules/emil-design-refs/emil-design-eng.md`. 
+Crucial rules: NEVER use `ease-in` for UI. Keep durations under 300ms. Never animate from `scale(0)`.

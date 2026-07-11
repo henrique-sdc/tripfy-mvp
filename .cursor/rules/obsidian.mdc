@@ -1,0 +1,18 @@
+---
+description: Guidelines for generating and formatting Obsidian notes, wikilinks, callouts, and JSON Canvas diagrams.
+globs: *.md, *.canvas, docs/**/*
+alwaysApply: false
+---
+# OBSIDIAN DOCUMENTATION GUIDELINES
+
+When writing documentation, notes, or creating diagrams for this project, assume the user will read them in Obsidian. You MUST format the output accordingly:
+
+## 1. Markdown Documentation (*.md)
+Read the rules in `.cursor/rules/obsidian-refs/obsidian-markdown.md`.
+- Use `[[wikilinks]]` instead of standard markdown links when referencing other local documentation files.
+- Use Obsidian Callouts (e.g., `> [!info]`, `> [!warning]`) for highlights.
+- Include proper YAML frontmatter (Properties) for metadata.
+
+## 2. Architecture & Diagrams (*.canvas)
+Read the rules in `.cursor/rules/obsidian-refs/json-canvas.md`.
+If the user asks for a visual architecture, flow chart, or diagram, generate a valid `.canvas` file following the JSON Canvas specification. Do NOT generate Mermaid.js unless specifically requested; prefer `.canvas` files.

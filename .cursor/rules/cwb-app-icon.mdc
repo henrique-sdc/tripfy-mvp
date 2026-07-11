@@ -1,0 +1,34 @@
+---
+description: Generate app icons for your React Native Expo app with iOS 26 Liquid Glass and Android Adaptive support using SnapAI.
+globs: app.json, assets/images/**/*, frontend/app.json
+alwaysApply: false
+---
+# APP ICON GENERATION WORKFLOW (Code with Beto)
+
+When asked to generate or update an app icon, MUST follow this exact workflow:
+
+## Step 0: Verify SnapAI Setup
+Check if SnapAI is configured: `npx snapai config --show`.
+If not configured or missing an API key, ask the user to provide their OpenAI API key (starts with "sk-") and run:
+`npx snapai config --api-key <their-api-key>`
+
+## Step 1 & 2: Context & Style
+Understand the app from `app.json`. Ask the user for their preferred style (minimalism, glassy, gradient, neon, material, ios-classic, pixel, geometric).
+
+## Step 3: Generate via SnapAI
+Run: `npx snapai icon --prompt "<PROMPT>" --background transparent --output-format png --style <STYLE>`
+
+## Step 4: iOS 26 .icon Structure
+Create the `.icon` folder:
+1. `mkdir -p assets/app-icon.icon/Assets`
+2. `cp assets/icon-[timestamp].png assets/app-icon.icon/Assets/icon.png`
+3. Create `assets/app-icon.icon/icon.json` with the Liquid Glass configuration (fill: automatic, translucency enabled, etc.).
+
+## Step 4.5: Android Optimization (CRITICAL)
+Android clips icons if they don't respect the 66% safe area. You MUST resize the generated icon for Android using ImageMagick:
+`magick assets/icon-[timestamp].png -resize 66% -gravity center -background transparent -extent 1024x1024 assets/android-icon.png`
+
+## Step 5: Update app.json
+Update the Expo config for both platforms.
+- iOS: `"icon": "./assets/app-icon.icon"`
+- Android: Use `android-icon.png` for `foregroundImage`, `backgroundImage`, and `monochromeImage` to fully support Material You.

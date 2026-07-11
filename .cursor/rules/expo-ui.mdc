@@ -1,0 +1,18 @@
+---
+description: Guidelines for using @expo/ui to build real native UI (SwiftUI/Jetpack Compose) from React Native.
+globs: frontend/**/*.tsx, frontend/**/*.ts
+alwaysApply: false
+---
+# EXPO UI (@expo/ui) GUIDELINES
+
+When building user interfaces in the React Native / Expo app, follow these rules for `@expo/ui`:
+
+1. **Universal First:** Always start with universal components imported directly from `@expo/ui` (e.g., `Host`, `Column`, `Row`, `Button`, `Text`). One tree runs on iOS, Android, and Web.
+2. **Host Wrapper:** Every `@expo/ui` tree MUST be wrapped in a `<Host>` component.
+3. **Platform-Specific (Only if needed):** 
+   - Use `@expo/ui/swift-ui` for iOS ONLY (must be isolated in `.ios.tsx` files).
+   - Use `@expo/ui/jetpack-compose` for Android ONLY (must be isolated in `.android.tsx` files).
+   - NEVER import platform-specific packages in universal files. It will crash the app with "Unable to get view config" errors.
+4. **Drop-in Replacements:** Avoid heavy community libraries if Expo has a replacement. Use `@expo/ui/community/<name>` (e.g., BottomSheet, DateTimePicker, Slider, Menu).
+
+Do not use this for Expo Router navigation or data fetching.

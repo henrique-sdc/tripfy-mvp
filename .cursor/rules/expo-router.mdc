@@ -1,0 +1,30 @@
+---
+description: Guidelines for file-based navigation, routing, NativeTabs, and Stacks using Expo Router.
+globs: app/**/*.tsx, app/**/*.ts, components/**/*.tsx
+alwaysApply: false
+---
+# EXPO ROUTER NAVIGATION GUIDELINES
+
+Follow these strict rules for navigation and routing in the Expo app:
+
+## Folder Structure & File Naming
+- **File-based routing:** All routes belong inside the `app/` directory.
+- **ANTI-PATTERN ALERT:** NEVER co-locate components, hooks, types, or utilities in the `app/` directory. Keep them in `components/`, `hooks/`, `lib/`, etc.
+- **Naming:** Always use kebab-case for file names (e.g., `trip-details.tsx`). Never use special characters.
+
+## Navigation Patterns
+- **Links:** Use `<Link href="/path">` from `expo-router`.
+- **Premium UX:** Whenever possible, wrap elements in `<Link.Trigger>` and use `<Link.Preview>` and `<Link.Menu>` to create iOS context menus and fluid navigation.
+- **Tabs:** Use `<NativeTabs>` for the main bottom navigation (Home, Explorar, Meus Roteiros, Perfil) instead of custom JS implementations.
+
+## Stacks, Modals, and Sheets
+- Always use `_layout.tsx` files to define `<Stack>` navigation.
+- To present a screen as a Modal, use:
+  `<Stack.Screen name="modal" options={{ presentation: "modal" }} />`
+- To present a screen as a Bottom Sheet (ideal for Tripfy's Wizards and Match features), use:
+  `<Stack.Screen name="sheet" options={{ presentation: "formSheet", sheetGrabberVisible: true, contentStyle: { backgroundColor: "transparent" } }} />`
+  *(Note: transparent background enables Liquid Glass effects on iOS).*
+
+## Imports
+- If using React Navigation types or utilities in SDK 56+, NEVER import from `@react-navigation/*` directly. Use `expo-router/react-navigation` instead.
+- For search bars in the header, prefer `Stack.SearchBar`.
