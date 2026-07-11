@@ -1,0 +1,50 @@
+---
+description: Estrutura de telas, fluxos de navegacao e liberdade criativa de UI do app mobile Tripfy. Use ao criar/editar telas, componentes, navegacao ou fluxos do React Native.
+globs: ["app/**","src/screens/**","src/components/**","src/navigation/**","**/*.tsx","**/*.jsx"]
+alwaysApply: false
+---
+
+## 4. Estrutura de Telas e Navegação (UX Freedom)
+
+> **NOTA DE DESIGN — LIBERDADE CRIATIVA TOTAL:** A IA/desenvolvedor tem liberdade completa para desenhar as telas. Não seguir os wireframes acadêmicos do TCC como especificação visual — eles serviram apenas para validar o conceito perante a banca. O objetivo é uma UI **moderna, premium**, podendo se inspirar em padrões como os da Apple, com uso inteligente e sem exageros de efeitos como **Liquid Glass/Glassmorphism** (via RN Skia, como sugestão). **Toda tela deve nascer funcional em Dark e Light Mode** (Seção 2.4) e pronta para i18n (Seção 2.6).
+
+### 4.1 Navegação Principal (RF04)
+
+Bottom Tab Navigation com, no mínimo:
+
+```
+Home | Explorar | Meus Roteiros | Perfil
+```
+
+### 4.2 Fluxos Funcionais Obrigatórios
+
+Os wireframes originais do TCC não são mais a referência visual, mas os **fluxos funcionais** que eles representavam continuam válidos e devem existir na aplicação:
+
+1. **Acesso e Autenticação**
+   - Cadastro, login, recuperação de senha (RF01, RF02).
+   - **Etapa final do cadastro: formulário de preferências de viagem** (Seção 3.3) — a "personalidade de viajante" do usuário, preenchida uma vez.
+   - Gerenciamento de conta: editar perfil (foto, nome, bio, preferências), exclusão permanente de conta e dados (RF03).
+
+2. **Navegação Principal**
+   - **Home:** call-to-action para nova viagem + overview rápido dos roteiros do usuário.
+   - **Explorar:** busca de destinos específicos e roteiros populares criados pela plataforma ou por outros usuários (RF08).
+   - **Meus Roteiros:** histórico de viagens planejadas.
+   - **Perfil:** dados pessoais e preferências de viagem (edição do formulário da Seção 3.3).
+
+3. **Convite Colaborativo (entrada no Match)**
+   - Tela de convite quando um usuário é chamado para planejar junto (RF09, RF11) — ex.: "Fulano te convidou para planejar uma viagem".
+
+4. **Fluxo de Planejamento (Wizard)**
+   - Assistente conversacional ou por etapas, coletando **apenas os parâmetros específicos da viagem** (destino, datas, orçamento, transporte, ritmo) — as preferências gerais já vêm do perfil (Seção 3.3).
+   - Adição de viajantes ao vincular a sessão (Match).
+   - Tela de geração com feedback visual em tempo real (streaming/SSE preenchendo a tela conforme o roteiro chega — não uma barra de progresso genérica).
+   - Resultado: roteiro pronto para visualizar e salvar.
+
+5. **Visualização e Edição do Roteiro**
+   - Timeline interativa diária + mapa integrado.
+   - Edição por drag-and-drop fluido (RF07.1).
+   - Botões de redirecionamento para parceiros OTAs (RF10).
+   - Compartilhamento via link/convite (RF09).
+
+---
+

@@ -1,0 +1,18 @@
+---
+description: Diretrizes obrigatorias de codificacao: comentarios em PT-BR estilo Dev Senior, simplicidade, performance, Dark/Light Mode e i18n desde o inicio. Aplica-se a QUALQUER arquivo de codigo criado ou editado.
+globs: ["**/*.ts","**/*.tsx","**/*.js","**/*.jsx","**/*.py"]
+alwaysApply: false
+---
+
+## 8. Diretrizes de Codificação
+
+Regras que se aplicam a **todo código gerado** neste projeto, independentemente da camada (frontend ou backend):
+
+- **Comentários em PT-BR, estilo Dev Sênior.** Todo código deve conter comentários em Português do Brasil, claros e objetivos, explicando o *porquê* de decisões não óbvias (não o óbvio — evitar comentar `// soma 1` acima de `x += 1`). O padrão é: qualquer outro desenvolvedor da equipe deve entender o código e suas decisões sem precisar perguntar ao autor original.
+- **Simplicidade antes de sofisticação.** Preferir a solução mais simples que resolve o problema pedido. Não adicionar abstrações, configurabilidade ou "flexibilidade" que ninguém pediu. Ver Seção 9 — há skills específicas para reforçar essa disciplina no agente de codificação.
+- **Performance é requisito, não otimização posterior.** O app deve ser fluido desde a primeira tela: evitar re-renders desnecessários no React Native, usar `FlatList`/`FlashList` em vez de `ScrollView` para listas longas, e não bloquear a UI thread com processamento pesado (a UX de streaming da Seção 3.2 depende disso).
+- **Dark/Light Mode e i18n não são "depois".** Qualquer componente novo já nasce usando os tokens de tema (Seção 2.4) e o sistema de chaves de tradução (Seção 2.6) — nunca cor hardcoded ou string de UI hardcoded, mesmo que o app só tenha um idioma ativo agora.
+- **Segurança não é opcional em nenhuma tela.** Toda tela que envia dados ao backend deve assumir que o dado pode ser malicioso — a validação real acontece no backend (Seção 6.2), mas o frontend também não deve confiar cegamente em nada que vem da API.
+
+---
+

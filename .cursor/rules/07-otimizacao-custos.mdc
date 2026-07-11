@@ -1,0 +1,37 @@
+---
+description: Estrategias de cache (Redis), rate limiting, streaming assincrono e mitigacao de vendor lock-in para custo/performance. Use ao implementar chamadas a LLMs ou APIs externas pagas.
+globs: ["backend/**","**/*.py"]
+alwaysApply: false
+---
+
+## 7. Estratégias de Otimização e Cache
+
+### 7.1 Cache de Roteiros Comuns
+
+**Motivação:** o custo variável de API por usuário (tokens do LLM + chamadas ao Google Maps) é o custo mais crítico da operação. Se esse custo superar a monetização gerada, o modelo Freemium se torna inviável em escala.
+
+**Estratégia:** quando múltiplos usuários buscam destinos idênticos ou muito similares (ex.: "Roteiro de 3 dias em Paris — casal"), a plataforma resgata partes do itinerário já processado e salvo no banco (Firestore, e/ou Redis como camada de cache mais rápida — Seção 2.1), evitando novas chamadas pagas ao LLM para o mesmo padrão de consulta.
+
+### 7.2 Proteção contra Rate Limits
+
+Prever soluções para os limites de requisição impostos pelas ferramentas de IA e mapas de terceiros, garantindo que picos de acesso não sobrecarreguem as chamadas de API nem afetem a estabilidade. Implementar *retries* com backoff exponencial nas chamadas a serviços externos (LLM, Google Maps), para blindar contra falhas transitórias e limites de pico. Ver também Seção 6.2 (Rate Limiting como medida de segurança, mesma implementação serve aos dois propósitos).
+
+### 7.3 Processamento Assíncrono e UX de Streaming
+
+Ligado a RN04 e RN05: infraestrutura assíncrona (FastAPI nativamente suporta isso) para não degradar performance em picos, e frontend com streaming (SSE) mostrando o roteiro sendo construído em tempo real — não uma tela de loading genérica.
+
+### 7.4 Engajamento e Retroalimentação
+
+- Notificações push contextuais (lembretes de horários do roteiro, e futuramente alertas geolocalizados/climáticos).
+- Histórico de roteiros e edições salvo no Firestore — o comportamento do usuário (ex.: locais removidos de um roteiro gerado) é um sinal que pode, no futuro, retroalimentar e melhorar os prompts.
+
+### 7.5 Preparação para Offline-First (feature Premium futura)
+
+Projetar o estado global do frontend (ex.: Zustand ou Redux — a definir na implementação) e a camada de comunicação de forma que já facilite cache local de rotas no dispositivo, preparando terreno para a futura funcionalidade Premium de "Modo 100% Offline" (Seção 1.6), sem que isso precise ser construído do zero mais tarde.
+
+### 7.6 Mitigação de Vendor Lock-in
+
+Risco identificado: dependência excessiva de um único provedor de LLM dificultaria/encareceria migração futura. Mitigado pela camada de abstração descrita na Seção 2.5 — não é uma preocupação teórica, é um requisito de arquitetura concreto.
+
+---
+

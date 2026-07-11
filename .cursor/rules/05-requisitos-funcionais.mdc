@@ -1,0 +1,42 @@
+---
+description: Lista completa e formal dos Requisitos Funcionais (RF01 a RF12) do Tripfy. Consulte antes de implementar qualquer funcionalidade nova.
+alwaysApply: false
+---
+
+## 5. Requisitos Funcionais (RFs)
+
+*(Copiados literalmente do TCC — especificação formal e vinculante.)*
+
+**RF01** — O sistema deve possuir uma área para cadastro e login do usuário.
+> Nota de implementação (Seção 3.3): o fluxo de cadastro inclui, como etapa final, o formulário de preferências de viagem do usuário.
+
+**RF02** — O sistema deve oferecer a opção de recuperação e redefinição de senha.
+
+**RF03** — O sistema deve permitir o gerenciamento da conta do usuário, oferecendo opções para editar informações do perfil (foto, nome, bio) e a exclusão permanente da conta e de seus dados.
+> Nota de implementação: "informações do perfil" inclui as preferências de viagem coletadas no cadastro (Seção 3.3) — o usuário deve poder editá-las a qualquer momento.
+
+**RF04** — Em um menu principal de navegação, o usuário poderá acessar opções como: Home (Página Inicial), Explorar (Pesquisa), Meus Roteiros e Perfil.
+
+**RF05** — O sistema deve possuir um assistente (formulário interativo) para a coleta de parâmetros de viagem, permitindo que o usuário insira: destino, quantidade de dias, orçamento, com quem vai viajar e suas preferências (cultura, gastronomia, lazer, vida noturna, etc.).
+> Nota de implementação (Seção 3.3): na prática, "suas preferências" já vem pré-preenchido a partir do perfil salvo no cadastro; este passo deve permitir confirmar/ajustar, não preencher do zero.
+
+**RF06** — O sistema deve integrar-se a modelos de Inteligência Artificial Generativa (LLMs – Large Language Models) para gerar um roteiro de viagem completo e personalizado com base nos parâmetros fornecidos no RF05.
+> Nota de implementação (Seção 2.5): o provedor de LLM é trocável por design; a recomendação de lançamento é Gemini 3.5 Flash, mas o texto do requisito não amarra a um provedor específico.
+> **RF06.1** — O roteiro gerado deve apresentar uma divisão lógica por dias, indicando horários sugeridos, pontos turísticos, restaurantes e estimativa de tempo de deslocamento entre as atrações **considerando o meio de transporte informado pelo usuário**.
+
+**RF07** — O sistema deve garantir total flexibilidade, permitindo que o usuário edite o roteiro gerado pela IA.
+> **RF07.1** — O usuário deve ser capaz de adicionar novas atrações, remover paradas indesejadas ou reordenar os locais dentro da linha do tempo diária.
+
+**RF08** — O sistema deve oferecer uma tela de exploração ("Pesquisar"), onde o usuário poderá buscar por destinos específicos ou visualizar roteiros populares criados pela plataforma ou por outros usuários.
+
+**RF09** — O sistema deve permitir a colaboração, oferecendo a opção de compartilhar o roteiro com outras pessoas (via link ou convite no app) para planejamento em grupo.
+
+**RF10** — O sistema deve fornecer links externos ou botões de redirecionamento para parceiros (OTAs como Booking, Skyscanner, etc.) para facilitar a reserva de hospedagens e ingressos indicados no roteiro.
+
+**RF11** — O sistema deve permitir o vínculo de múltiplos usuários autenticados a uma mesma sessão de viagem, de forma que o backend possa coletar as preferências individuais de todos os participantes convidados.
+
+**RF12** — O sistema permitirá a criação de roteiros colaborativos entre usuários, funcionando de forma semelhante ao recurso de sessões compartilhadas de playlists, onde várias pessoas poderão gerenciar atrações, restaurantes e atividades em uma mesma viagem. Para otimizar essa experiência, o backend deve processar a compatibilização das preferências (Match). Para fins de viabilidade técnica no MVP, esta lógica de recomendação não utilizará heurísticas complexas, modelagem comportamental profunda ou algoritmos proprietários de otimização matemática. Em vez disso, a conciliação será baseada em Engenharia de Prompt: o sistema consolidará os interesses convergentes e divergentes do grupo em instruções estruturadas e as enviará à API do LLM, que assumirá o papel de interpretar o contexto e gerar um roteiro equilibrado para todos os participantes dentro do ambiente compartilhado da Tripfy.
+> Nota de implementação: no MVP, o Match cobre até 2 viajantes no tier gratuito (Seção 3.4).
+
+---
+

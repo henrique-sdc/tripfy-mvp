@@ -1,0 +1,97 @@
+---
+description: Visao de produto, personas, modelo de negocio (BMC) e monetizacao (Freemium/Premium/Afiliados) do Tripfy. Use para regras de negocio, precificacao, personas ou escopo do MVP.
+alwaysApply: false
+---
+
+## 1. Visão do Produto e Modelo de Negócios
+
+### 1.1 Pitch e Problema Central
+
+A Tripfy é uma plataforma digital inteligente, em formato de **aplicativo mobile**, voltada ao planejamento automatizado e personalizado de viagens, com foco inicial no **mercado brasileiro**.
+
+**Dores que o produto resolve:**
+
+| Dor | Descrição |
+|---|---|
+| **Excesso de informações dispersas** | "Infoxicação"/sobrecarga cognitiva: volume massivo de dados de fontes diferentes causa fadiga mental, ansiedade e dificuldade de foco. |
+| **Alto tempo gasto na organização** | Montar um roteiro de viagem leva, em média, **10 a 40 horas** de pesquisa e organização. |
+| **Dificuldade em montar um roteiro eficiente** | Informações dispersas, subestimar tempos de deslocamento, estourar o orçamento, incluir atrações demais no mesmo dia. |
+| **Conciliação em viagens coletivas** | 56% viajam com familiares, 17% com amigos, apenas 10% sozinhos — preferências diferentes geram conflitos e desgaste na negociação de roteiro. |
+
+### 1.2 A Solução e Proposta de Valor
+
+> Um aplicativo mobile que utiliza Inteligência Artificial para transformar informações simples fornecidas pelo usuário em um roteiro completo, organizado e personalizado.
+
+A Inteligência Artificial **não atua apenas como assistente, mas como motor principal da construção do roteiro** — ponto de posicionamento inegociável (ver Seção 3.1).
+
+Pilares da proposta de valor:
+- **IA como núcleo da experiência** — geração automática de roteiro **nunca é paywall** (é o diferencial competitivo frente a concorrentes que cobram por isso).
+- **Match de preferências entre viajantes**, usando o que a pessoa já preencheu no cadastro — sem retrabalho.
+- **Roteiros totalmente editáveis.**
+- **Sugestões inteligentes**, com distância e tempo de deslocamento calculados de acordo com o meio de transporte informado (carro, a pé, bicicleta etc.).
+- **Centralização das informações** em um único ambiente digital.
+
+**Fluxo de alto nível:**
+1. Cliente cria a conta e preenche o formulário de preferências (uma vez só — ver Seção 3.3).
+2. Informa o destino e a duração da viagem específica.
+3. [Se em grupo] Adiciona os viajantes — a IA cruza as preferências já salvas de cada um.
+4. O app gera o roteiro automaticamente, em segundos, via streaming.
+5. Resultado: roteiro por dia, sugestões de atrações, cronograma com deslocamento otimizado, links diretos para reservas, compartilhamento.
+
+### 1.3 Personas (ICP)
+
+> ⚠️ As personas foram construídas de forma **intuitiva**, com base em análises de mercado — **não são resultado de pesquisa validada com usuários reais**. Tratar como hipóteses de design.
+
+| | **Persona 1 — Lucas ("O Profissional Sem Tempo")** | **Persona 2 — Marina ("A Exploradora Digital")** |
+|---|---|---|
+| **Perfil** | 32 anos, analista de sistemas. Viaja com a namorada 2x/ano. | 24 anos, designer. Mochileira ou com grupos de amigas. |
+| **A Dor** | Tem dinheiro, mas não tem tempo/paciência para abrir 15 abas e montar planilhas. | Quer uma viagem autêntica e "instagramável", mas teme organizar mal o tempo. |
+| **O que busca** | **Resultados imediatos**: destino → botão → roteiro viável, com links de reserva, sem burocracia. | **Poder de edição**: usa a IA para a base, mas edita — troca atrações, busca alternativas, organiza visualmente. |
+| **Implicação de produto** | Fluxo de geração precisa ser rápido e "hands-off". | Fluxo de edição pós-geração precisa ser robusto, fluido e visual. |
+
+### 1.4 Diferencial Competitivo
+
+Frente a concorrentes (Roterin, Wanderlog, Lambus, Polarsteps, Tripsy):
+- **IA gratuita** como núcleo, não paywall.
+- **Match entre viajantes** com base em perfil de preferências pré-existente.
+- **Geração automática como função principal**, não recurso complementar.
+- **Roteiros colaborativos.**
+
+### 1.5 Modelo de Negócio (resumo)
+
+| Bloco | Conteúdo |
+|---|---|
+| **Segmento de Clientes** | Viajantes independentes, digitalmente nativos, que valorizam autonomia, praticidade e personalização. |
+| **Canais** | App Stores (ASO); redes sociais e tráfego pago (TikTok/Instagram/Pinterest — Google Ads, TikTok Ads, Meta Ads); site vitrine (ver nota de priorização abaixo); distribuição orgânica in-app via convites. |
+| **Relacionamento** | Autoatendimento assistido com IA como "concierge digital" 24/7; personalização em larga escala; comunidade (roteiros públicos); comunicação contextual (lembretes durante a viagem, avaliações pós-viagem). |
+| **Receita** | Ver Seção 1.6. |
+| **Parcerias-Chave** | Firebase (BaaS); Vercel (hospedagem do site vitrine, quando priorizado); provedor(es) de LLM (ver Seção 2.5 — trocável); Google Maps Platform; OTAs — Booking.com, Airbnb, Skyscanner, GetYourGuide (afiliados). |
+| **Custos** | Variáveis: consumo de API de IA e Maps, CAC/marketing, taxas de app store (15–30%). Fixos: infra serverless/BaaS, P&D. |
+
+> 📌 **Priorização de escopo confirmada:** o site vitrine institucional (Vercel) fica **para depois** — o foco imediato de desenvolvimento é 100% o aplicativo mobile.
+> 📌 **Nota de escopo financeiro:** pricing exato, fluxo de caixa e viabilidade econômica detalhada ficam para a fase PGT 2 — não inventar números.
+
+### 1.6 Modelo de Monetização (Freemium / Premium / Afiliados)
+
+- **Gratuito:** geração de roteiro por IA, edição, **Match para até 2 viajantes**, funcionalidades essenciais.
+  - ⚠️ Regra confirmada pelo autor: **agora o foco é 2 pessoas. Match para 3+ viajantes fica reservado para uma fase futura, como funcionalidade Premium.** (Antes esse ponto estava em aberto — está resolvido nesta versão.)
+- **Premium (assinatura SaaS):** exportação offline 100%, múltiplos roteiros/destinos simultâneos, personalização avançada de UI, redução/remoção de anúncios, acesso antecipado a novas funcionalidades de IA, Match para 3+ viajantes (futuro).
+- **Afiliados / B2B2C (a validar):** comissão CPA via OTAs (Booking, Skyscanner, Airbnb, GetYourGuide) quando o usuário reserva a partir de um link do roteiro.
+
+### 1.7 Escopo: MVP Atual vs. Roadmap Futuro
+
+**Dentro do MVP:** cadastro/login/preferências (RF01–RF03), assistente de coleta de parâmetros de viagem (RF05), geração via IA (RF06), edição total (RF07), exploração de roteiros (RF08), compartilhamento/colaboração (RF09), redirecionamento para OTAs (RF10), Match de Viajantes (RF11, RF12).
+
+**Fora do MVP (backlog):**
+- [ ] Monetização de afiliados totalmente automatizada (CPA).
+- [ ] Recomendações em tempo real (clima, horário de funcionamento, comportamento).
+- [ ] Assistente virtual conversacional para ajustes pós-criação (evolução do concierge digital — Seção 3.6).
+- [ ] Recursos de sustentabilidade (rotas/hospedagens de menor impacto ambiental).
+- [ ] Controle de despesas.
+- [ ] Match para 3+ viajantes (Premium).
+- [ ] Exportação offline, múltiplos roteiros simultâneos, customização avançada de UI (Premium).
+- [ ] Site vitrine institucional.
+- [ ] Suporte real a Inglês e Espanhol (a estrutura de i18n entra no MVP — Seção 2.6 — mas a tradução do conteúdo em si é pós-MVP).
+
+---
+

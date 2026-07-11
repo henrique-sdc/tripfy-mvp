@@ -1,0 +1,9 @@
+---
+description: Atualização contínua de documentação e arquitetura (Obsidian)
+globs: *
+alwaysApply: true
+---
+
+Sempre que você criar uma nova feature, alterar o modelo de dados ou tomar uma decisão arquitetural importante, você DEVE documentar isso na pasta `docs/`.
+Use o padrão de links do Obsidian: `[[Nome do Arquivo]]` para criar conexões.
+Mantenha um arquivo `docs/changelog.md` sempre atualizado.

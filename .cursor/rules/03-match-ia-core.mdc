@@ -1,0 +1,57 @@
+---
+description: Motor de geracao de roteiro, Match de Viajantes e formulario de preferencias no cadastro. LEIA SEMPRE antes de mexer em geracao de roteiro, prompt para LLM, ou logica de Match.
+alwaysApply: false
+---
+
+## 3. O "Core": Match de Viajantes e IA (Explicação técnica)
+
+### 3.1 Princípio Inegociável
+
+> ⚠️ **INSTRUÇÃO CRÍTICA PARA O AGENTE DE CODIFICAÇÃO:** O "Match de Viajantes" **NÃO deve ser implementado como algoritmo de otimização matemática, heurística complexa ou modelagem comportamental própria**. Conforme o RF12:
+>
+> *"A conciliação será baseada em Engenharia de Prompt: o sistema consolidará os interesses convergentes e divergentes do grupo em instruções estruturadas e as enviará à API do LLM, que assumirá o papel de interpretar o contexto e gerar um roteiro equilibrado para todos os participantes."*
+>
+> O "Match" é, na prática, um pipeline de **coleta de dados estruturados + Engenharia de Prompt**. Toda a "inteligência" de conciliação é delegada ao LLM.
+
+**Analogia de UX oficial:** o recurso funciona de forma semelhante a **sessões compartilhadas de playlists** (ex.: Spotify Group Session) — várias pessoas entram na mesma "sessão de viagem" e contribuem com suas preferências antes de o roteiro final ser gerado.
+
+### 3.2 Fluxo do Motor de Geração
+
+1. **Preferências de perfil já existem** — coletadas uma única vez no cadastro (Seção 3.3), não a cada nova viagem.
+2. Usuário informa os **parâmetros específicos da viagem** via assistente (RF05): destino, quantidade de dias, orçamento, com quem vai viajar, meio(s) de transporte, ritmo desejado.
+3. **[Se viagem em grupo]** Vínculo de múltiplos usuários autenticados à mesma sessão (RF11) — o backend já tem as preferências de perfil de cada participante salvas; não é necessário reperguntar.
+4. Backend consolida: preferências de perfil de cada participante + parâmetros específicos da viagem, em **instruções estruturadas (prompt)**.
+5. O prompt é enviado ao **provedor de LLM ativo** (Seção 2.5) via **streaming**.
+6. O LLM devolve um roteiro híbrido/equilibrado, token a token, exibido ao usuário conforme chega (não há espera pelo roteiro completo).
+7. O roteiro apresenta divisão lógica por dias (RF06.1): horários sugeridos, pontos turísticos, restaurantes, estimativa de deslocamento entre atrações.
+8. **O cálculo de deslocamento deve considerar o meio de transporte informado** (carro, a pé, bicicleta, transporte público) — a API do Google Maps é consultada com o modo de transporte correto, não uma estimativa genérica.
+
+### 3.3 Formulário de Preferências no Cadastro (perfil reaproveitável)
+
+Este ponto estava implícito antes e agora fica explícito: **a criação de conta inclui, como etapa final do onboarding, um formulário de preferências de viagem** — provavelmente a última tela do fluxo de cadastro (RF01/RF03). Esse formulário coleta a "personalidade de viajante" do usuário: interesses (cultura, gastronomia, vida noturna, natureza, aventura etc.), ritmo preferido, faixa de orçamento padrão, e outras preferências estáveis.
+
+**Regra de produto central:** essas preferências são salvas no perfil (Firestore) e **reutilizadas automaticamente em toda viagem futura** — o usuário não precisa preenchê-las de novo a cada roteiro. Ao criar uma nova viagem (RF05), o assistente pergunta apenas os **parâmetros específicos daquela viagem** (destino, datas, orçamento da viagem, transporte), não a personalidade de viajante inteira de novo.
+
+No contexto do Match: quando duas ou mais pessoas vinculam seus perfis a uma mesma viagem, o backend já tem o formulário de preferências de cada uma salvo — é esse texto que vira parte do prompt estruturado enviado ao LLM (Seção 3.1/3.2), sem precisar coletar nada a mais das pessoas no momento do convite, além dos parâmetros específicos da viagem em si.
+
+### 3.4 Regras do Tier Gratuito para o Match
+
+- Usuários **gratuitos**: geração básica de roteiro + Match para **até 2 viajantes**.
+- Geração automática de roteiro por IA nunca é paywall (Seção 1.4/1.6).
+- **Match para 3+ viajantes é funcionalidade Premium futura** (confirmado — Seção 1.6).
+
+### 3.5 Edição Pós-Geração
+
+Após a geração inicial (RF07):
+- Adicionar novas atrações, remover paradas, reordenar locais na timeline diária — **drag-and-drop fluido** (Reanimated 3 sugerido).
+- Sugestão de alternativas próximas (via IA).
+- Cálculo inteligente de deslocamento (via Google Maps), respeitando o meio de transporte.
+
+### 3.6 IA como "Concierge Digital" 24/7
+
+A IA atua como um **"concierge digital" disponível 24/7**, guiando o usuário durante toda a montagem do itinerário (modelo de autoatendimento assistido).
+
+> 🔮 **Roadmap futuro (não é MVP):** assistente virtual conversacional dedicado a ajustes instantâneos em um roteiro já existente (distinto do assistente de criação inicial).
+
+---
+

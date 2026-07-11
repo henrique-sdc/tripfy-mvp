@@ -1,0 +1,102 @@
+---
+description: Stack tecnologica completa (FastAPI, NativeWind, LLM trocavel), arquitetura Clean Architecture, Dark/Light Mode e i18n. Use ao criar/editar backend, integracoes externas, infraestrutura ou setup de tema/idioma.
+globs: ["backend/**","server/**","api/**","**/*.py","firebase/**","app.config.*","tailwind.config.*"]
+alwaysApply: false
+---
+
+## 2. Stack Tecnológica e Arquitetura
+
+### 2.1 Stack Confirmada
+
+| Camada | Tecnologia | Observação |
+|---|---|---|
+| **Frontend Mobile** | **React Native + Expo + Expo Router** | Multiplataforma (Android + iOS), roteamento baseado em arquivos. |
+| **Estilização** | **Tailwind CSS v4 + NativeWind v5** | Confirmado pelo orientador do projeto. Utility classes em todo o app, incluindo suporte nativo a Dark/Light Mode (ver Seção 2.4). |
+| **UI/UX Avançada (sugestão, não obrigatória)** | **React Native Skia + Reanimated 3** | Para efeitos modernos (blur, transições suaves, estilo "Liquid Glass") e Drag-and-Drop fluido na edição do roteiro. Uso a critério da IA/dev durante a implementação — ver liberdade criativa na Seção 4. |
+| **Backend** | **Python + FastAPI** | Assíncrono, rápido, ideal para orquestrar chamadas de IA e APIs externas sem bloquear. |
+| **Padrão Arquitetural do Backend** | **Clean Architecture** | Separação obrigatória em `Routers` (endpoints) → `Services/Use Cases` (regras de negócio, ex.: lógica do Match) → `Repositories` (acesso a dados). Reforça o RN08. |
+| **Comunicação Frontend↔Backend** | **API REST**, JSON sobre HTTP. Endpoint de geração de roteiro usa **streaming (SSE — Server-Sent Events)**, não espera o roteiro inteiro para começar a responder. |
+| **Autenticação** | Firebase Authentication | |
+| **Banco de Dados Principal** | Cloud Firestore | |
+| **Cache / Dados Voláteis** | **Avaliar Redis** | Para cache de roteiros comuns (Seção 7.1), rate limiting (Seção 6.2) e, futuramente, filas assíncronas. Decisão de infraestrutura a confirmar durante o setup do backend. |
+| **Armazenamento de Arquivos/Mídia** | Firebase Cloud Storage | |
+| **Sincronização em Tempo Real** | Firebase Realtime Database | Notificações, sessões colaborativas (Match). |
+| **IA Generativa** | **Provedor trocável — ver Seção 2.5** | Prompt Engineering para geração e Match. |
+| **Mapas / Geolocalização** | Google Maps Platform (Places, Directions, Geocoding) | |
+| **Site Institucional (Vitrine)** | Vercel — **despriorizado**, foco atual é 100% mobile. | |
+| **Distribuição do App** | Google Play Store / Apple App Store, com ASO. | |
+
+### 2.2 Padrão Arquitetural
+
+Arquitetura **cliente-servidor**, com Clean Architecture no backend:
+
+```
+[Usuário] → [App Mobile: React Native + Expo Router + NativeWind]
+                         │  REST/JSON — geração de roteiro via SSE (streaming)
+                         ▼
+              [Backend: Python + FastAPI — Clean Architecture]
+    ┌─────────────────────────────────────────────────┐
+    │ Routers (endpoints)                              │
+    │   └─ Services / Use Cases (regras de negócio,    │
+    │       ex.: Motor de Match — Seção 3)              │
+    │       └─ Repositories (acesso a dados)            │
+    │ Autenticação e Autorização · Validação (Pydantic) │
+    └─────────────────────────────────────────────────┘
+          │                          │
+          ▼                          ▼
+ [Provedor de LLM — trocável]   [API Google Maps Platform]
+ (geração + Match via                (localização, rotas,
+  Prompt Engineering)                 geocoding)
+          │
+          ▼
+  [Firebase — Auth · Firestore · Storage · Realtime DB]
+```
+
+### 2.3 Fluxo de Dados Ponta-a-Ponta
+
+1. Usuário interage com o aplicativo.
+2. App envia requisição ao backend (FastAPI).
+3. Backend valida (Pydantic) e processa via Use Case correspondente.
+4. Comunicação com o provedor de LLM ativo — resposta via streaming (SSE).
+5. Comunicação com Google Maps (localização, rotas, distância por modo de transporte).
+6. Armazenamento/recuperação de dados no Firebase.
+7. Resposta enviada ao aplicativo e exibida ao usuário conforme os tokens chegam (percepção de instantaneidade).
+
+### 2.4 Dark Mode e Light Mode (requisito desde o início)
+
+O app deve nascer com suporte completo a **tema claro e escuro em todas as telas**, não como retrofit posterior:
+- Implementar via tokens de cor semânticos (ex.: `background`, `surface`, `text-primary`, `text-secondary`, `border`) mapeados para Tailwind/NativeWind, nunca cores hardcoded (`#FFFFFF`, `#000000`) espalhadas pelos componentes.
+- Seguir a preferência de sistema operacional por padrão (`prefers-color-scheme` / `Appearance` API do React Native), com opção de override manual salva no perfil do usuário.
+- Testar cada tela nova nos dois temas antes de considerá-la pronta.
+
+### 2.5 Motor de IA — Provedor Trocável
+
+**Requisito do produto:** o motor de LLM deve poder ser trocado no futuro sem reescrever a aplicação. Isso é resolvido arquiteturalmente, não por escolha de marca:
+
+- **Regra de arquitetura obrigatória:** toda chamada ao LLM passa por uma camada de abstração no backend (ex.: uma interface `LLMProvider` com um método como `gerar_roteiro(prompt) -> RoteiroSchema`). Nenhuma lógica de negócio deve chamar o SDK de um provedor específico diretamente fora dessa camada.
+- **Recomendação para o lançamento (não é obrigação, é ponto de partida):** **Gemini 3.5 Flash** (Google, disponível desde maio/2026). Justificativa técnica:
+  - Velocidade: Google reporta throughput de saída ~4x mais rápido que outros modelos de fronteira — relevante para a UX de streaming (Seção 2.1/3.2).
+  - Custo competitivo (~US$1,50 / US$9,00 por milhão de tokens de entrada/saída) para um modelo desse nível de capacidade.
+  - Bom desempenho em tarefas agênticas e de raciocínio estruturado — relevante para a lógica de conciliação do Match, que não é geração de texto trivial.
+  - Suporte nativo a saída estruturada (JSON) combinada com ferramentas (tool use), o que facilita garantir que o roteiro sempre volte no formato esperado pelo app.
+- **Alternativas equivalentes** (mesma categoria "rápida/barata", intercambiáveis pela camada de abstração): Gemini 3.1 Flash-Lite (mais barato, menor profundidade de raciocínio — bom fallback se o custo virar problema em escala), GPT-5 mini/nano (OpenAI), Claude Haiku 4.5 (Anthropic). Todas suportam saída estruturada de forma confiável.
+- **Não é uma decisão definitiva.** Reavaliar a cada 2–3 meses — este mercado muda rápido; o que importa é que a arquitetura não amarre a escolha.
+
+### 2.6 Estrutura Multi-idioma (i18n)
+
+O MVP é 100% em Português do Brasil, mas a **estrutura de código** deve já suportar internacionalização, para não exigir refatoração ao adicionar Inglês e Espanhol no futuro:
+- Nenhuma string de UI hardcoded diretamente em componentes — todo texto visível ao usuário passa por um sistema de chaves de tradução (ex.: `t('home.welcome_title')`) desde o primeiro componente escrito, mesmo com apenas o arquivo `pt-BR.json` populado por enquanto.
+- Formatos de data, moeda e número já preparados para variar por localidade (não assumir `R$` ou `DD/MM/AAAA` hardcoded no código de exibição).
+- Conteúdo gerado pela IA (o roteiro em si) é um caso à parte: a tradução de conteúdo dinâmico gerado por LLM é uma decisão de produto pós-MVP (fora de escopo agora), mas a arquitetura da UI ao redor dele não deve impedir isso depois.
+
+### 2.7 Parcerias / Provedores Técnicos (dependências externas críticas)
+
+| Provedor | Papel | Risco Associado |
+|---|---|---|
+| **Provedor de LLM ativo** (Seção 2.5) | Motor de geração e Match. | Vendor lock-in mitigado pela camada de abstração (Seção 2.5). Custo variável por token pode escalar — ver cache (Seção 7.1). |
+| **Google Maps Platform** | Localização, rotas, geocoding, cálculo de deslocamento por modo de transporte. | Custo por chamada/mapa renderizado; câmbio (USD). |
+| **Firebase** | BaaS — Auth, DB, Storage, Realtime sync. | SLA padrão do provedor (~99,9% uptime) — RN07, sem HA proprietária no MVP. |
+| **Vercel** | Hospedagem do site vitrine (despriorizado). | — |
+
+---
+

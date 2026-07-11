@@ -1,0 +1,16 @@
+---
+description: Contexto essencial do Tripfy — carregado sempre, em toda tarefa.
+alwaysApply: true
+---
+
+# Tripfy — Contexto Essencial
+
+App mobile (React Native + Expo Router + NativeWind/Tailwind) de planejamento de viagens com IA. Backend em Python + FastAPI (Clean Architecture), Firebase (Auth + Firestore + Storage + Realtime DB), Google Maps Platform, geração de roteiro via LLM trocável (recomendação atual: Gemini 3.5 Flash) + Prompt Engineering, com streaming (SSE).
+
+**Regra inegociável:** o "Match de Viajantes" é 100% Engenharia de Prompt, nunca um algoritmo proprietário. Ver `03-match-ia-core.mdc`.
+
+**Regras de codificação obrigatórias em TODO código gerado** (ver `08-diretrizes-codificacao.mdc`): comentários em PT-BR estilo Dev Sênior; simplicidade antes de sofisticação; Dark/Light Mode e i18n desde a primeira tela (nunca cor ou texto hardcoded); segurança por design (ver `06-requisitos-nao-funcionais-compliance.mdc`).
+
+**Regra de negócio:** geração de roteiro por IA é SEMPRE gratuita. Match cobre até 2 viajantes no tier grátis; 3+ é Premium futuro.
+
+**Nunca invente funcionalidades** fora dos RF01–RF12 sem confirmar antes.
