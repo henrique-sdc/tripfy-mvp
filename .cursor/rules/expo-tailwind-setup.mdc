@@ -1,6 +1,5 @@
 ---
 description: Crucial setup and usage guidelines for Tailwind CSS v4 + NativeWind v5 + react-native-css in Expo.
-globs: frontend/**/*.tsx, frontend/**/*.ts, frontend/**/*.css, frontend/metro.config.js
 alwaysApply: false
 ---
 # TAILWIND CSS V4 + NATIVEWIND V5 GUIDELINES

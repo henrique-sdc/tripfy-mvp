@@ -1,3 +1,4 @@
+<!-- prettier-ignore-start -->
 # Project Master Context: Tripfy
 
 > **Sobre este documento:** Contexto mestre para agentes de IA (Cursor, Claude Code etc.) desenvolverem o MVP da Tripfy do zero. Compilado a partir do TCC 1 (PGT I, 70 páginas), dos slides de apresentação, e refinado em conjunto com o autor do projeto. Contém **apenas especificação de produto** — análise de mercado (PESTEL), fundamentação teórica, histórico do setor e referências bibliográficas (ABNT) foram **propositalmente omitidos**.
@@ -114,7 +115,7 @@ Frente a concorrentes (Roterin, Wanderlog, Lambus, Polarsteps, Tripsy):
 | **Autenticação** | Firebase Authentication | |
 | **Banco de Dados Principal** | Cloud Firestore | |
 | **Cache / Dados Voláteis** | **Avaliar Redis** | Para cache de roteiros comuns (Seção 7.1), rate limiting (Seção 6.2) e, futuramente, filas assíncronas. Decisão de infraestrutura a confirmar durante o setup do backend. |
-| **Armazenamento de Arquivos/Mídia** | Firebase Cloud Storage | |
+| **Armazenamento de Arquivos/Mídia** | Decidir por conta do Firebase Cloud Storage ser pago mesmo para estudantes | |
 | **Sincronização em Tempo Real** | Firebase Realtime Database | Notificações, sessões colaborativas (Match). |
 | **IA Generativa** | **Provedor trocável — ver Seção 2.5** | Prompt Engineering para geração e Match. |
 | **Mapas / Geolocalização** | Google Maps Platform (Places, Directions, Geocoding) | |
@@ -426,6 +427,7 @@ Regras que se aplicam a **todo código gerado** neste projeto, independentemente
 - **Performance é requisito, não otimização posterior.** O app deve ser fluido desde a primeira tela: evitar re-renders desnecessários no React Native, usar `FlatList`/`FlashList` em vez de `ScrollView` para listas longas, e não bloquear a UI thread com processamento pesado (a UX de streaming da Seção 3.2 depende disso).
 - **Dark/Light Mode e i18n não são "depois".** Qualquer componente novo já nasce usando os tokens de tema (Seção 2.4) e o sistema de chaves de tradução (Seção 2.6) — nunca cor hardcoded ou string de UI hardcoded, mesmo que o app só tenha um idioma ativo agora.
 - **Segurança não é opcional em nenhuma tela.** Toda tela que envia dados ao backend deve assumir que o dado pode ser malicioso — a validação real acontece no backend (Seção 6.2), mas o frontend também não deve confiar cegamente em nada que vem da API.
+- **Priorizar Logs Estruturados Sempre que Possível Colocar** O código precisa ter logs em PT-BR para rastreio de problemas no futuro.
 
 ---
 
@@ -450,3 +452,4 @@ O autor do projeto levantou 11 skills/ferramentas candidatas para uso no Cursor/
 ---
 
 **Fim do documento.** Modelagem de dados detalhada (schema exato do Firestore), contratos de API REST exatos e o template final do prompt de Engenharia de Prompt para o Match **não estão definidos aqui** e são decisões de implementação a serem tomadas durante o desenvolvimento.
+<!-- prettier-ignore-end -->

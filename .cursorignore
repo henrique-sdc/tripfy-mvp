@@ -1,0 +1,40 @@
+# Dependências — irrelevantes para contexto de IA
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# Ambiente Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Builds e cache
+**/.cache/
+**/build/
+**/.turbo/
+
+# Credenciais (nunca devem entrar no contexto do agente)
+**/*.env
+**/*.env.*
+**/firebase-adminsdk.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Logs
+**/*.log
+**/npm-debug.log*
+
+# Assets binários grandes (o agente não precisa ler)
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.mp4
+**/*.ttf
+**/*.otf
+**/*.woff
+**/*.woff2

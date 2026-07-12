@@ -1,6 +1,4 @@
 ---
-description: Instructs the AI agent to use MarkItDown to read complex binary documents (PDF, DOCX, XLSX, etc.) by converting them to Markdown first.
-globs: *
 alwaysApply: false
 ---
 # MARKITDOWN USAGE GUIDELINES

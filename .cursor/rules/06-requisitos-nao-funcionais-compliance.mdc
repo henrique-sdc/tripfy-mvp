@@ -25,8 +25,6 @@ alwaysApply: false
 **RN08** — O código do sistema deve ser bem documentado, modularizado e versionado, facilitando manutenções, correção de bugs e a implementação de futuras atualizações (como a transição de usuários freemium para planos premium).
 > Nota de implementação: ver Seção 8 (Diretrizes de Codificação) para os padrões concretos de documentação exigidos neste projeto.
 
-> ⚠️ O TCC fonte define requisitos não funcionais apenas até **RN08**. Não existe um RN09 documentado na fonte original.
-
 ### 6.2 🛡️ Diretrizes de Cyber Segurança e AppSec (Security by Design)
 
 Segurança é prioridade fixa do projeto, não um item de "fase 2". Todo código gerado para a Tripfy deve seguir estas regras, sem exceções.
@@ -49,7 +47,6 @@ Segurança é prioridade fixa do projeto, não um item de "fase 2". Todo código
 - Padrão esperado: usar `slowapi` ou uma solução baseada em Redis (Seção 7.2) para limitar requisições (ex.: "máximo de 5 tentativas de login por minuto por IP").
 
 **5. Segurança de Dados no Firebase e Prevenção de XSS**
-> ⚠️ **Correção em relação a um rascunho anterior:** este documento já mencionou "Supabase" neste ponto por engano de cópia — o projeto usa **Firebase/Firestore** do início ao fim (confirmado nas Seções 2.1 e 2.7). Segue a versão corrigida:
 - **Firestore Security Rules** são a principal camada de defesa de acesso a dados no Firebase — cada coleção deve ter regras explícitas de leitura/escrita por usuário autenticado, nunca regras abertas (`allow read, write: if true`) em produção.
 - Todo dado consumido de terceiros ou digitado por usuários (bio do perfil, nome da viagem, preferências em texto livre) deve ser tratado antes de ser salvo no Firestore e antes de ser renderizado na UI.
 - Ao renderizar Markdown ou dados gerados pela IA no React Native, não usar injeção direta de HTML/métodos inseguros — sanitizar o conteúdo antes de exibir, para evitar XSS.

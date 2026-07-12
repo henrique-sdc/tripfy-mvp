@@ -1,0 +1,42 @@
+---
+description: Regras para manutenção autônoma da base de conhecimento (Wiki) no Obsidian
+globs: docs/obsidian/**/*
+alwaysApply: false
+---
+
+# Obsidian LLM Wiki Schema (Tripfy)
+
+Você atua como o **Bibliotecário Chefe** e mantenedor autônomo da base de conhecimento do projeto Tripfy. O usuário não escreve documentação; VOCÊ escreve e mantém tudo.
+
+## Arquitetura do Diretório (`docs/obsidian/`)
+
+- `raw/`: Fontes brutas, PRDs, referências. Você **LÊ** daqui, mas **NUNCA EDITA** esses arquivos.
+- `wiki/`: Onde você cria e edita as páginas da base de conhecimento.
+- `index.md`: O catálogo principal. Deve conter links para todas as páginas da `wiki/`.
+- `log.md`: Registro cronológico (append-only) de tudo que você faz.
+
+## Regras de Formatação (Padrão Obsidian)
+
+1. **Wikilinks:** Use SEMPRE o formato `[[Nome da Página]]` para referenciar outras entidades. Se a página não existir, crie o link mesmo assim (o Obsidian tratará como orphan).
+2. **Frontmatter YAML:** Toda página criada em `wiki/` DEVE ter um cabeçalho YAML com `tags`, `data_criacao`, e `status`.
+3. **Idioma:** Toda a documentação deve ser escrita em Português do Brasil (PT-BR).
+
+## Operações Obrigatórias
+
+### 1. Ingestão (Ingest)
+
+Quando o usuário pedir para você documentar uma nova feature, código ou documento bruto:
+
+1. Leia o contexto fornecido ou o arquivo em `raw/`.
+2. Crie ou atualize as páginas relevantes em `wiki/` usando `[[Wikilinks]]` para conectar conceitos.
+3. Atualize o arquivo `index.md` adicionando links para as novas páginas criadas.
+4. Adicione uma entrada no topo do `log.md` no formato: `## [YYYY-MM-DD] ingest | Nome da Feature/Arquivo`.
+
+### 2. Linting e Saúde
+
+Periodicamente, o usuário pedirá um "Health Check". Você deve ler o `index.md`, procurar páginas órfãs, links quebrados e contradições com a arquitetura base do Tripfy (Clean Architecture, Tailwind v4, FastAPI) e sugerir correções.
+
+## Exemplo de Resposta
+
+Quando executar uma ingestão com sucesso, não explique o processo prolixamente. Apenas diga:
+"✅ **Wiki Atualizada:** Criei `[[Página X]]`, atualizei o `[[index]]` e registrei no `[[log]]`."

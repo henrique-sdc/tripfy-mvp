@@ -4,6 +4,6 @@ globs: *
 alwaysApply: true
 ---
 
-Sempre que você criar uma nova feature, alterar o modelo de dados ou tomar uma decisão arquitetural importante, você DEVE documentar isso na pasta `docs/`.
+Sempre que você criar uma nova feature, alterar o modelo de dados ou tomar uma decisão arquitetural importante, você DEVE documentar isso na pasta `docs/obsidian/` dentro dela você toma a decisão de como organizar e onde deixar esse arquivo.
 Use o padrão de links do Obsidian: `[[Nome do Arquivo]]` para criar conexões.
-Mantenha um arquivo `docs/changelog.md` sempre atualizado.
+Mantenha um arquivo `docs/obsidian/changelog.md` sempre atualizado.

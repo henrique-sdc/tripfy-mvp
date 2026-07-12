@@ -1,6 +1,5 @@
 ---
 description: Reviews animation and motion code against a high craft bar. Defaults to flagging sluggish or physically incorrect motion.
-globs: frontend/**/*.tsx, frontend/**/*.css
 alwaysApply: false
 ---
 # ANIMATION REVIEWER

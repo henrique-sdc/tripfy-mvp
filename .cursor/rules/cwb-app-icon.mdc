@@ -1,6 +1,4 @@
 ---
-description: Generate app icons for your React Native Expo app with iOS 26 Liquid Glass and Android Adaptive support using SnapAI.
-globs: app.json, assets/images/**/*, frontend/app.json
 alwaysApply: false
 ---
 # APP ICON GENERATION WORKFLOW (Code with Beto)

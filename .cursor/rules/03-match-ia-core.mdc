@@ -13,7 +13,7 @@ alwaysApply: false
 >
 > O "Match" é, na prática, um pipeline de **coleta de dados estruturados + Engenharia de Prompt**. Toda a "inteligência" de conciliação é delegada ao LLM.
 
-**Analogia de UX oficial:** o recurso funciona de forma semelhante a **sessões compartilhadas de playlists** (ex.: Spotify Group Session) — várias pessoas entram na mesma "sessão de viagem" e contribuem com suas preferências antes de o roteiro final ser gerado.
+**Analogia de UX oficial:** o recurso funciona de forma semelhante a **sessões compartilhadas de playlists** (ex.: Spotify Match) — várias pessoas entram na mesma "sessão de viagem" e contribuem com suas preferências antes de o roteiro final ser gerado.
 
 ### 3.2 Fluxo do Motor de Geração
 
@@ -28,7 +28,7 @@ alwaysApply: false
 
 ### 3.3 Formulário de Preferências no Cadastro (perfil reaproveitável)
 
-Este ponto estava implícito antes e agora fica explícito: **a criação de conta inclui, como etapa final do onboarding, um formulário de preferências de viagem** — provavelmente a última tela do fluxo de cadastro (RF01/RF03). Esse formulário coleta a "personalidade de viajante" do usuário: interesses (cultura, gastronomia, vida noturna, natureza, aventura etc.), ritmo preferido, faixa de orçamento padrão, e outras preferências estáveis.
+Este ponto estava implícito antes e agora fica explícito: **a criação de conta inclui, como etapa final do onboarding, um formulário de preferências de viagem** — provavelmente a última tela do fluxo de cadastro (RF01/RF03). Esse formulário coleta a "personalidade de viajante" do usuário: interesses (cultura, gastronomia, vida noturna, natureza, aventura etc.), ritmo preferido e outras preferências estáveis.
 
 **Regra de produto central:** essas preferências são salvas no perfil (Firestore) e **reutilizadas automaticamente em toda viagem futura** — o usuário não precisa preenchê-las de novo a cada roteiro. Ao criar uma nova viagem (RF05), o assistente pergunta apenas os **parâmetros específicos daquela viagem** (destino, datas, orçamento da viagem, transporte), não a personalidade de viajante inteira de novo.
 

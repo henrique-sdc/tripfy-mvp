@@ -1,6 +1,5 @@
 ---
 description: Emil Kowalski's philosophy on UI polish, component design, and the Animation Decision Framework.
-globs: frontend/**/*.tsx, frontend/**/*.ts, frontend/**/*.css
 alwaysApply: false
 ---
 # DESIGN ENGINEERING

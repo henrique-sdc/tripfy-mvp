@@ -16,3 +16,8 @@ yarn-error.log*
 /frontend/.expo/
 /frontend/dist/
 /frontend/web-build/
+
+firebase-adminsdk.json
+.cursor/mcp.json
+nativewind-env.d.ts
+/docs/obsidian/.obsidian
