@@ -1,53 +1,71 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Espelho dos tokens semânticos de `global.css` para props nativas que não
+ * aceitam className (placeholderTextColor, ActivityIndicator, ícones, etc.).
+ * Qualquer mudança de paleta deve ser replicada nos dois lugares.
  */
+import "@/global.css";
 
-import '@/global.css';
+import { Platform } from "react-native";
 
-import { Platform } from 'react-native';
-
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
+const light = {
+  background: "#f7f8fa",
+  surface: "#ffffff",
+  border: "#e5e5ea",
+  textPrimary: "#111111",
+  textSecondary: "#8e8e93",
+  textMuted: "#c7c7cc",
+  buttonPrimary: "#111111",
+  buttonText: "#ffffff",
+  accent: "#7c3aed",
+  surfaceGlass: "rgba(255, 255, 255, 0.7)",
+  borderGlass: "rgba(0, 0, 0, 0.05)",
+  error: "#ef4444",
+  // Aliases legados — telas antigas ainda referenciam estes nomes.
+  text: "#111111",
+  backgroundElement: "#ffffff",
+  backgroundSelected: "#e5e5ea",
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+const dark = {
+  background: "#000000",
+  surface: "#1c1c1e",
+  border: "#333336",
+  textPrimary: "#ffffff",
+  textSecondary: "#a1a1aa",
+  textMuted: "#636366",
+  buttonPrimary: "#ffffff",
+  buttonText: "#111111",
+  accent: "#9d4edd",
+  surfaceGlass: "rgba(28, 28, 30, 0.7)",
+  borderGlass: "rgba(255, 255, 255, 0.1)",
+  error: "#ef4444",
+  text: "#ffffff",
+  backgroundElement: "#1c1c1e",
+  backgroundSelected: "#333336",
+} as const;
+
+export const Colors = { light, dark } as const;
+
+export type ThemeColor = keyof typeof Colors.light;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    sans: "system-ui",
+    serif: "ui-serif",
+    rounded: "ui-rounded",
+    mono: "ui-monospace",
   },
   default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+    sans: "normal",
+    serif: "serif",
+    rounded: "normal",
+    mono: "monospace",
   },
   web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    sans: "var(--font-display)",
+    serif: "var(--font-serif)",
+    rounded: "var(--font-rounded)",
+    mono: "var(--font-mono)",
   },
 });
 

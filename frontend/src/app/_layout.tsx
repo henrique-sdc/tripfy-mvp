@@ -1,20 +1,64 @@
 import '../global.css';
+import '@/lib/i18n';
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { useAuth } from '@/hooks/useAuth';
+import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
+import { useOnboardingStore } from '@/stores/onboardingStore';
 
+// Mantém a splash nativa visível até resolvermos o estado inicial de auth.
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Liga Firebase ↔ Zustand ↔ Backend (restaura sessão persistida na subida).
+  useAuth();
+
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hasPreferences = useAuthStore((s) => s.hasPreferences);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+
+  const hasSeenSlides = useOnboardingStore((s) => s.hasSeenSlides);
+  const hasSlidesHydrated = useOnboardingStore((s) => s.hasHydrated);
+
+  // Enquanto checamos a sessão (Firebase) e reidratamos o carrossel de
+  // apresentação (AsyncStorage), não renderizamos nada — a splash nativa
+  // segue na tela (só é escondida pelo AnimatedSplashOverlay depois disso).
+  if (isLoading || !hasSlidesHydrated) {
+    return null;
+  }
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <OfflineBanner />
+      {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
+          O Expo Router redireciona sozinho para o primeiro grupo acessível.
+          Ordem: slides de apresentação (1x por instalação) → auth → onboarding
+          de preferências → tabs. */}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={!hasSeenSlides}>
+          <Stack.Screen name="(onboarding-slides)" />
+        </Stack.Protected>
+
+        <Stack.Protected guard={hasSeenSlides && !isAuthenticated}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+
+        <Stack.Protected guard={hasSeenSlides && isAuthenticated && hasPreferences === false}>
+          <Stack.Screen name="(onboarding)" />
+        </Stack.Protected>
+
+        <Stack.Protected guard={hasSeenSlides && isAuthenticated && hasPreferences === true}>
+          <Stack.Screen name="(tabs)" />
+        </Stack.Protected>
+      </Stack>
     </ThemeProvider>
   );
 }

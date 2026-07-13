@@ -19,7 +19,7 @@ alwaysApply: false
 | **Autenticação** | Firebase Authentication | |
 | **Banco de Dados Principal** | Cloud Firestore | |
 | **Cache / Dados Voláteis** | **Avaliar Redis** | Para cache de roteiros comuns (Seção 7.1), rate limiting (Seção 6.2) e, futuramente, filas assíncronas. Decisão de infraestrutura a confirmar durante o setup do backend. |
-| **Armazenamento de Arquivos/Mídia** | Decidir por conta do Firebase Cloud Storage ser pago mesmo para estudantes| |
+| **Armazenamento de Arquivos/Mídia** | Firebase Cloud Storage | |
 | **Sincronização em Tempo Real** | Firebase Realtime Database | Notificações, sessões colaborativas (Match). |
 | **IA Generativa** | **Provedor trocável — ver Seção 2.5** | Prompt Engineering para geração e Match. |
 | **Mapas / Geolocalização** | Google Maps Platform (Places, Directions, Geocoding) | |

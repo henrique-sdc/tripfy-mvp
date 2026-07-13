@@ -1,0 +1,170 @@
+{
+  "common": {
+    "appName": "Tripfy",
+    "loading": "Carregando...",
+    "continue": "Continuar",
+    "saving": "Salvando...",
+    "genericError": "Algo deu errado. Tente novamente.",
+    "networkError": "Sem conexão. Verifique sua internet e tente de novo.",
+    "offlineBanner": "Sem conexão com o servidor. Algumas funções podem estar limitadas."
+  },
+  "onboardingSlides": {
+    "slide1": {
+      "title": "Viaje do seu jeito",
+      "description": "Roteiros gerados em segundos, não em semanas."
+    },
+    "slide2": {
+      "title": "Sincronize a galera",
+      "description": "A IA cruza as preferências do grupo e monta a viagem que todo mundo curte."
+    },
+    "slide3": {
+      "title": "Seu roteiro. Suas regras",
+      "description": "Edite, mude a rota, adicione lugares. A plataforma se adapta a você."
+    },
+    "start": "Começar"
+  },
+  "auth": {
+    "emailLabel": "E-mail",
+    "emailPlaceholder": "voce@exemplo.com",
+    "passwordLabel": "Senha",
+    "passwordPlaceholder": "Sua senha",
+    "fullNameLabel": "Nome completo",
+    "birthDateLabel": "Data de nascimento",
+    "confirmPasswordLabel": "Confirmar senha",
+    "namePlaceholder": "Ex: João da Silva",
+    "birthDatePlaceholder": "DD/MM/AAAA",
+    "passwordMinPlaceholder": "Mínimo 8 caracteres",
+    "confirmPasswordPlaceholder": "Repita sua senha",
+    "forgotPassword": "Esqueci minha senha",
+    "forgotPasswordTitle": "Recuperar senha",
+    "forgotPasswordDescription": "Digite seu e-mail. Enviaremos um link para redefinir sua senha.",
+    "forgotPasswordSubmit": "Enviar link",
+    "forgotPasswordSubmitting": "Enviando...",
+    "forgotPasswordSuccess": "Link enviado. Confira sua caixa de entrada (e o spam, se precisar).",
+    "forgotPasswordSuccessHint": "Pronto. Se existir uma conta com esse e-mail, o link já está a caminho.",
+    "forgotPasswordBack": "Voltar ao login",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
+    "nextSlide": "Próximo slide",
+    "orDivider": "ou",
+    "continueWithGoogle": "Continuar com Google",
+    "comingSoon": "em breve",
+    "login": {
+      "title": "Bem-vindo de volta",
+      "subtitle": "Sentimos sua falta. Entre para continuar.",
+      "submit": "Entrar",
+      "submitting": "Entrando...",
+      "noAccount": "Ainda não tem conta?",
+      "goToRegister": "Cadastre-se"
+    },
+    "register": {
+      "title": "Crie sua conta",
+      "subtitle": "Sua próxima aventura começa aqui ✈️",
+      "submit": "Criar conta",
+      "submitting": "Criando conta...",
+      "hasAccount": "Já tem uma conta?",
+      "goToLogin": "Entrar",
+      "termsPrefix": "Ao continuar, você concorda com os ",
+      "termsOfUse": "Termos de Uso",
+      "termsMiddle": " e a ",
+      "termsPrivacy": "Política de Privacidade",
+      "termsSuffix": "."
+    },
+    "errors": {
+      "invalidEmail": "E-mail inválido.",
+      "emailRequired": "Informe seu e-mail.",
+      "missingFields": "Preencha e-mail e senha.",
+      "emailInUse": "Este e-mail já está cadastrado.",
+      "weakPassword": "A senha deve ter pelo menos 6 caracteres.",
+      "invalidCredential": "E-mail ou senha incorretos.",
+      "userDisabled": "Esta conta foi desativada.",
+      "tooManyRequests": "Muitas tentativas. Aguarde um momento e tente de novo.",
+      "networkError": "Sem conexão. Verifique sua internet.",
+      "unknown": "Não foi possível concluir. Tente novamente.",
+      "nameTooShort": "Digite seu nome completo (mínimo 3 letras).",
+      "nameInvalidChars": "Use apenas letras no nome.",
+      "birthDateRequired": "Selecione sua data de nascimento.",
+      "mustBeAdult": "Você precisa ter 18 anos ou mais.",
+      "passwordMinLength": "A senha deve ter pelo menos 8 caracteres.",
+      "passwordMismatch": "As senhas não coincidem."
+    },
+    "passwordStrength": {
+      "weak": "Fraca",
+      "fair": "Razoável",
+      "good": "Boa",
+      "strong": "Forte"
+    }
+  },
+  "onboarding": {
+    "vibe": {
+      "title": "Sua vibe.",
+      "subtitle": "Como você curte viajar, no geral. Usamos isso em todos os roteiros.",
+      "interestsSection": "O que normalmente te atrai?",
+      "paceSection": "Como você costuma viajar?",
+      "transportSection": "Quando viaja, você costuma se locomover…",
+      "transportHint": "Pode marcar mais de um. Faz parte do seu perfil.",
+      "dietarySection": "Na hora de comer, você…",
+      "dietaryHint": "Opcional. Só pra não sugerir o que não combina com você.",
+      "budgetSection": "Qual orçamento costuma fazer sentido?",
+      "travelerSection": "Com quem você costuma viajar?",
+      "ctaDisabled": "Escolha interesses, ritmo e orçamento",
+      "ctaReady": "Tudo pronto 🚀",
+      "errorMinimum": "Marque ao menos 1 interesse, escolha o ritmo e o orçamento.",
+      "interests": {
+        "historyArchitecture": "História & Arquitetura",
+        "streetFood": "Comida de Rua",
+        "fineDining": "Alta Gastronomia",
+        "cafes": "Cafés & Padarias",
+        "nightlife": "Vida Noturna",
+        "bars": "Bares & Pubs",
+        "artMuseums": "Arte & Museus",
+        "beaches": "Praias & Mar",
+        "mountains": "Montanhas & Trilhas",
+        "viewpoints": "Mirantes & Fotos",
+        "shopping": "Compras & Moda",
+        "adventureSports": "Esportes & Aventura",
+        "wellness": "Relaxamento & Spa",
+        "festivalsEvents": "Festivais & Eventos"
+      },
+      "pace": {
+        "intense": {
+          "title": "Intenso",
+          "desc": "Costumo acordar cedo e encaixar bastante coisa no dia."
+        },
+        "balanced": {
+          "title": "Equilibrado",
+          "desc": "Gosto de explorar, mas com pausa no meio."
+        },
+        "relaxed": {
+          "title": "De boas",
+          "desc": "Prefiro sem horário apertado. Curto o momento."
+        }
+      },
+      "transport": {
+        "walking": "A pé",
+        "publicTransit": "Transporte público",
+        "rideHail": "App / Táxi"
+      },
+      "dietary": {
+        "none": "Sem restrições",
+        "vegetarian": "Vegetariano",
+        "vegan": "Vegano"
+      }
+    },
+    "budget": {
+      "economy": "Econômico",
+      "moderate": "Moderado",
+      "premium": "Premium"
+    },
+    "travelerType": {
+      "solo": "Sozinho(a)",
+      "couple": "Casal",
+      "friends": "Amigos",
+      "family": "Família"
+    }
+  },
+  "tabs": {
+    "home": "Início",
+    "explore": "Explorar"
+  }
+}

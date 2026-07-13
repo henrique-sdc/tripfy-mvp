@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Caminho para o JSON de credenciais do Firebase Admin SDK
     FIREBASE_SERVICE_ACCOUNT_JSON_PATH: str = "./firebase-adminsdk.json"
 
+    # Chave do Google Maps Platform (server-side apenas — nunca vai ao frontend)
+    GOOGLE_MAPS_API_KEY: str = ""
+
     class Config:
         # Carrega automaticamente do arquivo .env na raiz do backend
         env_file = ".env"

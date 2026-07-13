@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore (Seção 6.2, item 5).
+// Princípio: negar tudo por padrão e liberar apenas o acesso do usuário
+// autenticado ao seu próprio documento. O backend usa o Admin SDK, que
+// ignora estas regras — então elas protegem exclusivamente o acesso direto
+// feito pelo app (client SDK).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cada usuário só pode ler/escrever o seu próprio perfil.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Qualquer outra coleção fica bloqueada até ganhar regra explícita.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
