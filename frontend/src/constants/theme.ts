@@ -79,5 +79,6 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+// Altura aproximada da FloatingTabBar (miolo + margem). Safe area soma na tela.
+export const BottomTabInset = Platform.select({ ios: 56, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

@@ -57,6 +57,11 @@ Layout/spacing continuam via NativeWind `className`.
 
 O **conteúdo interno** (textos, botões) é compartilhado; só o invólucro muda.
 
+
+## Navegação principal (RF04)
+
+Ver [[Home e Bottom Tabs]] — `FloatingTabBar` reutiliza o mesmo contrato platform-aware (BlurView iOS / surface Android) e a Home consome `AppText` + tokens de `theme.ts`.
+
 ## Formulários (RHF + Zod)
 
 Telas com input de texto usam **`react-hook-form`** + **`zodResolver`** — evita `useState` por campo e re-renders desnecessários.

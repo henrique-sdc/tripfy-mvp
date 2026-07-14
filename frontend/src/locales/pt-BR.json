@@ -165,6 +165,176 @@
   },
   "tabs": {
     "home": "Início",
-    "explore": "Explorar"
+    "saved": "Salvos",
+    "trips": "Viagens",
+    "profile": "Perfil",
+    "magicA11y": "Criar roteiro com IA"
+  },
+  "createTrip": {
+    "title": "Bora criar um roteiro",
+    "subtitle": "Como você quer planejar essa viagem?",
+    "solo": "Roteiro Solo",
+    "soloSubtitle": "Crie seu roteiro do seu jeito, na sua hora e no seu ritmo.",
+    "match": "Match em Grupo",
+    "matchSubtitle": "Amigos ou casal — cruze as preferências de todos com IA.",
+    "comingSoon": "Em breve",
+    "matchSoonTitle": "Match em breve! 🎉",
+    "matchSoonBody": "Estamos preparando a magia para você cruzar seus gostos com a galera."
+  },
+  "home": {
+    "greeting": {
+      "morning": "Bom dia",
+      "afternoon": "Boa tarde",
+      "evening": "Boa noite"
+    },
+    "greetingWithName": "{{greeting}}, {{name}}",
+    "avatarA11y": "Seu perfil",
+    "command": {
+      "placeholder": "Para onde você quer ir?"
+    },
+    "ticket": {
+      "badge": "Em {{count}} dias",
+      "message": "Sua viagem para {{destination}} está chegando",
+      "cta": "Ver"
+    },
+    "invite": {
+      "message": "{{name}} te convidou para explorar {{destination}}. Aceitar Match?",
+      "accept": "Aceitar",
+      "mockName": "Marina",
+      "mockDestination": "Paris 🇫🇷",
+      "dismissA11y": "Recusar convite"
+    },
+    "vibe": {
+      "title": "Destinos que combinam com você",
+      "favoriteA11y": "Salvar na lista de desejos",
+      "promptTitle": "Montar roteiro?",
+      "promptBody": "Quer que a IA monte um roteiro para {{city}} agora?",
+      "promptCancel": "Agora não",
+      "promptConfirm": "Montar",
+      "match": {
+        "bali": "Praia, temples e comida de rua",
+        "lisbon": "Mirantes, pastéis e calçada",
+        "tokyo": "Neon, ramen e trilhos",
+        "rio": "Mar, samba e mirantes"
+      }
+    },
+    "trending": {
+      "title": "Em alta na Tripfy",
+      "copy": "Copiar este roteiro",
+      "saved": "Salvo nos desejos",
+      "items": {
+        "ba": {
+          "title": "4 dias em Buenos Aires",
+          "author": "por Lucas"
+        },
+        "sp": {
+          "title": "Tour gastronômico em SP",
+          "author": "por Marina"
+        },
+        "paris": {
+          "title": "Paris sem fila e sem pressa",
+          "author": "por Sofia"
+        },
+        "nyc": {
+          "title": "NYC em 5 dias, sem correria",
+          "author": "por Rafa"
+        },
+        "rome": {
+          "title": "Roma clássica e gelato",
+          "author": "por Ana"
+        },
+        "bali": {
+          "title": "Bali: praia e temples",
+          "author": "por Pedro"
+        }
+      }
+    },
+    "trips": {
+      "cancun": {
+        "destination": "Cancún, México",
+        "dates": "12–19 ago",
+        "vibe": "Praia & Relax"
+      },
+      "lisbon": {
+        "destination": "Lisboa, Portugal",
+        "dates": "3–10 set",
+        "vibe": "Cultura & Cafés"
+      },
+      "tokyo": {
+        "destination": "Tóquio, Japão",
+        "dates": "20–28 out",
+        "vibe": "Comida & Neon"
+      }
+    },
+    "destinations": {
+      "bali": "Bali",
+      "lisbon": "Lisboa",
+      "tokyo": "Tóquio",
+      "nyc": "Nova York",
+      "rio": "Rio",
+      "rome": "Roma"
+    }
+  },
+  "saved": {
+    "title": "Salvos",
+    "subtitle": "Lugares e roteiros que você quer guardar.",
+    "emptyTitle": "Sua lista ainda está vazia",
+    "emptyBody": "Toque no coração nos destinos da Home. Eles aparecem aqui.",
+    "removeTitle": "Remover dos salvos?",
+    "removeBody": "\"{{title}}\" sai da sua lista.",
+    "removeCancel": "Cancelar",
+    "removeConfirm": "Remover",
+    "removeA11y": "Remover item"
+  },
+  "trending": {
+    "screenTitle": "Em alta",
+    "screenSubtitle": "Roteiros da comunidade pra copiar e adaptar."
+  },
+  "wizard": {
+    "title": "Nova Viagem",
+    "subtitle": "A IA vai montar seu roteiro",
+    "close": "Fechar",
+    "destinationLabel": "Destino",
+    "destinationPlaceholder": "Ex: Paris, França",
+    "destinationHint": "Cidade, país ou região.",
+    "durationLabel": "Quantos dias?",
+    "daysLabel": "{{count}} dias",
+    "budgetLabel": "Orçamento da viagem",
+    "notesLabel": "Algum pedido especial? (Opcional)",
+    "notesPlaceholder": "Ex: É meu aniversário de casamento, capricha nos jantares românticos e evita acordar muito cedo.",
+    "vibeTitle": "Revisar minha Vibe",
+    "vibeHint": "A IA vai usar as preferências salvas no seu perfil.",
+    "generate": "✨ Gerar Roteiro Mágico",
+    "successTitle": "Roteiro Criado!",
+    "successBody": "Sua viagem foi gerada com sucesso (Mock).",
+    "successOk": "Eba!"
+  },
+  "trips": {
+    "title": "Viagens",
+    "subtitle": "Roteiros que a IA já montou pra você.",
+    "draftLabel": "Rascunho",
+    "filters": {
+      "upcoming": "Próximas",
+      "drafts": "Rascunhos",
+      "past": "Passadas"
+    },
+    "empty": {
+      "upcoming": "Nenhuma viagem marcada.",
+      "drafts": "Nenhum rascunho por aqui.",
+      "past": "Ainda sem viagens passadas."
+    }
+  },
+  "profile": {
+    "fallbackName": "Viajante",
+    "vibe": {
+      "title": "Sua vibe",
+      "edit": "Alterar",
+      "hint": "Isso alimenta os roteiros e o Match."
+    },
+    "companions": {
+      "title": "Companheiros de viagem",
+      "hint": "Com quem você mais compartilha roteiros.",
+      "tripsTogether": "{{count}} roteiros em comum"
+    }
   }
 }

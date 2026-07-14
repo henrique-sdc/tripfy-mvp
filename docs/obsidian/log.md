@@ -16,3 +16,19 @@ Criada [[Preferências Sua Vibe]] — modelo expandido (pace, transport, dietary
 ## [2026-07-13] ingest | RF02 Recuperação de Senha
 
 Criada [[Recuperação de Senha]] — `sendPasswordResetEmail`, RHF + Zod, animação de sucesso, copy anti-enumeration. Atualizados [[Autenticação Full Stack]], [[index]] e [[changelog]].
+
+## [2026-07-13] ingest | Home e Bottom Tabs (RF04)
+
+Criada [[Home e Bottom Tabs]] — `FloatingTabBar` (BlurView iOS / bloco flutuante Android), Home com Magic Card, banner de Match, carrossel e grade Explore. Atualizados [[index]] e [[changelog]].
+
+## [2026-07-13] update | Reinvenção Tabs + Home (botão mágico)
+
+Atualizada [[Home e Bottom Tabs]]: 4 abas + FAB IA, Salvos/Viagens/Perfil, Home com vibe+❤️ e Em Alta. Removido Explorar.
+
+## [2026-07-13] update | Wizard Solo + sheet fix + swipe invite
+
+Atualizada [[Home e Bottom Tabs]]: wizard `/wizard/solo`, CreateTripSheet minimalista com dismiss, InviteBanner swipe-to-delete, Em Alta → `/trending`, lixeira nos Salvos.
+
+## [2026-07-14] update | Sync wiki pré-commit Home/Tabs/Wizard
+
+Atualizada [[Home e Bottom Tabs]] e [[index]] para o estado real do código. Changelog alinhado.

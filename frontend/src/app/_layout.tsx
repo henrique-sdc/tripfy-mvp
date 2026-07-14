@@ -1,15 +1,16 @@
-import '../global.css';
-import '@/lib/i18n';
+import "@/lib/i18n";
+import "../global.css";
 
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useColorScheme } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { OfflineBanner } from '@/components/ui/OfflineBanner';
-import { useAuth } from '@/hooks/useAuth';
-import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
-import { useOnboardingStore } from '@/stores/onboardingStore';
+import { AnimatedSplashOverlay } from "@/components/animated-icon";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { useAuth } from "@/hooks/useAuth";
+import { selectIsAuthenticated, useAuthStore } from "@/stores/authStore";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Mantém a splash nativa visível até resolvermos o estado inicial de auth.
 SplashScreen.preventAutoHideAsync();
@@ -35,30 +36,52 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <OfflineBanner />
-      {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
-          O Expo Router redireciona sozinho para o primeiro grupo acessível.
-          Ordem: slides de apresentação (1x por instalação) → auth → onboarding
-          de preferências → tabs. */}
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={!hasSeenSlides}>
-          <Stack.Screen name="(onboarding-slides)" />
-        </Stack.Protected>
+    /* O GestureHandlerRootView envelopa o app todo com flex: 1 */
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <OfflineBanner />
+        {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
+            O Expo Router redireciona sozinho para o primeiro grupo acessível.
+            Ordem: slides de apresentação (1x por instalação) → auth → onboarding
+            de preferências → tabs. */}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={!hasSeenSlides}>
+            <Stack.Screen name="(onboarding-slides)" />
+          </Stack.Protected>
 
-        <Stack.Protected guard={hasSeenSlides && !isAuthenticated}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
+          <Stack.Protected guard={hasSeenSlides && !isAuthenticated}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
 
-        <Stack.Protected guard={hasSeenSlides && isAuthenticated && hasPreferences === false}>
-          <Stack.Screen name="(onboarding)" />
-        </Stack.Protected>
+          <Stack.Protected
+            guard={hasSeenSlides && isAuthenticated && hasPreferences === false}
+          >
+            <Stack.Screen name="(onboarding)" />
+          </Stack.Protected>
 
-        <Stack.Protected guard={hasSeenSlides && isAuthenticated && hasPreferences === true}>
-          <Stack.Screen name="(tabs)" />
-        </Stack.Protected>
-      </Stack>
-    </ThemeProvider>
+          <Stack.Protected
+            guard={hasSeenSlides && isAuthenticated && hasPreferences === true}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="wizard/solo"
+              options={{
+                presentation: "fullScreenModal",
+                animation: "slide_from_bottom",
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="trending"
+              options={{
+                animation: "slide_from_right",
+                headerShown: false,
+              }}
+            />
+          </Stack.Protected>
+        </Stack>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

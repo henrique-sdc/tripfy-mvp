@@ -1,121 +1,277 @@
-// TELA DE TESTE — NativeWind v5 + Tailwind v4
-// Objetivo: validar visualmente que className está funcionando antes de codar features.
-// Delete ou substitua por login quando o teste passar.
+// Home — AI Command Center + destinos personalizados + Em Alta (RF04/RF08).
 
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, Text, View } from "@/tw";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useColorScheme, useWindowDimensions } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export default function TailwindFireTest() {
+import { AiCommandBar } from "@/components/home/AiCommandBar";
+import { InviteBanner } from "@/components/home/InviteBanner";
+import { TrendingItineraryCard } from "@/components/home/TrendingItineraryCard";
+import { UpcomingTicket } from "@/components/home/UpcomingTicket";
+import {
+  VibeDestinationCard,
+  type VibeDestination,
+} from "@/components/home/VibeDestinationCard";
+import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
+import { AppText } from "@/components/ui/AppText";
+import { TRENDING_ITINERARIES } from "@/constants/trending";
+import { useTheme } from "@/hooks/use-theme";
+import { useAuthStore } from "@/stores/authStore";
+import { Pressable, ScrollView, View } from "@/tw";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const SPRING = { damping: 20, stiffness: 300 };
+
+const NEAR_TRIP = {
+  destinationKey: "home.trips.cancun.destination",
+  daysLeft: 5,
+  image:
+    "https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=1200&auto=format&fit=crop",
+} as const;
+
+const VIBE_DESTINATIONS: VibeDestination[] = [
+  {
+    id: "dest-bali",
+    image:
+      "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=1000&auto=format&fit=crop",
+    nameKey: "home.destinations.bali",
+    vibeKey: "home.vibe.match.bali",
+  },
+  {
+    id: "dest-lisbon",
+    image:
+      "https://images.unsplash.com/photo-1555881403-746c4f0c4c3d?q=80&w=1000&auto=format&fit=crop",
+    nameKey: "home.destinations.lisbon",
+    vibeKey: "home.vibe.match.lisbon",
+  },
+  {
+    id: "dest-tokyo",
+    image:
+      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1000&auto=format&fit=crop",
+    nameKey: "home.destinations.tokyo",
+    vibeKey: "home.vibe.match.tokyo",
+  },
+  {
+    id: "dest-rio",
+    image:
+      "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=1000&auto=format&fit=crop",
+    nameKey: "home.destinations.rio",
+    vibeKey: "home.vibe.match.rio",
+  },
+];
+
+function greetingKey(): "morning" | "afternoon" | "evening" {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 18) return "afternoon";
+  return "evening";
+}
+
+function initialsFromName(name: string | null | undefined): string {
+  if (!name?.trim()) return "?";
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
+  return (first + last).toUpperCase() || "?";
+}
+
+export default function HomeScreen() {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const scheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+  const tabPad = useTabBarPadding();
+  const { width: screenWidth } = useWindowDimensions();
+  const user = useAuthStore((s) => s.user);
+  const [showInvite, setShowInvite] = useState(true);
+
+  const firstName = useMemo(() => {
+    const raw = user?.displayName?.trim();
+    if (!raw) return null;
+    return raw.split(/\s+/)[0] ?? null;
+  }, [user?.displayName]);
+
+  const greet = t(`home.greeting.${greetingKey()}`);
+  const headline = firstName
+    ? t("home.greetingWithName", { greeting: greet, name: firstName })
+    : greet;
+
+  const vibeCardWidth = screenWidth * 0.72;
+  const trendCardWidth = screenWidth * 0.68;
+  const showTicket = NEAR_TRIP.daysLeft <= 7;
+  // Home mostra só os 3 primeiros; o resto na tela Em Alta.
+  const homeTrending = TRENDING_ITINERARIES.slice(0, 3);
+
+  const avatarScale = useSharedValue(1);
+  const avatarStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: avatarScale.value }],
+  }));
+
+  const Header = (
+    <View
+      className="flex-row items-center justify-between px-6 pb-4"
+      style={{
+        paddingTop: insets.top + 8,
+        backgroundColor: theme.background,
+      }}
+    >
+      <AppText
+        className="flex-1 pr-3 font-bold"
+        style={{
+          fontSize: 28,
+          lineHeight: 34,
+          letterSpacing: -0.6,
+          color: theme.textPrimary,
+        }}
+        numberOfLines={2}
+      >
+        {headline}
+      </AppText>
+
+      <AnimatedPressable
+        accessibilityLabel={t("home.avatarA11y")}
+        onPressIn={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          avatarScale.value = withSpring(0.92, SPRING);
+        }}
+        onPressOut={() => {
+          avatarScale.value = withSpring(1, SPRING);
+        }}
+        style={[
+          avatarStyle,
+          {
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: theme.border,
+            overflow: "hidden",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        {user?.photoURL ? (
+          <Image
+            source={{ uri: user.photoURL }}
+            style={{ width: 44, height: 44 }}
+            contentFit="cover"
+          />
+        ) : (
+          <AppText className="text-[15px] font-bold" tone="secondary">
+            {initialsFromName(user?.displayName)}
+          </AppText>
+        )}
+      </AnimatedPressable>
+    </View>
+  );
+
   return (
-    <View className="flex-1 bg-slate-950">
-      <StatusBar style="light" />
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 py-16 gap-6"
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{ paddingBottom: tabPad }}
+        contentInsetAdjustmentBehavior="never"
       >
-        <View className="gap-1">
-          <Text className="text-slate-400 text-sm font-medium tracking-widest uppercase">
-            Tripfy MVP
-          </Text>
-          <Text className="text-white text-4xl font-bold">Tailwind ✅</Text>
-          <Text className="text-slate-400 text-base">
-            Se você está vendo cores e estilos, o NativeWind v5 está funcionando.
-          </Text>
-        </View>
+        {Header}
 
-        <View className="bg-blue-600 rounded-2xl p-5 gap-3">
-          <Text className="text-blue-100 text-xs font-semibold tracking-widest uppercase">
-            Status
-          </Text>
-          <Text className="text-white text-2xl font-bold">Motor de IA Pronto</Text>
-          <Text className="text-blue-200 text-sm leading-relaxed">
-            Gemini 3.5 Flash conectado via SSE. Latência percebida: zero.
-          </Text>
-          <View className="flex-row gap-2 mt-1">
-            <View className="bg-blue-500 rounded-full px-3 py-1">
-              <Text className="text-white text-xs font-medium">Streaming ativo</Text>
-            </View>
-            <View className="bg-blue-800 rounded-full px-3 py-1">
-              <Text className="text-blue-200 text-xs font-medium">Firebase OK</Text>
-            </View>
+        <View className="gap-6 pt-2">
+          <View className="px-6 gap-4">
+            {showTicket && (
+              <UpcomingTicket
+                destination={t(NEAR_TRIP.destinationKey)}
+                daysLeft={NEAR_TRIP.daysLeft}
+                image={NEAR_TRIP.image}
+              />
+            )}
+
+            <AiCommandBar />
+
+            {showInvite && (
+              <InviteBanner
+                inviterName={t("home.invite.mockName")}
+                destination={t("home.invite.mockDestination")}
+                onDismiss={() => setShowInvite(false)}
+              />
+            )}
+          </View>
+
+          <View className="gap-3">
+            <AppText className="text-[18px] font-bold px-6">
+              {t("home.vibe.title")}
+            </AppText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={vibeCardWidth + 12}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              contentContainerStyle={{ paddingHorizontal: 24 }}
+            >
+              {VIBE_DESTINATIONS.map((dest) => (
+                <VibeDestinationCard
+                  key={dest.id}
+                  dest={dest}
+                  width={vibeCardWidth}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          <View className="gap-3">
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/trending");
+              }}
+              className="flex-row items-center px-6 gap-1"
+              accessibilityRole="button"
+            >
+              <AppText className="text-[18px] font-bold flex-1">
+                {t("home.trending.title")}
+              </AppText>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={trendCardWidth + 12}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              contentContainerStyle={{ paddingHorizontal: 24 }}
+            >
+              {homeTrending.map((item) => (
+                <TrendingItineraryCard
+                  key={item.id}
+                  item={item}
+                  width={trendCardWidth}
+                />
+              ))}
+            </ScrollView>
           </View>
         </View>
-
-        <View className="flex-row gap-3">
-          <View className="flex-1 bg-slate-800 rounded-2xl p-4 gap-2">
-            <Text className="text-2xl">🗺️</Text>
-            <Text className="text-white font-semibold text-sm">Roteiro IA</Text>
-            <Text className="text-slate-400 text-xs leading-relaxed">
-              Gerado em segundos com Gemini Flash
-            </Text>
-          </View>
-          <View className="flex-1 bg-slate-800 rounded-2xl p-4 gap-2">
-            <Text className="text-2xl">🤝</Text>
-            <Text className="text-white font-semibold text-sm">Match</Text>
-            <Text className="text-slate-400 text-xs leading-relaxed">
-              Killer feature: viagens em grupo
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row gap-3">
-          <View className="flex-1 bg-violet-900 rounded-2xl p-4 gap-2">
-            <Text className="text-2xl">⚡</Text>
-            <Text className="text-white font-semibold text-sm">SSE / Stream</Text>
-            <Text className="text-violet-300 text-xs leading-relaxed">
-              Resposta token a token
-            </Text>
-          </View>
-          <View className="flex-1 bg-slate-800 rounded-2xl p-4 gap-2">
-            <Text className="text-2xl">🔐</Text>
-            <Text className="text-white font-semibold text-sm">Auth</Text>
-            <Text className="text-slate-400 text-xs leading-relaxed">
-              Firebase Authentication
-            </Text>
-          </View>
-        </View>
-
-        <View className="bg-slate-800 rounded-2xl p-5 gap-2">
-          <Text className="text-slate-400 text-xs tracking-widest uppercase font-medium">
-            Checklist de Classes
-          </Text>
-          {[
-            { label: "bg-* (background)", ok: true },
-            { label: "text-* (cores de texto)", ok: true },
-            { label: "rounded-* (bordas)", ok: true },
-            { label: "p-* / gap-* (espaçamento)", ok: true },
-            { label: "flex-row / flex-1 (layout)", ok: true },
-            { label: "text-xs/sm/base/2xl (tipografia)", ok: true },
-            { label: "font-bold / font-medium", ok: true },
-          ].map((item) => (
-            <View key={item.label} className="flex-row items-center gap-3 py-1">
-              <View
-                className={`w-5 h-5 rounded-full items-center justify-center ${
-                  item.ok ? "bg-emerald-500" : "bg-red-500"
-                }`}
-              >
-                <Text className="text-white text-xs font-bold">
-                  {item.ok ? "✓" : "✗"}
-                </Text>
-              </View>
-              <Text className="text-slate-300 text-sm">{item.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Pressable
-          className="bg-blue-600 rounded-2xl py-4 items-center active:bg-blue-700"
-          onPress={() => console.log("Tailwind + NativeWind funcionando!")}
-        >
-          <Text className="text-white font-bold text-base">
-            Tudo funcionando — Próximo: Login 🚀
-          </Text>
-        </Pressable>
-
-        <Text className="text-slate-600 text-xs text-center">
-          Tripfy MVP · NativeWind v5 · Tailwind v4 · Expo SDK 57
-        </Text>
       </ScrollView>
     </View>
   );

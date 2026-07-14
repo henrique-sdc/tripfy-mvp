@@ -1,6 +1,38 @@
 # Changelog — Tripfy Docs
 Registro cronológico de todas as inserções e modificações
 
+## 2026-07-14 (madrugada — polish commit)
+
+- **Wiki sincronizada com o código do commit Home/Tabs/Wizard.** Ver [[Home e Bottom Tabs]].
+  - Sheet premium (`RichChoiceCard`) + fix WARN Reanimated (entering no wrapper).
+  - i18n: `createTrip.soloSubtitle`, `matchSubtitle`, `comingSoon`.
+  - Home final: AiCommandBar (não Magic Card); ticket ≤7d; sem carrossel de próximas na Home.
+  - `GestureHandlerRootView` no root e dentro do Modal do sheet.
+
+## 2026-07-13 (noite — Wizard Solo)
+
+- **RF05 — Wizard Solo + polish Home.** Ver [[Home e Bottom Tabs]].
+  - `/wizard/solo`: destino, stepper dias, CapsuleSelector orçamento, notas, revisar vibe.
+  - `CreateTripSheet` reescrito: sólido, timing curto, dismiss tap + drag.
+  - Invite: swipe-to-delete estilo Alarmes iOS.
+  - Em Alta `>` → `/trending`; Salvos com lixeira + confirmação.
+
+## 2026-07-13 (noite — Home v2)
+
+- **RF04 reinventado — Tabs + Home.** Ver [[Home e Bottom Tabs]].
+  - Tab bar: Início | Salvos | **✨ FAB IA** | Viagens | Perfil.
+  - `CreateTripSheet` (Solo / Match); `wishlistStore` liga coração → Salvos.
+  - Home: ticket ≤7 dias, AI Command Bar, destinos da vibe, Em Alta (RF08).
+  - Removido Explorar e carrossel de "próximas viagens" da Home.
+
+## 2026-07-13 (noite — Home)
+
+- **RF04 — Bottom Tabs + Home Screen.** Ver [[Home e Bottom Tabs]].
+  - `NativeTabs` → `Tabs` + `FloatingTabBar` (Liquid Glass iOS / surface flutuante Android).
+  - Home: saudação dinâmica + avatar, Magic Card (IA), banner de convite com pulse, carrossel de viagens, grade Explore.
+  - Componentes: `FloatingTabBar`, `MagicCard`, `InviteBanner`; i18n `home.*` em `pt-BR.json`.
+  - Ícones via Ionicons (PNGs do starter ausentes no repo).
+
 ## 2026-07-13 (noite)
 
 - **RF02 — Recuperação de senha:** tela alinhada ao Design System Auth. Ver [[Recuperação de Senha]].
