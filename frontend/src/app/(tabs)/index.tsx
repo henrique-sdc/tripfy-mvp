@@ -51,7 +51,7 @@ const VIBE_DESTINATIONS: VibeDestination[] = [
   {
     id: "dest-lisbon",
     image:
-      "https://images.unsplash.com/photo-1555881403-746c4f0c4c3d?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1588535684923-900727736ac0?q=80&w=1000&auto=format&fit=crop",
     nameKey: "home.destinations.lisbon",
     vibeKey: "home.vibe.match.lisbon",
   },

@@ -24,20 +24,29 @@ _RATE_LIMIT = "5/minute"
 
 async def _sse_event_stream(
     token_stream: AsyncIterator[str],
+    uid: str,
 ) -> AsyncIterator[str]:
     """
     Empacota tokens no formato SSE.
 
     JSON no campo data evita quebra de protocolo se o modelo emitir \\n.
     Evento final `done` sinaliza ao cliente que o stream terminou limpo.
+    Acumula o JSON para log de observabilidade (nível Datadog/Langfuse futuro).
     """
+    accumulated = ""
     try:
         async for token in token_stream:
+            accumulated += token
             yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+        logger.info(
+            "Roteiro gerado com sucesso [UID={}]: {}",
+            uid,
+            accumulated,
+        )
         yield f"data: {json.dumps({'done': True})}\n\n"
     except Exception as exc:
         # Erro no meio do stream: avisa o cliente sem derrubar o worker opaco.
-        logger.exception("Falha no streaming do roteiro: {}", exc)
+        logger.exception("Falha no streaming do roteiro uid={}: {}", uid, exc)
         yield f"data: {json.dumps({'error': 'Falha ao gerar roteiro.'})}\n\n"
 
 
@@ -77,7 +86,7 @@ async def generate_trip(
         ) from exc
 
     return StreamingResponse(
-        _sse_event_stream(token_stream),
+        _sse_event_stream(token_stream, current_user.uid),
         media_type="text/event-stream",
         headers={
             # Evita buffering intermediário em proxies / CDN.

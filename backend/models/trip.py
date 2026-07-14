@@ -36,6 +36,15 @@ class ActivityResponse(BaseModel):
         ...,
         description="Local ou endereço aproximado (útil p/ Maps no app)",
     )
+    # Opcionais: IA estima; o app plota só quando ambos vierem preenchidos.
+    latitude: float | None = Field(
+        default=None,
+        description="Latitude WGS84 estimada do local (null se incerta)",
+    )
+    longitude: float | None = Field(
+        default=None,
+        description="Longitude WGS84 estimada do local (null se incerta)",
+    )
 
 
 class ItineraryDayResponse(BaseModel):

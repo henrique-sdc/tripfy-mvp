@@ -1,4 +1,8 @@
 # Log — Tripfy Wiki
+## [2026-07-14] ingest | Detalhe da Viagem RF07 + coords + observability
+
+Criada [[Detalhe da Viagem RF07]]. Atualizados schema (lat/lng), prompt, logs SSE e `/trip-detail` (mapa + DnD + save). Ver também [[Geração de Roteiro RF06]].
+
 ## [2026-07-14] ingest | Geração de Roteiro RF06 (Gemini + SSE)
 
 Reescrita completa de [[Geração de Roteiro RF06]] com frontmatter, callouts e cobertura backend+frontend. Index já apontava a página. Changelog consolidado no mesmo tema.

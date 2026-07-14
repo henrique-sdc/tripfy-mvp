@@ -64,6 +64,8 @@ export type ActivityResponse = {
   title: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type ItineraryDayResponse = {
@@ -240,6 +242,11 @@ export function generateTripStream(
             if (!itinerary?.destination || !Array.isArray(itinerary.days)) {
               throw new Error("Roteiro incompleto.");
             }
+            // Observabilidade local — espelho do log do backend no stream.
+            console.info(
+              "[LLM Response] Roteiro parseado:",
+              JSON.stringify(itinerary, null, 2),
+            );
             onComplete(itinerary);
           } catch (err) {
             console.error("[api] Falha ao parsear roteiro acumulado:", err);

@@ -11,7 +11,7 @@ export const TRENDING_ITINERARIES = [
   {
     id: "trend-sp",
     image:
-      "https://images.unsplash.com/photo-1544989164-31dc3c645886?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1617853570203-63c7584c9ccd?q=80&w=1000&auto=format&fit=crop",
     titleKey: "home.trending.items.sp.title",
     authorKey: "home.trending.items.sp.author",
   },

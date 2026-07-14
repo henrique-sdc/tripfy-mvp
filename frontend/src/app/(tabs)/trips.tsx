@@ -1,13 +1,12 @@
-// Viagens — gestão de roteiros gerados (RF04). Pílulas: Próximas | Rascunhos | Passadas.
+// Viagens — lista real do Firestore (users/{uid}/trips).
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useColorScheme } from "react-native";
+import { ActivityIndicator, useColorScheme } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,68 +17,33 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
+import { listTrips, type SavedTrip } from "@/lib/trips";
 import { Pressable, ScrollView, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SPRING = { damping: 20, stiffness: 300 };
 
-type TripFilter = "upcoming" | "drafts" | "past";
-
-const MOCK_TRIPS: Record<
-  TripFilter,
-  { id: string; image: string; titleKey: string; datesKey: string }[]
-> = {
-  upcoming: [
-    {
-      id: "cancun",
-      image:
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=1000&auto=format&fit=crop",
-      titleKey: "home.trips.cancun.destination",
-      datesKey: "home.trips.cancun.dates",
-    },
-    {
-      id: "lisbon",
-      image:
-        "https://images.unsplash.com/photo-1588535684923-900727736ac0?q=80&w=1000&auto=format&fit=crop",
-      titleKey: "home.trips.lisbon.destination",
-      datesKey: "home.trips.lisbon.dates",
-    },
-  ],
-  drafts: [
-    {
-      id: "tokyo",
-      image:
-        "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1000&auto=format&fit=crop",
-      titleKey: "home.trips.tokyo.destination",
-      datesKey: "trips.draftLabel",
-    },
-  ],
-  past: [],
-};
-
-function Pill({
-  label,
-  active,
+function TripCard({
+  trip,
   onPress,
 }: {
-  label: string;
-  active: boolean;
+  trip: SavedTrip;
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+  const days = trip.days?.length ?? 0;
 
   return (
     <AnimatedPressable
-      onPress={() => {
-        Haptics.selectionAsync();
-        onPress();
-      }}
+      onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.95, SPRING);
+        scale.value = withSpring(0.98, SPRING);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }}
       onPressOut={() => {
         scale.value = withSpring(1, SPRING);
@@ -87,17 +51,29 @@ function Pill({
       style={[
         style,
         {
-          backgroundColor: active ? theme.accent : theme.surface,
-          borderColor: active ? theme.accent : theme.border,
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
         },
       ]}
-      className="rounded-full px-4 py-2 border"
+      className="rounded-3xl border p-4 gap-2"
     >
-      <AppText
-        className="text-[13px] font-semibold"
-        style={{ color: active ? "#fff" : theme.textSecondary }}
-      >
-        {label}
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <AppText className="text-[17px] font-bold" numberOfLines={1}>
+            {trip.destination || t("tripDetail.fallbackTitle")}
+          </AppText>
+          <AppText tone="secondary" className="text-[13px]" numberOfLines={2}>
+            {trip.summary || t("trips.noSummary")}
+          </AppText>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={theme.textSecondary}
+        />
+      </View>
+      <AppText tone="muted" className="text-[12px]">
+        {t("tripDetail.daysCount", { count: days })}
       </AppText>
     </AnimatedPressable>
   );
@@ -109,8 +85,45 @@ export default function TripsScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const tabPad = useTabBarPadding();
-  const [filter, setFilter] = useState<TripFilter>("upcoming");
-  const list = MOCK_TRIPS[filter];
+  const [trips, setTrips] = useState<SavedTrip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listTrips();
+      setTrips(rows);
+    } catch (err) {
+      console.error("[trips] Falha ao listar:", err);
+      setError(t("trips.loadError"));
+      setTrips([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
+
+  function openTrip(trip: SavedTrip) {
+    const href = {
+      pathname: "/trip-detail",
+      params: {
+        tripId: trip.id,
+        itinerary: JSON.stringify({
+          destination: trip.destination,
+          summary: trip.summary,
+          days: trip.days,
+        }),
+      },
+    } as unknown as Href;
+    router.push(href);
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -134,74 +147,49 @@ export default function TripsScreen() {
           {t("trips.subtitle")}
         </AppText>
 
-        <View className="flex-row gap-2 mb-6">
-          <Pill
-            label={t("trips.filters.upcoming")}
-            active={filter === "upcoming"}
-            onPress={() => setFilter("upcoming")}
-          />
-          <Pill
-            label={t("trips.filters.drafts")}
-            active={filter === "drafts"}
-            onPress={() => setFilter("drafts")}
-          />
-          <Pill
-            label={t("trips.filters.past")}
-            active={filter === "past"}
-            onPress={() => setFilter("past")}
-          />
-        </View>
-
-        {list.length === 0 ? (
+        {loading ? (
+          <View className="items-center py-16">
+            <ActivityIndicator color={theme.accent} />
+          </View>
+        ) : error ? (
+          <View
+            className="items-center rounded-3xl border border-dashed py-14 px-6 gap-3"
+            style={{ borderColor: theme.border }}
+          >
+            <AppText className="text-[15px] font-semibold text-center">
+              {error}
+            </AppText>
+            <Pressable
+              onPress={reload}
+              className="mt-2 rounded-full px-4 py-2"
+              style={{ backgroundColor: theme.accent }}
+            >
+              <AppText style={{ color: "#fff" }} className="font-semibold">
+                {t("trips.retry")}
+              </AppText>
+            </Pressable>
+          </View>
+        ) : trips.length === 0 ? (
           <View
             className="items-center rounded-3xl border border-dashed py-14 px-6 gap-3"
             style={{ borderColor: theme.border }}
           >
             <Ionicons name="map-outline" size={36} color={theme.textMuted} />
             <AppText className="text-[15px] font-semibold text-center">
-              {t(`trips.empty.${filter}`)}
+              {t("trips.emptySaved")}
+            </AppText>
+            <AppText tone="secondary" className="text-[13px] text-center">
+              {t("trips.emptySavedHint")}
             </AppText>
           </View>
         ) : (
-          <View className="gap-4">
-            {list.map((trip) => (
-              <Pressable
+          <View className="gap-3">
+            {trips.map((trip) => (
+              <TripCard
                 key={trip.id}
-                onPressIn={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-                className="rounded-3xl overflow-hidden h-[160px]"
-              >
-                <Image
-                  source={{ uri: trip.image }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                />
-                <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.75)"]}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    top: 0,
-                  }}
-                />
-                <View className="absolute left-0 right-0 bottom-0 p-4 gap-1">
-                  <AppText
-                    className="text-[18px] font-bold"
-                    style={{ color: "#fff" }}
-                  >
-                    {t(trip.titleKey)}
-                  </AppText>
-                  <AppText
-                    className="text-[13px]"
-                    style={{ color: "rgba(255,255,255,0.8)" }}
-                  >
-                    {t(trip.datesKey)}
-                  </AppText>
-                </View>
-              </Pressable>
+                trip={trip}
+                onPress={() => openTrip(trip)}
+              />
             ))}
           </View>
         )}

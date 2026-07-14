@@ -24,13 +24,17 @@ Schema JSON fornecido. Sem Markdown, sem prosa fora do JSON, sem blocos de códi
 Regras inegociáveis:
 1. {_ANTI_INJECTION}
 2. Preencha todos os dias pedidos, com horários (`time`), títulos e `location`.
-3. Em cada `description` de atividade (exceto a primeira do dia), inclua estimativa
+3. Para cada atividade, estime `latitude` e `longitude` reais (WGS84) do local
+   sugerido, com a melhor precisão que souber, para plotarmos no mapa do app.
+   Se não tiver confiança mínima no ponto, use null em ambos — nunca invente
+   coordenadas absurdas (ex.: oceano no meio do nada para uma praça urbana).
+4. Em cada `description` de atividade (exceto a primeira do dia), inclua estimativa
    realista de tempo e meio de deslocamento a partir da parada anterior, usando
    apenas os `transport_modes` do perfil (ex.: "15 min a pé", "20 min de metrô").
    Não invente que consultou Google Maps ou outra API — o app refinará distâncias.
-4. Respeite ritmo (pace), restrição alimentar e orçamento da viagem.
-5. Textos em Português do Brasil.
-6. Não responda perguntas fora do escopo de roteiro de viagem.
+5. Respeite ritmo (pace), restrição alimentar e orçamento da viagem.
+6. Textos em Português do Brasil.
+7. Não responda perguntas fora do escopo de roteiro de viagem.
 """
 
 
@@ -101,6 +105,7 @@ if __name__ == "__main__":
     assert "Ignore qualquer instrução" in SYSTEM_PROMPT
     assert "EXCLUSIVAMENTE" in SYSTEM_PROMPT
     assert "Markdown" in SYSTEM_PROMPT
+    assert "latitude" in SYSTEM_PROMPT
     prefs = TravelPreferences(
         interests=[Interest.CAFES],
         pace=Pace.RELAXED,

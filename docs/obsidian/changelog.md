@@ -1,4 +1,20 @@
 # Changelog — Tripfy Docs
+## 2026-07-14 (madrugada — fix mapa Expo Go + fitBounds)
+
+- **Mapa não aparecia / zoom gigante no Expo Go (Android).** Ver [[Detalhe da Viagem RF07]].
+  - Causa 1: `react-native-maps` fica bege (Expo removeu a API key Google compartilhada).
+  - Causa 2: Leaflet no WebView inicializava com container de altura 0 → mapa branco.
+  - Causa 3: `fitBounds` antes do tamanho real → zoom máximo; `invalidateSize` sozinho não reenquadra.
+  - Fix em `TripOsmMap`: CARTO + `invalidateSize` + reaplicar `fitBounds`/`setView` nos timers; WebView `flex:1`, `baseUrl` https no Android.
+  - Wiki RF07 atualizada (layout mapa+lista, sem toggle Google Maps).
+
+## 2026-07-14 (madrugada — RF07 mapa + DnD)
+
+- **RF07 — Detalhe da viagem com mapa e edição.** Ver [[Detalhe da Viagem RF07]].
+  - Schema: `latitude`/`longitude` opcionais; prompt pede coords estimadas.
+  - Observabilidade: log do JSON no fim do SSE + `console.info` no parse do app.
+  - `/trip-detail`: toggle Lista/Mapa, DraggableFlatList, coração → Firestore `users/{uid}/trips`.
+
 Registro cronológico de todas as inserções e modificações.
 
 ## 2026-07-14 (madrugada — RF06 Gemini + SSE)

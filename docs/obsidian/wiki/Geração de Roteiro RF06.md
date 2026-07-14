@@ -138,3 +138,11 @@ Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSou
 - [[Autenticação Full Stack]] — sync + preferências
 - [[Preferências Sua Vibe]] — modelo de perfil que alimenta o prompt
 - [[Home e Bottom Tabs]] — Wizard Solo (RF05) e navegação
+## Structured Output
+### Coordenadas (mapa)
+
+`ActivityResponse` inclui `latitude` / `longitude` opcionais (`float | null`). O prompt pede estimativa WGS84; null se incerto. Consumido em [[Detalhe da Viagem RF07]].
+
+### Observabilidade
+
+No fim do stream (`done`), o router loga o JSON acumulado com UID. Frontend espelha com `console.info("[LLM Response]")` após o parse.
