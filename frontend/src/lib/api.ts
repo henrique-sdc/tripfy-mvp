@@ -4,6 +4,8 @@
 // (com a persistência configurada em firebase.ts), e pedimos um fresco a cada
 // chamada via getIdToken() — padrão oficial recomendado para RN/Expo.
 
+import EventSource from "react-native-sse";
+
 import { auth } from "@/lib/firebase";
 
 // Sem fallback para localhost: em device físico (Expo Go) localhost aponta
@@ -47,6 +49,33 @@ export type SyncResponse = {
   uid: string;
   email: string;
   has_preferences: boolean;
+};
+
+export type GenerateTripParams = {
+  destination: string;
+  days: number;
+  budget: string;
+  notes?: string;
+};
+
+/** Espelho de ItineraryResponse / ActivityResponse do backend. */
+export type ActivityResponse = {
+  time: string;
+  title: string;
+  description: string;
+  location: string;
+};
+
+export type ItineraryDayResponse = {
+  day: number;
+  title: string;
+  activities: ActivityResponse[];
+};
+
+export type ItineraryResponse = {
+  destination: string;
+  summary: string;
+  days: ItineraryDayResponse[];
 };
 
 /** Wrapper de fetch que injeta o Bearer token e valida a resposta. */
@@ -114,4 +143,143 @@ export async function savePreferences(
     method: "PUT",
     body: JSON.stringify({ preferences }),
   });
+}
+
+/**
+ * POST /trips/generate — consome SSE de fragmentos JSON do roteiro.
+ *
+ * Retorna uma função `close()` para abortar (unmount / cancelamento).
+ * pollingInterval: 0 desliga o auto-reconnect — geração é one-shot.
+ */
+export function generateTripStream(
+  params: GenerateTripParams,
+  onToken: ((token: string) => void) | undefined,
+  onComplete: (itinerary: ItineraryResponse) => void,
+  onError: (error: Error) => void,
+): () => void {
+  if (!BASE_URL) {
+    onError(
+      new Error(
+        "EXPO_PUBLIC_API_URL não configurada. Defina no frontend/.env.",
+      ),
+    );
+    return () => undefined;
+  }
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    onError(new ApiError(401, "Usuário não autenticado."));
+    return () => undefined;
+  }
+
+  let closed = false;
+  let accumulated = "";
+  let es: EventSource | null = null;
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    es?.removeAllEventListeners();
+    es?.close();
+    es = null;
+  };
+
+  // Token fresco antes de abrir o EventSource (não fica em AsyncStorage).
+  currentUser
+    .getIdToken()
+    .then((token) => {
+      if (closed) return;
+
+      es = new EventSource(`${BASE_URL}${API_PREFIX}/trips/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          destination: params.destination,
+          days: params.days,
+          budget: params.budget,
+          notes: params.notes ?? "",
+        }),
+        // Sem retry automático: se falhar, a UI decide se tenta de novo.
+        pollingInterval: 0,
+      });
+
+      es.addEventListener("message", (event) => {
+        if (closed || event.data == null) return;
+
+        let payload: {
+          token?: string;
+          done?: boolean;
+          error?: string;
+        };
+        try {
+          payload = JSON.parse(event.data) as typeof payload;
+        } catch {
+          onError(new Error("Resposta SSE inválida do servidor."));
+          close();
+          return;
+        }
+
+        if (payload.error) {
+          onError(new Error(payload.error));
+          close();
+          return;
+        }
+
+        if (typeof payload.token === "string") {
+          accumulated += payload.token;
+          onToken?.(payload.token);
+          return;
+        }
+
+        if (payload.done === true) {
+          try {
+            const itinerary = JSON.parse(accumulated) as ItineraryResponse;
+            if (!itinerary?.destination || !Array.isArray(itinerary.days)) {
+              throw new Error("Roteiro incompleto.");
+            }
+            onComplete(itinerary);
+          } catch (err) {
+            console.error("[api] Falha ao parsear roteiro acumulado:", err);
+            onError(new Error("Não foi possível montar o roteiro gerado."));
+          }
+          close();
+        }
+      });
+
+      es.addEventListener("error", (event) => {
+        if (closed) return;
+
+        if (event.type === "error") {
+          const status = event.xhrStatus;
+          if (status === 401) {
+            onError(new ApiError(401, "Sessão expirada. Entre de novo."));
+          } else if (status === 503) {
+            onError(
+              new ApiError(503, "Geração temporariamente indisponível."),
+            );
+          } else if (status === 429) {
+            onError(
+              new ApiError(429, "Muitas tentativas. Aguarde um minuto."),
+            );
+          } else if (status > 0) {
+            onError(new ApiError(status, event.message || `Erro ${status}`));
+          } else {
+            onError(new NetworkError());
+          }
+        } else if (event.type === "exception") {
+          onError(event.error ?? new Error(event.message));
+        } else {
+          onError(new NetworkError());
+        }
+        close();
+      });
+    })
+    .catch((err) => {
+      onError(err instanceof Error ? err : new Error(String(err)));
+    });
+
+  return close;
 }

@@ -1,5 +1,12 @@
 # Changelog — Tripfy Docs
-Registro cronológico de todas as inserções e modificações
+Registro cronológico de todas as inserções e modificações.
+
+## 2026-07-14 (madrugada — RF06 Gemini + SSE)
+
+- **RF06 full stack — geração de roteiro com IA.** Ver [[Geração de Roteiro RF06]].
+  - **Backend:** `LLMProvider` / `GeminiProvider` (`google-genai`, `gemini-3.5-flash`), Structured Output (`ItineraryResponse`), `POST /api/v1/trips/generate` SSE, rate limit `5/minute`, prefs do Firestore, anti-injection + headroom.
+  - **Frontend:** `generateTripStream` (`react-native-sse`), loading mágico no Wizard Solo, rota `/trip-detail`, i18n `wizard.generating.*` / `tripDetail.*`.
+  - **Fora deste commit:** chamada HTTP ao Google Maps (estimativa só no prompt).
 
 ## 2026-07-14 (madrugada — polish commit)
 

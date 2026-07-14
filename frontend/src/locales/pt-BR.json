@@ -307,7 +307,26 @@
     "generate": "✨ Gerar Roteiro Mágico",
     "successTitle": "Roteiro Criado!",
     "successBody": "Sua viagem foi gerada com sucesso (Mock).",
-    "successOk": "Eba!"
+    "successOk": "Eba!",
+    "generating": {
+      "title": "Montando roteiro",
+      "subtitle": "Isso leva só alguns segundos",
+      "exploringMap": "A IA está explorando o mapa...",
+      "craftingTrip": "Criando a viagem perfeita para {{destination}}...",
+      "hint": "Montando dias, horários e deslocamentos pra você.",
+      "errorTitle": "Não deu pra gerar agora",
+      "errorBody": "Tente de novo em instantes.",
+      "errorOk": "Ok"
+    }
+  },
+  "tripDetail": {
+    "close": "Fechar",
+    "fallbackTitle": "Seu roteiro",
+    "subtitle": "Detalhes da viagem",
+    "daysCount": "{{count}} dias",
+    "dayLabel": "Dia {{day}} — {{title}}",
+    "emptyTitle": "Roteiro não encontrado",
+    "emptyBody": "Gere uma nova viagem pelo assistente."
   },
   "trips": {
     "title": "Viagens",

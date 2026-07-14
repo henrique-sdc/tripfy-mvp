@@ -1,4 +1,8 @@
 # Log — Tripfy Wiki
+## [2026-07-14] ingest | Geração de Roteiro RF06 (Gemini + SSE)
+
+Reescrita completa de [[Geração de Roteiro RF06]] com frontmatter, callouts e cobertura backend+frontend. Index já apontava a página. Changelog consolidado no mesmo tema.
+
 Registro cronológico (append-only) das operações da base de conhecimento.
 
 ## [2026-07-12] ingest | Autenticação Full Stack (RF01 + Seção 3.3)

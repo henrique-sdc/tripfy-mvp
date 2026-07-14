@@ -73,6 +73,14 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="trip-detail"
+              options={{
+                presentation: "card",
+                animation: "slide_from_right",
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="trending"
               options={{
                 animation: "slide_from_right",
