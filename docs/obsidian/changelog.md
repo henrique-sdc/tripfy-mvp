@@ -1,4 +1,11 @@
 # Changelog — Tripfy Docs
+## 2026-07-14 — LLM trocável OpenAI/Gemini
+
+- **Provedor LLM via `.env`.** Ver [[Geração de Roteiro RF06]].
+  - `LLM_PROVIDER=openai|gemini` + `OpenAIProvider` (default) / `GeminiProvider`.
+  - Keys: `OPENAI_API_KEY` / `OPENAI_MODEL` · `GEMINI_API_KEY` / `GEMINI_MODEL`.
+  - Service/Router intactos — só a factory muda.
+
 ## 2026-07-14 (madrugada — fix mapa Expo Go + fitBounds)
 
 - **Mapa não aparecia / zoom gigante no Expo Go (Android).** Ver [[Detalhe da Viagem RF07]].

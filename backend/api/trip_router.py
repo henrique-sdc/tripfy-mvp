@@ -78,7 +78,7 @@ async def generate_trip(
     except HTTPException:
         raise
     except RuntimeError as exc:
-        # Tipicamente GEMINI_API_KEY ausente — 503 evita vazar detalhe de config.
+        # Tipicamente OPENAI_API_KEY / GEMINI_API_KEY ausente — 503 evita vazar config.
         logger.error("Provedor LLM indisponível: {}", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

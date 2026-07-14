@@ -71,24 +71,23 @@ Router (trip_router)
 |---------|-------|
 | `models/trip.py` | Request + `ActivityResponse` / `ItineraryDayResponse` / `ItineraryResponse` |
 | `core/prompt_engineering.py` | System Prompt anti-injection + user prompt delimitado |
-| `core/llm_provider.py` | `LLMProvider` ABC + `GeminiProvider` |
+| `core/llm_provider.py` | `LLMProvider` ABC + `OpenAIProvider` / `GeminiProvider` |
 | `services/trip_service.py` | Orquestra prefs + prompt + stream |
 | `api/trip_router.py` | SSE + rate limit + auth |
 
 ### Vendor lock-in mitigado (PRD 2.5)
 
 - Interface: `LLMProvider.generate_itinerary_stream(user_prompt) -> AsyncIterator[str]`
-- Concreto: `GeminiProvider` · modelo `gemini-3.5-flash`
-- SDK: **`google-genai`** (já no requirements; não é o legado `google-generativeai`)
-- Service **não** importa `google.genai`
-- Troca futura (OpenAI): nova classe + factory — router/service intactos
+- Concretos: `OpenAIProvider` · `GeminiProvider`
+- Troca via `.env`: `LLM_PROVIDER=openai|gemini` (factory em `get_llm_provider`)
+- Modelos: `OPENAI_MODEL` (default `gpt-4o-mini`) · `GEMINI_MODEL`
+- SDKs: `openai` / `google-genai` — só dentro de `llm_provider.py`
+- Service **não** importa SDK de vendor
 
 ### Structured Output
 
-Gemini força o schema via:
-
-- `response_mime_type="application/json"`
-- `response_schema=ItineraryResponse`
+- **Gemini:** `response_mime_type=application/json` + `response_schema=ItineraryResponse`
+- **OpenAI:** `response_format.json_schema` com `ItineraryResponse.model_json_schema()` + stream
 
 Schema de resposta:
 
@@ -111,7 +110,7 @@ Sem Markdown na resposta — só JSON do schema.
 
 ### Headroom
 
-User prompt passa por `headroom.compress` antes do Gemini (custo de tokens).
+User prompt passa por `headroom.compress` antes do LLM (custo de tokens).
 
 ## Frontend
 

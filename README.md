@@ -111,7 +111,7 @@ Com o Metro aberto:
 | App não conecta na API no celular     | `EXPO_PUBLIC_API_URL` com `localhost`              | Use o IP da máquina na rede local                                              |
 | `EXPO_PUBLIC_API_URL não configurada` | `.env` ausente ou variável vazia                   | Preencha `frontend/.env` e reinicie o Metro                                    |
 | Backend não sobe                      | `firebase-adminsdk.json` ausente ou caminho errado | Baixe o JSON no Firebase Console e ajuste `FIREBASE_SERVICE_ACCOUNT_JSON_PATH` |
-| Firewall bloqueia conexão             | Porta 8000 fechada na rede local                   | Libere a porta 8000 no firewall do Windows                                     |
+| `429 Too Many Requests` do Gemini | Quota do provedor estourada | No `backend/.env`: `LLM_PROVIDER=openai` + `OPENAI_API_KEY=sk-...` (ou volte com `LLM_PROVIDER=gemini`) |
 
 ## Stack
 
