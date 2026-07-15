@@ -2,11 +2,10 @@
 // Animação de subida limpa e sólida (sem staggers que bugam a sombra no Android).
 
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { Href, router } from "expo-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   Modal,
   Platform,
   Pressable as RNPressable,
@@ -40,14 +39,12 @@ function RichChoiceCard({
   emoji,
   title,
   subtitle,
-  badge,
   delay,
   onPress,
 }: {
   emoji: string;
   title: string;
   subtitle: string;
-  badge?: string;
   delay: number;
   onPress: () => void;
 }) {
@@ -104,19 +101,6 @@ function RichChoiceCard({
         <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-2">
             <AppText className="text-[17px] font-bold">{title}</AppText>
-            {badge && (
-              <View
-                className="px-2 py-0.5 rounded-md"
-                style={{ backgroundColor: theme.border }}
-              >
-                <AppText
-                  tone="secondary"
-                  className="text-[10px] font-bold uppercase tracking-widest"
-                >
-                  {badge}
-                </AppText>
-              </View>
-            )}
           </View>
           <AppText tone="secondary" className="text-[13px] leading-4 pr-2">
             {subtitle}
@@ -167,14 +151,12 @@ export function CreateTripSheet() {
   }
 
   function goMatch() {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     dismiss();
-    setTimeout(() => {
-      Alert.alert(
-        t("createTrip.matchSoonTitle"),
-        t("createTrip.matchSoonBody"),
-      );
-    }, 240);
+    setTimeout(
+      () => router.push("/wizard/solo?mode=match" as Href),
+      240,
+    );
   }
 
   const pan = Gesture.Pan()
@@ -259,7 +241,6 @@ export function CreateTripSheet() {
                   emoji="🤝"
                   title={t("createTrip.match")}
                   subtitle={t("createTrip.matchSubtitle")}
-                  badge={t("createTrip.comingSoon")}
                   delay={200}
                   onPress={goMatch}
                 />

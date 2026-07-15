@@ -1,4 +1,16 @@
 # Changelog — Tripfy Docs
+## 2026-07-15 — Match de Viajantes: sessão e geração (RF11/RF12)
+
+- Backend RF11/RF12 em [[Match de Viajantes RF11 RF12]].
+  - `POST /api/v1/matches` cria sessão `waiting` com o UID autenticado.
+  - `POST /api/v1/matches/{match_id}/join` adiciona o convidado em transação e muda para `generating`.
+  - `GET /api/v1/matches/{match_id}` entrega resumo pré-join sem UIDs e visão completa aos participantes.
+  - `POST /api/v1/matches/{match_id}/generate` busca os dois perfis, monta o prompt RF12 e transmite `ItineraryResponse` via SSE.
+  - `generation_lock` transacional garante single-flight; o backend valida e persiste o roteiro antes de `completed`.
+  - Frontend: Wizard reaproveitado em modo dupla, lobby `/match/[id]`, Share com `tripfy://`, `onSnapshot`, haptics e loading compartilhado com Solo.
+  - Firestore permite apenas leitura participant-only de `matches`; escrita e listagem seguem bloqueadas.
+  - Limite de dois participantes, preferências obrigatórias, rate limiting e erros HTTP padronizados.
+
 ## 2026-07-15 — Expansão da foto de perfil (Instagram-like)
 
 - Toque no avatar expande com morph + blur; lápis → `/edit-profile`; toque no fundo fecha (mais rápido que a abertura). Ver `ProfilePhotoExpand`.

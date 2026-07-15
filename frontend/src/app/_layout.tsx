@@ -119,6 +119,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="trip-detail" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="match/[id]" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="trending" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="edit-profile" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="settings" options={PUSH_SCREEN_OPTIONS} />

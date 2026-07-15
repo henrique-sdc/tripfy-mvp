@@ -88,6 +88,7 @@ Em outro terminal:
 cd frontend
 npm install
 npm start #ou npx expo start --clear
+adb shell am start -W -a android.intent.action.VIEW -d "exp://ip:8081/--/match/código"
 ```
 
 Com o Metro aberto:
@@ -106,12 +107,12 @@ Com o Metro aberto:
 
 ## Problemas comuns
 
-| Sintoma                               | Causa provável                                     | Correção                                                                       |
-| ------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| App não conecta na API no celular     | `EXPO_PUBLIC_API_URL` com `localhost`              | Use o IP da máquina na rede local                                              |
-| `EXPO_PUBLIC_API_URL não configurada` | `.env` ausente ou variável vazia                   | Preencha `frontend/.env` e reinicie o Metro                                    |
-| Backend não sobe                      | `firebase-adminsdk.json` ausente ou caminho errado | Baixe o JSON no Firebase Console e ajuste `FIREBASE_SERVICE_ACCOUNT_JSON_PATH` |
-| `429 Too Many Requests` do Gemini | Quota do provedor estourada | No `backend/.env`: `LLM_PROVIDER=openai` + `OPENAI_API_KEY=sk-...` (ou volte com `LLM_PROVIDER=gemini`) |
+| Sintoma                               | Causa provável                                     | Correção                                                                                                |
+| ------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| App não conecta na API no celular     | `EXPO_PUBLIC_API_URL` com `localhost`              | Use o IP da máquina na rede local                                                                       |
+| `EXPO_PUBLIC_API_URL não configurada` | `.env` ausente ou variável vazia                   | Preencha `frontend/.env` e reinicie o Metro                                                             |
+| Backend não sobe                      | `firebase-adminsdk.json` ausente ou caminho errado | Baixe o JSON no Firebase Console e ajuste `FIREBASE_SERVICE_ACCOUNT_JSON_PATH`                          |
+| `429 Too Many Requests` do Gemini     | Quota do provedor estourada                        | No `backend/.env`: `LLM_PROVIDER=openai` + `OPENAI_API_KEY=sk-...` (ou volte com `LLM_PROVIDER=gemini`) |
 
 ## Stack
 

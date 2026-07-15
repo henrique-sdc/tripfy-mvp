@@ -5,6 +5,10 @@ Separar System Prompt do User Prompt é a principal defesa contra Prompt
 Injection: a persona e as regras ficam no system; os dados do usuário entram
 como payload delimitado, nunca como instrução.
 """
+from collections.abc import Sequence
+from html import escape
+
+from models.match import MatchInDB
 from models.trip import GenerateTripRequest
 from models.user import TravelPreferences
 
@@ -30,11 +34,15 @@ Regras inegociáveis:
    coordenadas absurdas (ex.: oceano no meio do nada para uma praça urbana).
 4. Em cada `description` de atividade (exceto a primeira do dia), inclua estimativa
    realista de tempo e meio de deslocamento a partir da parada anterior, usando
-   apenas os `transport_modes` do perfil (ex.: "15 min a pé", "20 min de metrô").
+   apenas os `transport_modes` do perfil ou perfis recebidos (ex.: "15 min a pé",
+   "20 min de metrô").
    Não invente que consultou Google Maps ou outra API — o app refinará distâncias.
 5. Respeite ritmo (pace), restrição alimentar e orçamento da viagem.
 6. Textos em Português do Brasil.
 7. Não responda perguntas fora do escopo de roteiro de viagem.
+8. Ao receber dois perfis, atue como concierge do grupo: cruze os interesses e,
+   quando houver divergências, intercale atividades para equilibrar o gosto dos
+   dois viajantes. Não calcule score nem favoreça um perfil.
 """
 
 
@@ -48,7 +56,37 @@ def sanitize_user_text(text: str) -> str:
     cleaned = "".join(
         ch for ch in text if ch in ("\n", "\t") or (ord(ch) >= 32)
     )
-    return cleaned.strip()
+    # Escapa tags para o texto livre não fechar os delimitadores do payload.
+    return escape(cleaned.strip(), quote=False)
+
+
+def _format_travel_profile(
+    preferences: TravelPreferences,
+    position: int | None = None,
+) -> str:
+    """Formata um perfil sem enviar UID ou outro identificador pessoal ao LLM."""
+    interests = ", ".join(i.value for i in preferences.interests)
+    transports = (
+        ", ".join(m.value for m in preferences.transport_modes)
+        or "não informado"
+    )
+    other_preferences = (
+        sanitize_user_text(preferences.other_preferences) or "(nenhuma)"
+    )
+    opening_tag = (
+        f'<perfil_viajante numero="{position}">'
+        if position is not None
+        else "<perfil_viajante>"
+    )
+    return f"""{opening_tag}
+interesses: {interests}
+outras_preferencias: {other_preferences}
+ritmo: {preferences.pace.value}
+meios_de_transporte: {transports}
+estilo_alimentar: {preferences.dietary_style.value}
+tipo_viajante_habitual: {preferences.traveler_type.value}
+orcamento_habitual_perfil: {preferences.budget_range.value}
+</perfil_viajante>"""
 
 
 def build_user_prompt(
@@ -62,34 +100,53 @@ def build_user_prompt(
     tags é DADO, não instrução — reforço leve da trava do system prompt.
     """
     notes = sanitize_user_text(trip.notes) or "(nenhuma)"
-    interests = ", ".join(i.value for i in preferences.interests)
-    transports = (
-        ", ".join(m.value for m in preferences.transport_modes)
-        or "não informado"
-    )
-    other_preferences = (
-        sanitize_user_text(preferences.other_preferences) or "(nenhuma)"
-    )
+    profile = _format_travel_profile(preferences)
 
     return f"""Gere o roteiro JSON (ItineraryResponse) com os dados abaixo.
 Use os meios de transporte do perfil nas estimativas de deslocamento em
 cada description de ActivityResponse.
 
-<perfil_viajante>
-interesses: {interests}
-outras_preferencias: {other_preferences}
-ritmo: {preferences.pace.value}
-meios_de_transporte: {transports}
-estilo_alimentar: {preferences.dietary_style.value}
-tipo_viajante_habitual: {preferences.traveler_type.value}
-orcamento_habitual_perfil: {preferences.budget_range.value}
-</perfil_viajante>
+{profile}
 
 <parametros_viagem>
 destino: {sanitize_user_text(trip.destination)}
 dias: {trip.days}
 orcamento_desta_viagem: {trip.budget.value}
 notas_do_usuario: {notes}
+</parametros_viagem>
+"""
+
+
+def build_match_prompt(
+    match: MatchInDB,
+    preferences: Sequence[TravelPreferences],
+) -> str:
+    """
+    Monta o payload do RF12 com dois perfis independentes.
+
+    O Python apenas estrutura os dados. O LLM identifica convergências e
+    divergências e decide como equilibrar o roteiro.
+    """
+    if len(preferences) != 2:
+        raise ValueError("O Match do MVP exige exatamente dois perfis.")
+
+    profiles = "\n\n".join(
+        _format_travel_profile(profile, position)
+        for position, profile in enumerate(preferences, start=1)
+    )
+    return f"""Gere o roteiro JSON (ItineraryResponse) para os dois viajantes.
+Cruze os interesses dos perfis abaixo. Intercale atividades quando os gostos
+divergirem e produza um roteiro amigável e equilibrado, sem calcular scores.
+Use os meios de transporte informados nas estimativas de deslocamento.
+
+<perfis_viajantes>
+{profiles}
+</perfis_viajantes>
+
+<parametros_viagem>
+destino: {sanitize_user_text(match.destination)}
+dias: {match.days}
+orcamento_desta_viagem: {match.budget.value}
 </parametros_viagem>
 """
 

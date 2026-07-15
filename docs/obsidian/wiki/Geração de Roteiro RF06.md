@@ -72,6 +72,7 @@ Router (trip_router)
 | `models/trip.py` | Request + `ActivityResponse` / `ItineraryDayResponse` / `ItineraryResponse` |
 | `core/prompt_engineering.py` | System Prompt anti-injection + user prompt delimitado |
 | `core/llm_provider.py` | `LLMProvider` ABC + `OpenAIProvider` / `GeminiProvider` |
+| `core/sse.py` | Empacotamento SSE compartilhado pelas gerações Solo e Match |
 | `services/trip_service.py` | Orquestra prefs + prompt + stream |
 | `api/trip_router.py` | SSE + rate limit + auth |
 
@@ -137,6 +138,7 @@ Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSou
 - [[Autenticação Full Stack]] — sync + preferências
 - [[Preferências Sua Vibe]] — modelo de perfil que alimenta o prompt
 - [[Home e Bottom Tabs]] — Wizard Solo (RF05) e navegação
+- [[Match de Viajantes RF11 RF12]] — dois perfis no mesmo Structured Output/SSE
 ## Structured Output
 ### Coordenadas (mapa)
 

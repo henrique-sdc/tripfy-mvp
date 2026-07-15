@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 # `import core.firebase` inicializa o Admin SDK uma única vez na subida da app.
 import core.firebase  # noqa: F401
 from api.auth_router import router as auth_router
+from api.match_router import router as match_router
 from api.trip_router import router as trip_router
 from core.config import settings
 from core.rate_limit import limiter
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Rotas versionadas sob /api/v1
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(match_router, prefix="/api/v1")
 app.include_router(trip_router, prefix="/api/v1")
 
 

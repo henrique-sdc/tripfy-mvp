@@ -175,8 +175,8 @@
     "subtitle": "Como você quer planejar essa viagem?",
     "solo": "Roteiro Solo",
     "soloSubtitle": "Crie seu roteiro do seu jeito, na sua hora e no seu ritmo.",
-    "match": "Match em Grupo",
-    "matchSubtitle": "Amigos ou casal — cruze as preferências de todos com IA.",
+    "match": "Viagem em Dupla",
+    "matchSubtitle": "Convide alguém e deixe a IA equilibrar a vibe de vocês.",
     "comingSoon": "Em breve",
     "matchSoonTitle": "Match em breve! 🎉",
     "matchSoonBody": "Estamos preparando a magia para você cruzar seus gostos com a galera."
@@ -317,6 +317,65 @@
       "errorTitle": "Não deu pra gerar agora",
       "errorBody": "Tente de novo em instantes.",
       "errorOk": "Ok"
+    }
+  },
+  "match": {
+    "wizard": {
+      "title": "Nova Viagem em Dupla",
+      "subtitle": "Defina a viagem antes de convidar seu companheiro.",
+      "create": "Criar sala do Match"
+    },
+    "lobby": {
+      "header": "Match de Viajantes",
+      "ownerTitle": "Quem vai nessa aventura?",
+      "ownerSubtitle": "Compartilhe o convite. A sala começa assim que seu companheiro entrar.",
+      "guestTitle": "Bora viajar juntos?",
+      "guestSubtitle": "Confira a viagem e entre para combinar sua vibe com a do convite.",
+      "you": "Você",
+      "companion": "Companheiro",
+      "waiting": "Aguardando",
+      "connected": "Conectado"
+    },
+    "summary": {
+      "destination": "Destino",
+      "duration": "Duração",
+      "budget": "Orçamento"
+    },
+    "share": {
+      "title": "Convite Tripfy",
+      "message": "Bora planejar {{destination}} comigo? Abra este convite no Tripfy: {{link}}"
+    },
+    "generating": {
+      "header": "Criando o Match",
+      "exploringMap": "A IA está cruzando as duas vibes...",
+      "craftingTrip": "Equilibrando a viagem para {{destination}}...",
+      "hint": "Intercalando interesses, ritmo e experiências para vocês."
+    },
+    "actions": {
+      "back": "Voltar",
+      "invite": "Convidar Companheiro",
+      "join": "Bora!",
+      "joining": "Entrando...",
+      "retry": "Tentar novamente",
+      "home": "Voltar ao início"
+    },
+    "invalid": {
+      "title": "Este convite não está mais disponível",
+      "body": "O link pode estar incorreto, expirado ou a sala já ter sido fechada."
+    },
+    "unavailable": {
+      "title": "Não foi possível abrir o Match",
+      "body": "Confira sua conexão e tente carregar a sala outra vez."
+    },
+    "errors": {
+      "create": "Não foi possível criar a sala. Tente novamente.",
+      "invalid": "Convite inválido.",
+      "load": "Não foi possível carregar esta sala.",
+      "realtime": "A atualização em tempo real foi interrompida. Tente novamente.",
+      "share": "Não foi possível abrir o compartilhamento.",
+      "full": "Esta sala já está completa ou começou sem você.",
+      "join": "Não foi possível entrar nesta sala.",
+      "generation": "A geração foi interrompida. Seu convite continua válido."
     }
   },
   "tripDetail": {

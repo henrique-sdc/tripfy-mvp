@@ -18,6 +18,15 @@ service cloud.firestore {
       }
     }
 
+    // Sessões Match: o app só observa a própria sala. Toda escrita continua
+    // restrita ao backend via Admin SDK (limite, status, lock e itinerary).
+    match /matches/{matchId} {
+      allow get: if request.auth != null
+        && resource.data.participants is list
+        && request.auth.uid in resource.data.participants;
+      allow list, create, update, delete: if false;
+    }
+
     // Qualquer outra coleção fica bloqueada até ganhar regra explícita.
     match /{document=**} {
       allow read, write: if false;

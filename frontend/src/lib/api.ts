@@ -81,6 +81,35 @@ export type ItineraryResponse = {
   days: ItineraryDayResponse[];
 };
 
+export type MatchStatus = "waiting" | "generating" | "completed";
+
+export type MatchInviteSummary = {
+  id: string;
+  destination: string;
+  days: number;
+  budget: string;
+  status: MatchStatus;
+};
+
+export type MatchInDB = MatchInviteSummary & {
+  owner_uid: string;
+  participants: string[];
+  created_at: unknown;
+  generation_lock?: {
+    token: string;
+    locked_by: string;
+    locked_at: unknown;
+  } | null;
+  itinerary?: ItineraryResponse | null;
+  completed_at?: unknown;
+};
+
+export type CreateMatchParams = {
+  destination: string;
+  days: number;
+  budget: string;
+};
+
 /** Wrapper de fetch que injeta o Bearer token e valida a resposta. */
 async function authFetch(
   path: string,
@@ -148,14 +177,45 @@ export async function savePreferences(
   });
 }
 
+/** POST /matches — cria a sala com o usuário autenticado como owner. */
+export async function createMatch(
+  params: CreateMatchParams,
+): Promise<MatchInDB> {
+  const response = await authFetch("/matches", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return (await response.json()) as MatchInDB;
+}
+
+/** GET /matches/{id} — resumo pré-join ou visão completa do participante. */
+export async function getMatch(
+  matchId: string,
+): Promise<MatchInviteSummary | MatchInDB> {
+  const response = await authFetch(
+    `/matches/${encodeURIComponent(matchId)}`,
+  );
+  return (await response.json()) as MatchInviteSummary | MatchInDB;
+}
+
+/** POST /matches/{id}/join — aceita o convite com o UID do token. */
+export async function joinMatch(matchId: string): Promise<MatchInDB> {
+  const response = await authFetch(
+    `/matches/${encodeURIComponent(matchId)}/join`,
+    { method: "POST" },
+  );
+  return (await response.json()) as MatchInDB;
+}
+
 /**
- * POST /trips/generate — consome SSE de fragmentos JSON do roteiro.
+ * Consome o contrato SSE compartilhado pelas gerações Solo e Match.
  *
  * Retorna uma função `close()` para abortar (unmount / cancelamento).
  * pollingInterval: 0 desliga o auto-reconnect — geração é one-shot.
  */
-export function generateTripStream(
-  params: GenerateTripParams,
+function generateItineraryStream(
+  path: string,
+  body: Record<string, unknown> | undefined,
   onToken: ((token: string) => void) | undefined,
   onComplete: (itinerary: ItineraryResponse) => void,
   onError: (error: Error) => void,
@@ -193,18 +253,13 @@ export function generateTripStream(
     .then((token) => {
       if (closed) return;
 
-      es = new EventSource(`${BASE_URL}${API_PREFIX}/trips/generate`, {
+      es = new EventSource(`${BASE_URL}${API_PREFIX}${path}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          destination: params.destination,
-          days: params.days,
-          budget: params.budget,
-          notes: params.notes ?? "",
-        }),
+        body: body ? JSON.stringify(body) : undefined,
         // Sem retry automático: se falhar, a UI decide se tenta de novo.
         pollingInterval: 0,
       });
@@ -290,4 +345,41 @@ export function generateTripStream(
     });
 
   return close;
+}
+
+/** POST /trips/generate — geração Solo. */
+export function generateTripStream(
+  params: GenerateTripParams,
+  onToken: ((token: string) => void) | undefined,
+  onComplete: (itinerary: ItineraryResponse) => void,
+  onError: (error: Error) => void,
+): () => void {
+  return generateItineraryStream(
+    "/trips/generate",
+    {
+      destination: params.destination,
+      days: params.days,
+      budget: params.budget,
+      notes: params.notes ?? "",
+    },
+    onToken,
+    onComplete,
+    onError,
+  );
+}
+
+/** POST /matches/{id}/generate — geração única iniciada pelo owner. */
+export function generateMatchStream(
+  matchId: string,
+  onToken: ((token: string) => void) | undefined,
+  onComplete: (itinerary: ItineraryResponse) => void,
+  onError: (error: Error) => void,
+): () => void {
+  return generateItineraryStream(
+    `/matches/${encodeURIComponent(matchId)}/generate`,
+    undefined,
+    onToken,
+    onComplete,
+    onError,
+  );
 }

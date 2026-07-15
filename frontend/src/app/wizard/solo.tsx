@@ -3,7 +3,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Href, router } from "expo-router";
+import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,24 +18,24 @@ import {
   View as RNView,
 } from "react-native";
 import Animated, {
-  Easing,
   FadeIn,
-  FadeOut,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
+import { MagicalGenerating } from "@/components/trip/MagicalGenerating";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { BUDGET_OPTIONS } from "@/constants/travel-preferences";
 import { useTheme } from "@/hooks/use-theme";
-import { generateTripStream } from "@/lib/api";
+import {
+  createMatch,
+  generateTripStream,
+  NetworkError,
+} from "@/lib/api";
 import { Pressable, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -126,89 +126,21 @@ function StepperBtn({
   );
 }
 
-/** UI imersiva enquanto o SSE remonta o JSON do roteiro. */
-function MagicalGenerating({ destination }: { destination: string }) {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const pulse = useSharedValue(0.45);
-  const spin = useSharedValue(0);
-  const [phase, setPhase] = useState(0);
-
-  useEffect(() => {
-    // Respiração suave — geração é evento raro, merece delight (Emil).
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }),
-      -1,
-      true,
-    );
-    spin.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1400, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 0 }),
-      ),
-      -1,
-      false,
-    );
-
-    const id = setInterval(() => setPhase((p) => (p + 1) % 2), 2800);
-    return () => clearInterval(id);
-  }, [pulse, spin]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulse.value,
-    transform: [{ scale: 0.96 + pulse.value * 0.04 }],
-  }));
-
-  const sparkleStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.value * 360}deg` }],
-  }));
-
-  const statusText =
-    phase === 0
-      ? t("wizard.generating.exploringMap")
-      : t("wizard.generating.craftingTrip", { destination });
-
-  return (
-    <Animated.View
-      entering={FadeIn.duration(220)}
-      exiting={FadeOut.duration(160)}
-      style={styles.magicRoot}
-    >
-      <Animated.View
-        style={[
-          styles.magicOrb,
-          { backgroundColor: `${theme.accent}18` },
-          sparkleStyle,
-        ]}
-      >
-        <Ionicons name="sparkles" size={36} color={theme.accent} />
-      </Animated.View>
-      <Animated.View style={pulseStyle}>
-        <AppText
-          className="text-center text-[18px] font-semibold"
-          style={{ letterSpacing: -0.2 }}
-        >
-          {statusText}
-        </AppText>
-      </Animated.View>
-      <AppText tone="secondary" className="text-center text-[13px]">
-        {t("wizard.generating.hint")}
-      </AppText>
-    </Animated.View>
-  );
-}
-
 export default function WizardSoloScreen() {
   const { t } = useTranslation();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const isMatch = mode === "match";
 
   const [destination, setDestination] = useState("");
   const [days, setDays] = useState(5);
   const [budget, setBudget] = useState("moderate");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [creatingMatch, setCreatingMatch] = useState(false);
+  const [matchErrorKey, setMatchErrorKey] = useState<string | null>(null);
   const closeStreamRef = useRef<(() => void) | null>(null);
 
   const budgetOptions = BUDGET_OPTIONS.map((o) => ({
@@ -216,7 +148,8 @@ export default function WizardSoloScreen() {
     label: t(o.labelKey),
   }));
 
-  const canSubmit = destination.trim().length >= 2 && !loading;
+  const canSubmit =
+    destination.trim().length >= 2 && !loading && !creatingMatch;
 
   useEffect(() => {
     return () => {
@@ -225,9 +158,34 @@ export default function WizardSoloScreen() {
     };
   }, []);
 
-  function onGenerate() {
+  async function onGenerate() {
     if (!canSubmit) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (isMatch) {
+      setCreatingMatch(true);
+      setMatchErrorKey(null);
+      try {
+        const match = await createMatch({
+          destination: destination.trim(),
+          days,
+          budget,
+        });
+        setCreatingMatch(false);
+        const href = `/match/${match.id}` as Href;
+        router.replace(href);
+      } catch (error) {
+        setCreatingMatch(false);
+        setMatchErrorKey(
+          error instanceof NetworkError
+            ? "common.networkError"
+            : "match.errors.create",
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      return;
+    }
+
     setLoading(true);
 
     closeStreamRef.current?.();
@@ -302,12 +260,18 @@ export default function WizardSoloScreen() {
               className="text-[18px] font-bold"
               style={{ letterSpacing: -0.3 }}
             >
-              {loading ? t("wizard.generating.title") : t("wizard.title")}
+              {loading
+                ? t("wizard.generating.title")
+                : isMatch
+                  ? t("match.wizard.title")
+                  : t("wizard.title")}
             </AppText>
             <AppText tone="secondary" className="text-[12px]">
               {loading
                 ? t("wizard.generating.subtitle")
-                : t("wizard.subtitle")}
+                : isMatch
+                  ? t("match.wizard.subtitle")
+                  : t("wizard.subtitle")}
             </AppText>
           </RNView>
         </RNView>
@@ -372,27 +336,29 @@ export default function WizardSoloScreen() {
                 />
               </RNView>
 
-              <RNView style={styles.field}>
-                <AppText className="text-[13px] font-semibold tracking-wide">
-                  {t("wizard.notesLabel")}
-                </AppText>
-                <RNTextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder={t("wizard.notesPlaceholder")}
-                  placeholderTextColor={theme.textMuted}
-                  multiline
-                  textAlignVertical="top"
-                  style={[
-                    styles.notes,
-                    {
-                      color: theme.textPrimary,
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                />
-              </RNView>
+              {!isMatch && (
+                <RNView style={styles.field}>
+                  <AppText className="text-[13px] font-semibold tracking-wide">
+                    {t("wizard.notesLabel")}
+                  </AppText>
+                  <RNTextInput
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder={t("wizard.notesPlaceholder")}
+                    placeholderTextColor={theme.textMuted}
+                    multiline
+                    textAlignVertical="top"
+                    style={[
+                      styles.notes,
+                      {
+                        color: theme.textPrimary,
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  />
+                </RNView>
+              )}
 
               <Pressable
                 onPress={() => {
@@ -442,12 +408,20 @@ export default function WizardSoloScreen() {
                 },
               ]}
             >
+              {matchErrorKey && (
+                <AppText
+                  tone="error"
+                  className="mb-2 text-center text-[13px]"
+                >
+                  {t(matchErrorKey)}
+                </AppText>
+              )}
               <Button
-                onPress={onGenerate}
-                loading={loading}
+                onPress={() => void onGenerate()}
+                loading={loading || creatingMatch}
                 disabled={!canSubmit}
               >
-                {t("wizard.generate")}
+                {isMatch ? t("match.wizard.create") : t("wizard.generate")}
               </Button>
             </RNView>
           </Animated.View>
@@ -525,20 +499,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  magicRoot: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    gap: 20,
-  },
-  magicOrb: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
   },
 });
