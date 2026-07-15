@@ -14,6 +14,7 @@ const FIREBASE_ERROR_MAP: Record<string, string> = {
   "auth/user-disabled": "auth.errors.userDisabled",
   "auth/too-many-requests": "auth.errors.tooManyRequests",
   "auth/network-request-failed": "auth.errors.networkError",
+  "auth/requires-recent-login": "editProfile.errors.requiresRecentLogin",
 };
 
 /**

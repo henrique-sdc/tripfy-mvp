@@ -43,6 +43,7 @@ export type TravelPreferences = {
   dietary_style: string;
   budget_range: string;
   traveler_type: string;
+  other_preferences?: string;
 };
 
 export type SyncResponse = {

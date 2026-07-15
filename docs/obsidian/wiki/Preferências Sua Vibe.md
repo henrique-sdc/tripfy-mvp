@@ -37,7 +37,14 @@ class TravelPreferences(BaseModel):
     dietary_style: DietaryStyle     # none | vegetarian | vegan
     budget_range: BudgetRange
     traveler_type: TravelerType
+    other_preferences: str = ""     # texto livre, máx 280 — ver nota abaixo
 ```
+
+> [!info] `other_preferences` (adicionado — [[Gerenciamento de Perfil RF03]])
+> Campo de texto livre opcional, editável em `/edit-vibe` (fora do onboarding, que
+> permanece só com tags fixas). Vai para `<perfil_viajante>` no prompt via
+> `sanitize_user_text` (mesma blindagem anti-injection das `notes` do wizard) —
+> não é só cosmético, a IA realmente lê isso ao montar o roteiro.
 
 ### Por que cada campo existe (valor pro LLM / Maps)
 

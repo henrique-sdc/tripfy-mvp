@@ -12,7 +12,8 @@ Fluxo completo de cadastro, login, sessão persistente e formulário de preferê
 
 > [!info] Escopo desta entrega
 > Dentro: cadastro, login, recuperação de senha (RF02), sessão persistente entre reaberturas, onboarding de preferências, redirect automático.
-> Fora (próxima sessão): RF03 completo (editar perfil, excluir conta), tela de Perfil, Google Sign-In (dev client).
+> Fora (próxima sessão): editar preferências de vibe pós-onboarding (nota RF03), Google Sign-In (dev client).
+> Feito: [[Gerenciamento de Perfil RF03]] (editar perfil + exclusão LGPD).
 
 ## Princípio central
 

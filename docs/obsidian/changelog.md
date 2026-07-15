@@ -1,4 +1,35 @@
 # Changelog — Tripfy Docs
+## 2026-07-15 — Expansão da foto de perfil (Instagram-like)
+
+- Toque no avatar expande com morph + blur; lápis → `/edit-profile`; toque no fundo fecha (mais rápido que a abertura). Ver `ProfilePhotoExpand`.
+
+## 2026-07-15 — Polish perfil (avatar, CTA duplo, companheiros, nav)
+
+- **Perfil estilo Instagram.** Ver [[Gerenciamento de Perfil RF03]].
+  - Avatar ~96pt; CTAs lado a lado (Editar / Compartilhar — share "Em breve" até Match).
+  - Companheiros: empty state, preview máx. 4, `/companions` via título `>`.
+  - Fix animação de voltar (Android): sem `presentation: "card"`, `SystemUI` + ThemeProvider com `background`/`card` do tema, `animationDuration: 280`.
+  - Sair da conta: confirmação + limpa `user`/`hasPreferences` no store.
+
+## 2026-07-15 — Redesign Perfil + área de Configurações (RF03)
+
+- **Perfil repaginado + Configurações nova.** Ver [[Gerenciamento de Perfil RF03]].
+  - Fix flash branco no Dark Mode: `contentStyle` no `<Stack>` raiz (`_layout.tsx`).
+  - Backend: `TravelPreferences.other_preferences` (texto livre, máx. 280) + incluído no prompt (`<perfil_viajante>`). Ver [[Preferências Sua Vibe]].
+  - Novo `/edit-vibe`: reedita a vibe (reusa componentes do onboarding) + campo livre. `(onboarding)/preferences.tsx` não foi tocado.
+  - Novo `/settings`: conta (editar perfil/vibe), notificações ("Em breve"), Ajuda & Suporte, sair da conta (logout inexistia antes), zona de perigo (movida de `edit-profile.tsx`).
+  - Novo `/help-support`: FAQ curto, direitos LGPD, contato `mailto:`, aviso de Política/Termos em breve.
+  - `profile.tsx`: engrenagem → Configurações; nome completo secundário; stats reais (roteiros criados via `getCountFromServer`, salvos via `wishlistStore`, matches "Em breve"); "Alterar" da vibe agora funcional.
+  - `edit-profile.tsx`: botão "Remover foto"; zona de perigo removida (mudou de tela).
+  - Confirmado: texto do botão "Cortar" do cropper Android não é customizável via `expo-image-picker` (UI nativa da lib).
+
+## 2026-07-14 — RF03 perfil + exclusão LGPD
+
+- **Gerenciamento de conta (RF03 / RN01).** Ver [[Gerenciamento de Perfil RF03]].
+  - `lib/profile.ts`: get/update Auth+Firestore; delete cascata trips → user → Auth.
+  - `/edit-profile`: foto (ImagePicker), nome/bio (RHF+Zod), zona de perigo.
+  - Tab Perfil: dados reais + chips de `travel_preferences`; lápis → editar.
+
 ## 2026-07-14 — LLM trocável OpenAI/Gemini
 
 - **Provedor LLM via `.env`.** Ver [[Geração de Roteiro RF06]].

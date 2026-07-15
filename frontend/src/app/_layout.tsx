@@ -3,20 +3,35 @@ import "../global.css";
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useColorScheme } from "react-native";
+import * as SystemUI from "expo-system-ui";
+import { useEffect, useMemo } from "react";
+import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/use-theme";
 import { selectIsAuthenticated, useAuthStore } from "@/stores/authStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
 // Mantém a splash nativa visível até resolvermos o estado inicial de auth.
 SplashScreen.preventAutoHideAsync();
 
+// Empurrar: ~280ms (rápido, estilo Instagram).
+// Voltar: o native-stack já usa a curva nativa de pop (mais curta que o push).
+// animationDuration só aplica no iOS; no Android o sistema controla o timing.
+const PUSH_SCREEN_OPTIONS = {
+  headerShown: false,
+  animation: "slide_from_right" as const,
+  animationDuration: 280,
+  // Sem presentation: "card" — no Android isso desanexa a tela anterior cedo
+  // demais e a UI “some” no meio da animação de voltar.
+};
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = useTheme();
 
   // Liga Firebase ↔ Zustand ↔ Backend (restaura sessão persistida na subida).
   useAuth();
@@ -28,6 +43,24 @@ export default function RootLayout() {
   const hasSeenSlides = useOnboardingStore((s) => s.hasSeenSlides);
   const hasSlidesHydrated = useOnboardingStore((s) => s.hasHydrated);
 
+  // Fundo nativo do SO = tema do app — evita flash branco/preto atrás do stack
+  // durante push/pop (bug clássico no Android + react-native-screens).
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(theme.background);
+  }, [theme.background]);
+
+  const navTheme = useMemo(() => {
+    const base = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        background: theme.background,
+        card: theme.background,
+      },
+    };
+  }, [colorScheme, theme.background]);
+
   // Enquanto checamos a sessão (Firebase) e reidratamos o carrossel de
   // apresentação (AsyncStorage), não renderizamos nada — a splash nativa
   // segue na tela (só é escondida pelo AnimatedSplashOverlay depois disso).
@@ -37,15 +70,27 @@ export default function RootLayout() {
 
   return (
     /* O GestureHandlerRootView envelopa o app todo com flex: 1 */
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <GestureHandlerRootView
+      style={{ flex: 1, backgroundColor: theme.background }}
+    >
+      <ThemeProvider value={navTheme}>
         <AnimatedSplashOverlay />
         <OfflineBanner />
         {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
             O Expo Router redireciona sozinho para o primeiro grupo acessível.
             Ordem: slides de apresentação (1x por instalação) → auth → onboarding
             de preferências → tabs. */}
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            // Sem isso, o react-native-screens usa fundo branco padrão durante
+            // a transição nativa — "pisca" branco no Dark Mode ao navegar.
+            contentStyle: { backgroundColor: theme.background },
+            // Evita unmount precoce da tela anterior no Android (tela some
+            // no meio do pop). iOS ignora / trata como no-op seguro.
+            freezeOnBlur: Platform.OS === "ios",
+          }}
+        >
           <Stack.Protected guard={!hasSeenSlides}>
             <Stack.Screen name="(onboarding-slides)" />
           </Stack.Protected>
@@ -69,24 +114,17 @@ export default function RootLayout() {
               options={{
                 presentation: "fullScreenModal",
                 animation: "slide_from_bottom",
+                animationDuration: 280,
                 headerShown: false,
               }}
             />
-            <Stack.Screen
-              name="trip-detail"
-              options={{
-                presentation: "card",
-                animation: "slide_from_right",
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="trending"
-              options={{
-                animation: "slide_from_right",
-                headerShown: false,
-              }}
-            />
+            <Stack.Screen name="trip-detail" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="trending" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="edit-profile" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="settings" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="help-support" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="edit-vibe" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="companions" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>
         </Stack>
       </ThemeProvider>

@@ -374,15 +374,129 @@
   },
   "profile": {
     "fallbackName": "Viajante",
+    "settings": "Configurações",
+    "editPhoto": "Alterar foto de perfil",
+    "expandPhoto": "Ampliar foto de perfil",
+    "dismissPhoto": "Fechar foto",
+    "editProfile": "Editar perfil",
+    "shareProfile": "Compartilhar perfil",
+    "shareSoonTitle": "Em breve",
+    "shareSoonBody": "Em breve você poderá compartilhar seu perfil pra adicionar amigos e criar Matches com mais facilidade.",
+    "stats": {
+      "trips": "Roteiros criados",
+      "saved": "Salvos",
+      "matches": "Matches",
+      "soon": "Em breve"
+    },
     "vibe": {
       "title": "Sua vibe",
       "edit": "Alterar",
-      "hint": "Isso alimenta os roteiros e o Match."
+      "hint": "Isso alimenta os roteiros e o Match.",
+      "empty": "Nenhuma preferência salva ainda."
     },
     "companions": {
       "title": "Companheiros de viagem",
-      "hint": "Com quem você mais compartilha roteiros.",
-      "tripsTogether": "{{count}} roteiros em comum"
+      "hint": "Com quem você mais gera roteiros juntos.",
+      "tripsTogether": "{{count}} roteiros em comum",
+      "emptyTitle": "Nenhum companheiro ainda",
+      "emptyBody": "Quando você adicionar amigos e criar Matches, eles aparecem aqui."
     }
+  },
+  "editProfile": {
+    "title": "Editar perfil",
+    "back": "Voltar",
+    "changePhoto": "Alterar foto de perfil",
+    "photoHint": "Toque para escolher uma foto",
+    "removePhoto": "Remover foto",
+    "photoPermissionTitle": "Acesso à galeria",
+    "photoPermissionBody": "Precisamos da galeria para você escolher a foto de perfil.",
+    "nameLabel": "Nome",
+    "bioLabel": "Bio",
+    "bioPlaceholder": "Uma linha sobre como você viaja",
+    "bioCounter": "{{count}}/140",
+    "save": "Salvar alterações",
+    "dangerZone": "Zona de perigo",
+    "dangerHint": "A exclusão apaga permanentemente sua conta, preferências e roteiros (LGPD).",
+    "deleteButton": "Excluir conta permanentemente",
+    "deleteTitle": "Excluir conta?",
+    "deleteBody": "Isso apaga seu perfil, preferências e viagens salvas. Não dá para desfazer.",
+    "deleteCancel": "Cancelar",
+    "deleteConfirm": "Excluir tudo",
+    "errors": {
+      "nameTooShort": "Nome precisa ter pelo menos 3 letras.",
+      "nameInvalidChars": "Use apenas letras e espaços.",
+      "bioTooLong": "Bio no máximo 140 caracteres.",
+      "loadFailed": "Não foi possível carregar seu perfil.",
+      "photoTooLarge": "Foto muito grande. Escolha outra imagem.",
+      "requiresRecentLogin": "Por segurança, saia e entre de novo antes de excluir a conta."
+    }
+  },
+  "editVibe": {
+    "title": "Editar sua vibe",
+    "otherSection": "Outras preferências (opcional)",
+    "otherHint": "Não encontrou algo nas opções acima? Escreva aqui — a IA leva isso em conta.",
+    "otherPlaceholder": "Ex: adoro trilhas pouco conhecidas, evito lugares muito cheios...",
+    "otherCounter": "{{count}}/280",
+    "save": "Salvar preferências",
+    "errors": {
+      "loadFailed": "Não foi possível carregar suas preferências.",
+      "minimum": "Marque ao menos 1 interesse, escolha o ritmo e o orçamento."
+    }
+  },
+  "settings": {
+    "title": "Configurações",
+    "accountSection": "Conta",
+    "editProfile": "Editar perfil",
+    "editVibe": "Editar sua vibe",
+    "appSection": "Preferências do app",
+    "notifications": "Notificações",
+    "comingSoon": "Em breve",
+    "supportSection": "Suporte",
+    "helpSupport": "Ajuda & Suporte",
+    "sessionSection": "Sessão",
+    "signOut": "Sair da conta",
+    "signOutTitle": "Sair da conta?",
+    "signOutBody": "Você vai precisar entrar de novo para acessar seus roteiros.",
+    "signOutCancel": "Cancelar",
+    "signOutConfirm": "Sair"
+  },
+  "companions": {
+    "title": "Companheiros de viagem",
+    "subtitle": "Ordenados por quem mais gera roteiros com você.",
+    "emptyTitle": "Nenhum companheiro ainda",
+    "emptyBody": "Compartilhe seu perfil e adicione amigos. Quando o Match estiver no ar, vocês vão aparecer aqui ordenados pelos roteiros em comum."
+  },
+  "helpSupport": {
+    "title": "Ajuda & Suporte",
+    "faqSection": "Perguntas frequentes",
+    "faq": {
+      "ai": {
+        "q": "Como funciona a geração de roteiro por IA?",
+        "a": "Você conta o destino, os dias e suas preferências, e a IA monta um roteiro dia a dia — sempre gratuito."
+      },
+      "match": {
+        "q": "Como funciona o Match de Viajantes?",
+        "a": "A IA cruza as preferências de todos do grupo (até 2 pessoas no plano grátis) para sugerir um roteiro que combine com todo mundo."
+      },
+      "cost": {
+        "q": "Gerar um roteiro tem algum custo?",
+        "a": "Não. Gerar roteiros com IA é sempre gratuito no Tripfy."
+      },
+      "dataSafety": {
+        "q": "Meus dados estão seguros?",
+        "a": "Sim. Seus dados ficam protegidos e são usados só para personalizar sua experiência, conforme a LGPD."
+      },
+      "deleteData": {
+        "q": "Como excluir minha conta e meus dados?",
+        "a": "Vá em Configurações e toque em \"Excluir conta permanentemente\". A exclusão remove seu perfil, preferências e viagens salvas."
+      }
+    },
+    "lgpd": {
+      "title": "Seus direitos (LGPD)",
+      "body": "Você pode solicitar a exclusão dos seus dados pessoais a qualquer momento, direto pelo app.",
+      "deleteLink": "Ir para Excluir conta"
+    },
+    "contactSection": "Fale com a gente",
+    "legalComingSoon": "Política de Privacidade e Termos de Uso — em breve."
   }
 }

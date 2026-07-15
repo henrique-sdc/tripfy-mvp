@@ -76,6 +76,9 @@ class TravelPreferences(BaseModel):
     dietary_style: DietaryStyle = DietaryStyle.NONE
     budget_range: BudgetRange
     traveler_type: TravelerType
+    # Texto livre — cobre gostos que não cabem nas tags fixas (Seção 4/RF03).
+    # Tratado como dado não confiável no prompt (sanitize_user_text).
+    other_preferences: str = Field(default="", max_length=280)
 
 
 class UserInDB(BaseModel):
