@@ -21,15 +21,33 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  type SharedValue,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ActivityCard } from "@/components/trip/ActivityCard";
+import { EditActivityModal } from "@/components/trip/EditActivityModal";
+import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
 import { TripOsmMap } from "@/components/trip/TripOsmMap";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import type { ActivityResponse, ItineraryResponse } from "@/lib/api";
+import { peekPendingItinerary } from "@/lib/pendingItinerary";
 import { deleteTrip, getTrip, saveTrip } from "@/lib/trips";
 
-type LocalActivity = ActivityResponse & { key: string };
+const DELETE_ACTION_W = 76;
+/** progress > 1 = overshoot; acima disso apaga como o Mail da Apple. */
+const OVERSWIPE_DELETE_AT = 1.45;
+
+type LocalActivity = ActivityResponse & { key: string; dayNumber: number };
 type LocalDay = {
   day: number;
   title: string;
@@ -41,6 +59,9 @@ type LocalItinerary = {
   days: LocalDay[];
 };
 
+/** null = todos os dias; number = índice do dia em `days`. */
+type DaySelection = null | number;
+
 function stampKeys(raw: ItineraryResponse): LocalItinerary {
   return {
     destination: raw.destination,
@@ -50,6 +71,7 @@ function stampKeys(raw: ItineraryResponse): LocalItinerary {
       title: d.title,
       activities: d.activities.map((a, i) => ({
         ...a,
+        dayNumber: d.day,
         key: `${d.day}-${i}-${a.time}-${a.title}`,
       })),
     })),
@@ -86,7 +108,7 @@ function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
     days: itinerary.days.map((d) => ({
       day: d.day,
       title: d.title,
-      activities: d.activities.map(({ key: _k, ...a }) => a),
+      activities: d.activities.map(({ key: _k, dayNumber: _d, ...a }) => a),
     })),
   };
 }
@@ -104,6 +126,70 @@ function reassignTimes(
   }));
 }
 
+function resolveInitialItinerary(
+  paramRaw: string | string[] | undefined,
+): LocalItinerary | null {
+  const pending = peekPendingItinerary();
+  if (pending) return stampKeys(pending);
+  return parseItinerary(paramRaw);
+}
+
+/** Ação vermelha do swipe — ícone escala com o progresso (feel físico). */
+function SwipeDeleteAction({
+  progress,
+  onDelete,
+  accessibilityLabel,
+}: {
+  progress: SharedValue<number>;
+  onDelete: () => void;
+  accessibilityLabel: string;
+}) {
+  const fired = useSharedValue(false);
+
+  useAnimatedReaction(
+    () => progress.value,
+    (current) => {
+      // Overswipe (progress > 1): apaga como o Mail — só uma vez por gesto.
+      if (current >= OVERSWIPE_DELETE_AT && !fired.value) {
+        fired.value = true;
+        runOnJS(onDelete)();
+      }
+      if (current < 0.2) {
+        fired.value = false;
+      }
+    },
+  );
+
+  const iconStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      progress.value,
+      [0, 1, OVERSWIPE_DELETE_AT],
+      [0.55, 1, 1.28],
+      Extrapolation.CLAMP,
+    );
+    const opacity = interpolate(
+      progress.value,
+      [0, 0.35, 1],
+      [0, 0.55, 1],
+      Extrapolation.CLAMP,
+    );
+    return { opacity, transform: [{ scale }] };
+  });
+
+  return (
+    <RNPressable
+      onPress={onDelete}
+      style={styles.deleteAction}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Animated.View style={iconStyle}>
+        <Ionicons name="trash" size={24} color="#FFFFFF" />
+      </Animated.View>
+    </RNPressable>
+  );
+}
+
 export default function TripDetailScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -115,25 +201,27 @@ export default function TripDetailScreen() {
     tripId?: string;
   }>();
 
-  const fromParams = useMemo(
-    () => parseItinerary(params.itinerary),
-    [params.itinerary],
+  const [itinerary, setItinerary] = useState<LocalItinerary | null>(() =>
+    resolveInitialItinerary(params.itinerary),
   );
-
-  const [itinerary, setItinerary] = useState<LocalItinerary | null>(fromParams);
-  const [dayIndex, setDayIndex] = useState(0);
+  // Primeiro chip = todos os dias juntos.
+  const [daySelection, setDaySelection] = useState<DaySelection>(null);
   const [tripId, setTripId] = useState<string | null>(
     typeof params.tripId === "string" ? params.tripId : null,
   );
   const [saving, setSaving] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(
-    !fromParams && Boolean(params.tripId),
+    !itinerary && Boolean(params.tripId),
+  );
+  const [detailsPlaceId, setDetailsPlaceId] = useState<string | null>(null);
+  const [editingActivityKey, setEditingActivityKey] = useState<string | null>(
+    null,
   );
 
   // Abre viagem salva só com tripId (vindo da aba Viagens).
   useEffect(() => {
     const id = typeof params.tripId === "string" ? params.tripId : null;
-    if (fromParams || !id) return;
+    if (itinerary || !id) return;
 
     let cancelled = false;
     (async () => {
@@ -164,10 +252,20 @@ export default function TripDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [fromParams, params.tripId, t]);
+  }, [itinerary, params.tripId, t]);
 
-  const currentDay = itinerary?.days[dayIndex];
-  const activities = currentDay?.activities ?? [];
+  const showingAll = daySelection === null;
+  const currentDay =
+    !showingAll && itinerary ? itinerary.days[daySelection] : undefined;
+
+  const activities = useMemo(() => {
+    if (!itinerary) return [];
+    if (showingAll) {
+      return itinerary.days.flatMap((d) => d.activities);
+    }
+    return currentDay?.activities ?? [];
+  }, [itinerary, showingAll, currentDay]);
+
   const mapped = useMemo(
     () =>
       activities.filter(hasCoords).map((a) => ({
@@ -183,40 +281,85 @@ export default function TripDetailScreen() {
 
   const onReorder = useCallback(
     (data: LocalActivity[]) => {
-      if (!itinerary || !currentDay) return;
-      Haptics.selectionAsync();
+      // Vista "Todos": reordenar entre dias misturaria horários — só no dia.
+      if (!itinerary || showingAll || daySelection === null || !currentDay) {
+        return;
+      }
       const rescheduled = reassignTimes(currentDay.activities, data);
       setItinerary({
         ...itinerary,
         days: itinerary.days.map((d, i) =>
-          i === dayIndex ? { ...d, activities: rescheduled } : d,
+          i === daySelection ? { ...d, activities: rescheduled } : d,
         ),
       });
     },
-    [itinerary, currentDay, dayIndex],
+    [itinerary, showingAll, daySelection, currentDay],
   );
 
   const onRemove = useCallback(
     (key: string) => {
-      if (!itinerary || !currentDay) return;
-      if (currentDay.activities.length <= 1) {
+      if (!itinerary) return;
+
+      const dayIdx = itinerary.days.findIndex((d) =>
+        d.activities.some((a) => a.key === key),
+      );
+      if (dayIdx < 0) return;
+      const day = itinerary.days[dayIdx];
+      if (day.activities.length <= 1) {
         Alert.alert(
           t("tripDetail.cannotRemoveLastTitle"),
           t("tripDetail.cannotRemoveLastBody"),
         );
         return;
       }
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const remaining = currentDay.activities.filter((a) => a.key !== key);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const remaining = day.activities.filter((a) => a.key !== key);
       const rescheduled = reassignTimes(remaining, remaining);
       setItinerary({
         ...itinerary,
         days: itinerary.days.map((d, i) =>
-          i === dayIndex ? { ...d, activities: rescheduled } : d,
+          i === dayIdx ? { ...d, activities: rescheduled } : d,
         ),
       });
     },
-    [itinerary, currentDay, dayIndex, t],
+    [itinerary, t],
+  );
+
+  const canDeleteActivity = useCallback(
+    (key: string) => {
+      if (!itinerary) return false;
+      const day = itinerary.days.find((d) =>
+        d.activities.some((a) => a.key === key),
+      );
+      return (day?.activities.length ?? 0) > 1;
+    },
+    [itinerary],
+  );
+
+  const editingActivity = useMemo(() => {
+    if (!itinerary || !editingActivityKey) return null;
+    for (const day of itinerary.days) {
+      const found = day.activities.find((a) => a.key === editingActivityKey);
+      if (found) return found;
+    }
+    return null;
+  }, [itinerary, editingActivityKey]);
+
+  const onEditActivity = useCallback(
+    (key: string, time: string, title: string) => {
+      if (!itinerary) return;
+      setItinerary({
+        ...itinerary,
+        days: itinerary.days.map((d) => ({
+          ...d,
+          activities: d.activities.map((a) =>
+            a.key === key ? { ...a, time, title } : a,
+          ),
+        })),
+      });
+      setEditingActivityKey(null);
+    },
+    [itinerary],
   );
 
   async function onToggleSave() {
@@ -295,65 +438,58 @@ export default function TripDetailScreen() {
   const renderActivity = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<LocalActivity>) => {
       const index = getIndex() ?? 0;
+      const canDrag = !showingAll;
+      const canDelete = canDeleteActivity(item.key);
+
       return (
         <ScaleDecorator activeScale={1.03}>
-          <RNPressable
-            onLongPress={drag}
-            disabled={isActive}
-            delayLongPress={140}
-            style={[
-              styles.activityCard,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                opacity: isActive ? 0.92 : 1,
-              },
-            ]}
-          >
-            <RNView style={styles.cardHeader}>
-              <RNView style={styles.cardHeaderLeft}>
-                <RNView
-                  style={[
-                    styles.stopBadge,
-                    { backgroundColor: `${theme.accent}22` },
-                  ]}
-                >
-                  <AppText tone="accent" className="text-[11px] font-bold">
-                    {index + 1}
-                  </AppText>
-                </RNView>
-                <AppText tone="accent" className="text-[12px] font-semibold">
-                  {item.time}
-                </AppText>
-                <Ionicons name="menu" size={16} color={theme.textMuted} />
-              </RNView>
+          <RNView style={[styles.rowWrap, isActive ? styles.rowElevated : null]}>
+            <Swipeable
+              friction={2}
+              rightThreshold={40}
+              overshootRight
+              overshootFriction={8}
+              dragOffsetFromRightEdge={24}
+              enabled={!isActive && canDelete}
+              containerStyle={isActive ? undefined : styles.swipeClip}
+              renderRightActions={(progress, _translation, methods) => (
+                <SwipeDeleteAction
+                  progress={progress}
+                  accessibilityLabel={t("tripDetail.removeActivity")}
+                  onDelete={() => {
+                    methods.close();
+                    onRemove(item.key);
+                  }}
+                />
+              )}
+            >
               <RNPressable
-                onPress={() => onRemove(item.key)}
-                hitSlop={10}
-                accessibilityLabel={t("tripDetail.removeActivity")}
+                onLongPress={canDrag ? drag : undefined}
+                disabled={isActive}
+                delayLongPress={160}
               >
-                <Ionicons name="close" size={20} color={theme.textSecondary} />
+                <ActivityCard
+                  activity={item}
+                  badgeLabel={
+                    showingAll
+                      ? t("tripDetail.dayChip", { day: item.dayNumber })
+                      : String(index + 1)
+                  }
+                  showDragHandle={canDrag}
+                  dimmed={isActive}
+                  onOpenDetails={(placeId) => setDetailsPlaceId(placeId)}
+                  onEdit={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setEditingActivityKey(item.key);
+                  }}
+                />
               </RNPressable>
-            </RNView>
-            <AppText className="text-[15px] font-semibold">{item.title}</AppText>
-            <AppText tone="secondary" className="text-[13px] leading-5">
-              {item.description}
-            </AppText>
-            <RNView style={styles.locationRow}>
-              <Ionicons
-                name="location-outline"
-                size={14}
-                color={theme.textMuted}
-              />
-              <AppText tone="muted" className="text-[12px]" numberOfLines={1}>
-                {item.location}
-              </AppText>
-            </RNView>
-          </RNPressable>
+            </Swipeable>
+          </RNView>
         </ScaleDecorator>
       );
     },
-    [theme, onRemove, t],
+    [onRemove, t, showingAll, canDeleteActivity],
   );
 
   return (
@@ -452,14 +588,36 @@ export default function TripDetailScreen() {
               contentContainerStyle={styles.dayChips}
               style={styles.dayChipsScroll}
             >
+              <RNPressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setDaySelection(null);
+                }}
+                style={[
+                  styles.dayChip,
+                  {
+                    backgroundColor: showingAll ? theme.accent : theme.surface,
+                    borderColor: showingAll ? theme.accent : theme.border,
+                  },
+                ]}
+              >
+                <AppText
+                  className="text-[12px] font-semibold"
+                  style={{
+                    color: showingAll ? "#fff" : theme.textSecondary,
+                  }}
+                >
+                  {t("tripDetail.allDaysChip")}
+                </AppText>
+              </RNPressable>
               {itinerary.days.map((d, i) => {
-                const active = i === dayIndex;
+                const active = daySelection === i;
                 return (
                   <RNPressable
                     key={d.day}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      setDayIndex(i);
+                      setDaySelection(i);
                     }}
                     style={[
                       styles.dayChip,
@@ -482,37 +640,93 @@ export default function TripDetailScreen() {
               })}
             </RNScrollView>
 
-            {currentDay ? (
-              <AppText
-                tone="secondary"
-                className="text-[13px]"
-                style={styles.dayTitle}
-                numberOfLines={2}
-              >
-                {currentDay.title}
-              </AppText>
-            ) : null}
-
             <AppText
-              tone="muted"
-              className="text-[11px]"
-              style={styles.dragHint}
+              tone="secondary"
+              className="text-[13px]"
+              style={styles.dayTitle}
+              numberOfLines={2}
             >
-              {t("tripDetail.dragHint")}
+              {showingAll
+                ? itinerary.summary || t("tripDetail.allDaysTitle")
+                : (currentDay?.title ?? "")}
             </AppText>
+
+            {!showingAll ? (
+              <AppText
+                tone="muted"
+                className="text-[11px]"
+                style={styles.dragHint}
+              >
+                {t("tripDetail.dragHint")}
+              </AppText>
+            ) : (
+              <RNView style={{ height: 8 }} />
+            )}
 
             <DraggableFlatList
               data={activities}
               keyExtractor={(item) => item.key}
-              onDragEnd={({ data }) => onReorder(data)}
+              onDragBegin={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              onDragEnd={({ data }) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onReorder(data);
+              }}
               containerStyle={styles.flex}
-              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+              contentContainerStyle={{
+                paddingBottom: insets.bottom + 88,
+              }}
               renderItem={renderActivity}
-              activationDistance={8}
+              activationDistance={showingAll ? 10_000 : 8}
               autoscrollThreshold={48}
             />
+
+            <RNPressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                console.info("[trip-detail] Adicionar parada — em breve");
+                Alert.alert(
+                  t("tripDetail.addStopSoonTitle"),
+                  t("tripDetail.addStopSoonBody"),
+                );
+              }}
+              style={[
+                styles.fab,
+                {
+                  bottom: insets.bottom + 16,
+                  backgroundColor: theme.buttonPrimary,
+                },
+              ]}
+              accessibilityLabel={t("tripDetail.addStop")}
+            >
+              <Ionicons name="add" size={20} color={theme.buttonText} />
+              <AppText
+                className="text-[14px] font-semibold"
+                style={{ color: theme.buttonText }}
+              >
+                {t("tripDetail.addStop")}
+              </AppText>
+            </RNPressable>
           </>
         )}
+
+        <PlaceDetailsSheet
+          placeId={detailsPlaceId}
+          onClose={() => setDetailsPlaceId(null)}
+        />
+
+        <EditActivityModal
+          visible={editingActivity != null}
+          initialTime={editingActivity?.time ?? ""}
+          initialTitle={editingActivity?.title ?? ""}
+          onClose={() => setEditingActivityKey(null)}
+          onSave={(time, title) => {
+            if (editingActivityKey) {
+              onEditActivity(editingActivityKey, time, title);
+            }
+          }}
+        />
       </RNView>
     </GestureHandlerRootView>
   );
@@ -550,37 +764,45 @@ const styles = StyleSheet.create({
   },
   dayTitle: { paddingHorizontal: 16, paddingTop: 8 },
   dragHint: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
-  activityCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
-    gap: 6,
+  rowWrap: {
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  rowElevated: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 10,
+    zIndex: 2,
   },
-  cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  swipeClip: {
+    borderRadius: 24,
+    overflow: "hidden",
   },
-  stopBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+  deleteAction: {
+    width: DELETE_ACTION_W,
+    flex: 1,
+    marginLeft: 8,
+    borderRadius: 24,
+    backgroundColor: "#FF3B30",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
   },
-  locationRow: {
+  fab: {
+    position: "absolute",
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 4,
+    gap: 6,
+    paddingHorizontal: 18,
+    height: 48,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   empty: {
     flex: 1,

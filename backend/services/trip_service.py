@@ -58,4 +58,4 @@ async def generate_itinerary_stream(
     )
 
     llm = provider or get_llm_provider()
-    return llm.generate_itinerary_stream(final_prompt)
+    return llm.generate_itinerary_stream(final_prompt, day_count=request.days)

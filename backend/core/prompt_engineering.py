@@ -27,7 +27,10 @@ Schema JSON fornecido. Sem Markdown, sem prosa fora do JSON, sem blocos de códi
 
 Regras inegociáveis:
 1. {_ANTI_INJECTION}
-2. Preencha todos os dias pedidos, com horários (`time`), títulos e `location`.
+2. Preencha TODOS os dias pedidos em `<parametros_viagem>`: se `dias` for N,
+   o schema exige N dias (`day` = 1..N). Nunca entregue só o primeiro dia.
+   Cada dia com 4 a 6 atividades (não lotar um único dia), com horários
+   (`time`), títulos e `location`.
 3. Para cada atividade, estime `latitude` e `longitude` reais (WGS84) do local
    sugerido, com a melhor precisão que souber, para plotarmos no mapa do app.
    Se não tiver confiança mínima no ponto, use null em ambos — nunca invente
@@ -105,6 +108,7 @@ def build_user_prompt(
     return f"""Gere o roteiro JSON (ItineraryResponse) com os dados abaixo.
 Use os meios de transporte do perfil nas estimativas de deslocamento em
 cada description de ActivityResponse.
+O array `days` deve ter exatamente {trip.days} itens (day=1 até day={trip.days}).
 
 {profile}
 
@@ -138,6 +142,7 @@ def build_match_prompt(
 Cruze os interesses dos perfis abaixo. Intercale atividades quando os gostos
 divergirem e produza um roteiro amigável e equilibrado, sem calcular scores.
 Use os meios de transporte informados nas estimativas de deslocamento.
+O array `days` deve ter exatamente {match.days} itens (day=1 até day={match.days}).
 
 <perfis_viajantes>
 {profiles}

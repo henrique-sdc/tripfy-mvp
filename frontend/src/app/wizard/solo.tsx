@@ -36,6 +36,7 @@ import {
   generateTripStream,
   NetworkError,
 } from "@/lib/api";
+import { stashPendingItinerary } from "@/lib/pendingItinerary";
 import { Pressable, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -201,12 +202,9 @@ export default function WizardSoloScreen() {
         closeStreamRef.current = null;
         setLoading(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Cast: tipagem do Expo Router só regenera após o Metro subir com a rota nova.
-        const href = {
-          pathname: "/trip-detail",
-          params: { itinerary: JSON.stringify(itinerary) },
-        } as unknown as Href;
-        router.replace(href);
+        // Stash em memória — JSON multi-dia estoura o limite de params da URL.
+        stashPendingItinerary(itinerary);
+        router.replace("/trip-detail" as Href);
       },
       (error) => {
         closeStreamRef.current = null;

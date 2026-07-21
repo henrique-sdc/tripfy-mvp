@@ -43,6 +43,7 @@ import {
   NetworkError,
 } from "@/lib/api";
 import { db } from "@/lib/firebase";
+import { stashPendingItinerary } from "@/lib/pendingItinerary";
 import { useAuthStore } from "@/stores/authStore";
 import { Pressable, View } from "@/tw";
 
@@ -229,11 +230,9 @@ export default function MatchLobbyScreen() {
       void Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
       );
-      const href = {
-        pathname: "/trip-detail",
-        params: { itinerary: JSON.stringify(itinerary) },
-      } as unknown as Href;
-      router.replace(href);
+      // Stash em memória — JSON multi-dia estoura o limite de params da URL.
+      stashPendingItinerary(itinerary);
+      router.replace("/trip-detail" as Href);
     },
     [],
   );

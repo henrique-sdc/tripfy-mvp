@@ -207,7 +207,7 @@ async def generate_match_itinerary_stream(
             match,
             requester_uid,
             lock_token,
-            llm.generate_itinerary_stream(final_prompt),
+            llm.generate_itinerary_stream(final_prompt, day_count=match.days),
         )
     except BaseException:
         with suppress(Exception):

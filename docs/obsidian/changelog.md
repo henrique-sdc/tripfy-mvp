@@ -1,4 +1,39 @@
 # Changelog — Tripfy Docs
+
+## 2026-07-20 — PlaceDetailsSheet + Social + Edit (frontend)
+
+- Sheet Knowledge Panel (`PlaceDetailsSheet`): Sobre + Comunidade, reviews POST.
+- Tap no card abre details; lápis edita time/title (`EditActivityModal`). Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-20 — Place Details + Reviews Tripfy (backend)
+
+- Lookup agora devolve `place_id`.
+- `GET /places/{place_id}/details` — painel rico (New → legacy), até 5 fotos resolvidas.
+- Reviews: `place_reviews` via Admin SDK; `GET/POST /places/{id}/reviews` + `DELETE …/me` (1 review por uid). Rules negam client. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-15 — Places 403: fallback legacy + troubleshooting
+
+- `places_service`: se Places API (New) retorna 403, cai no Text Search clássico; foto via Location do redirect. Query do card prioriza `location`. Ver [[Detalhe da Viagem RF07]] e README.
+
+## 2026-07-15 — Swipe + DnD + FAB (RF07 PASSO 3)
+
+- `/trip-detail`: swipe-to-delete estilo Mail (`ReanimatedSwipeable` + overswipe), haptics no drag, FAB “Nova Parada” (Em breve). Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-15 — ActivityCard + Places lazy load (RF07 PASSO 2)
+
+- Frontend: `getPlaceDetails` em `lib/api.ts` + `ActivityCard` (shimmer, foto com fade, rating/`open_now`, fallback sem foto). Lista do `/trip-detail` usa os cards ricos. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-15 — Proxy Google Places (RF07 PASSO 1)
+
+- Backend: `GET /api/v1/places/lookup` — Text Search (New) + foto resolvida (`photo_url`, `rating`, `reviews_count`, `open_now`). Chave `GOOGLE_MAPS_API_KEY` nunca vai ao app. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-15 — OpenAI multi-dia + chip Todos (RF06/RF07)
+
+- Fix reforçado: schema OpenAI agora trava `days.minItems = days.maxItems = N` (N do pedido). Prompt limita a 4–6 atividades/dia pra não lotar só o dia 1. Ver [[Geração de Roteiro RF06]].
+- Fix: GPT devolvia só o 1º dia — `OpenAIProvider` agora usa `strict: true` + schema adaptado + `max_tokens=16384`; prompt exige `days.length == N`. Ver [[Geração de Roteiro RF06]].
+- Handoff do roteiro via `pendingItinerary` (não mais JSON na URL); aba Viagens abre só com `tripId`.
+- `/trip-detail`: primeiro chip **Todos** (vista agregada; DnD só no dia individual).
+
 ## 2026-07-15 — Match de Viajantes: sessão e geração (RF11/RF12)
 
 - Backend RF11/RF12 em [[Match de Viajantes RF11 RF12]].

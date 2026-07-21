@@ -27,6 +27,11 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    // Avaliações Tripfy por place_id Google — só Admin SDK (API FastAPI).
+    match /place_reviews/{reviewId} {
+      allow read, write: if false;
+    }
+
     // Qualquer outra coleção fica bloqueada até ganhar regra explícita.
     match /{document=**} {
       allow read, write: if false;

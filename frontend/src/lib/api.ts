@@ -81,6 +81,175 @@ export type ItineraryResponse = {
   days: ItineraryDayResponse[];
 };
 
+/** Espelho de PlaceDetailsResponse do proxy Places (RF07). */
+export type PlaceDetailsResponse = {
+  place_id: string | null;
+  photo_url: string | null;
+  rating: number | null;
+  reviews_count: number | null;
+  open_now: boolean | null;
+};
+
+/** Espelho de PlaceFullDetailsResponse — Knowledge Panel. */
+export type PlaceFullDetailsResponse = {
+  place_id: string;
+  name: string | null;
+  formatted_address: string | null;
+  phone: string | null;
+  website: string | null;
+  editorial_summary: string | null;
+  weekday_text: string[];
+  open_now: boolean | null;
+  rating: number | null;
+  reviews_count: number | null;
+  photo_urls: string[];
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type PlaceReviewCreate = {
+  rating: number;
+  comment: string;
+};
+
+export type PlaceReviewResponse = {
+  id: string;
+  place_id: string;
+  user_uid: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
+// Cache de sessão — FlatList remonta cards ao trocar o dia; evita re-bater Places.
+const placeDetailsCache = new Map<string, PlaceDetailsResponse>();
+// Full details por place_id — reabrir o sheet na mesma sessão não refaz o Google.
+const placeFullDetailsCache = new Map<string, PlaceFullDetailsResponse>();
+
+function placeCacheKey(
+  query: string,
+  lat?: number | null,
+  lng?: number | null,
+): string {
+  return `${query.trim().toLowerCase()}|${lat ?? ""}|${lng ?? ""}`;
+}
+
+/**
+ * GET /places/lookup — foto/nota/`open_now` via proxy (chave só no backend).
+ * Passe lat+lng juntos para bias; omite ambos se algum for inválido.
+ */
+export async function getPlaceDetails(
+  query: string,
+  lat?: number | null,
+  lng?: number | null,
+  signal?: AbortSignal,
+): Promise<PlaceDetailsResponse> {
+  const trimmed = query.trim();
+  const hasCoords =
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng);
+
+  const key = placeCacheKey(
+    trimmed,
+    hasCoords ? lat : null,
+    hasCoords ? lng : null,
+  );
+  const cached = placeDetailsCache.get(key);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({ query: trimmed });
+  if (hasCoords) {
+    params.set("lat", String(lat));
+    params.set("lng", String(lng));
+  }
+
+  try {
+    const response = await authFetch(`/places/lookup?${params.toString()}`, {
+      method: "GET",
+      signal,
+    });
+    const data = (await response.json()) as PlaceDetailsResponse;
+    placeDetailsCache.set(key, data);
+    return data;
+  } catch (err) {
+    // 404 / 502 / 503: cacheia vazio pra não martelar rate limit nem spammar log
+    // (ex.: Places API desligada no GCP até o próximo cold start do app).
+    if (
+      err instanceof ApiError &&
+      (err.status === 404 || err.status === 502 || err.status === 503)
+    ) {
+      const empty: PlaceDetailsResponse = {
+        place_id: null,
+        photo_url: null,
+        rating: null,
+        reviews_count: null,
+        open_now: null,
+      };
+      placeDetailsCache.set(key, empty);
+      return empty;
+    }
+    throw err;
+  }
+}
+
+/** GET /places/{place_id}/details — painel rico (cache de sessão). */
+export async function getPlaceFullDetails(
+  placeId: string,
+  signal?: AbortSignal,
+): Promise<PlaceFullDetailsResponse> {
+  const id = placeId.trim();
+  const cached = placeFullDetailsCache.get(id);
+  if (cached) return cached;
+
+  const response = await authFetch(
+    `/places/${encodeURIComponent(id)}/details`,
+    { method: "GET", signal },
+  );
+  const data = (await response.json()) as PlaceFullDetailsResponse;
+  placeFullDetailsCache.set(id, data);
+  return data;
+}
+
+/** GET /places/{place_id}/reviews */
+export async function getPlaceReviews(
+  placeId: string,
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<PlaceReviewResponse[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await authFetch(
+    `/places/${encodeURIComponent(placeId.trim())}/reviews?${params}`,
+    { method: "GET", signal },
+  );
+  return (await response.json()) as PlaceReviewResponse[];
+}
+
+/** POST /places/{place_id}/reviews — upsert do usuário autenticado. */
+export async function upsertPlaceReview(
+  placeId: string,
+  body: PlaceReviewCreate,
+): Promise<PlaceReviewResponse> {
+  const response = await authFetch(
+    `/places/${encodeURIComponent(placeId.trim())}/reviews`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return (await response.json()) as PlaceReviewResponse;
+}
+
+/** DELETE /places/{place_id}/reviews/me */
+export async function deleteOwnPlaceReview(placeId: string): Promise<void> {
+  await authFetch(
+    `/places/${encodeURIComponent(placeId.trim())}/reviews/me`,
+    { method: "DELETE" },
+  );
+}
+
 export type MatchStatus = "waiting" | "generating" | "completed";
 
 export type MatchInviteSummary = {

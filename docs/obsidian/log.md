@@ -1,4 +1,28 @@
 # Log — Tripfy Wiki
+## [2026-07-20] update | PlaceDetailsSheet frontend PASSO 2
+
+Atualizado [[Detalhe da Viagem RF07]]: sheet Sobre/Comunidade, edit time/title, api client. Changelog no mesmo tema.
+
+## [2026-07-20] update | Place Details + Reviews backend
+
+Atualizado [[Detalhe da Viagem RF07]]: `place_id` no lookup, `GET …/details`, reviews Firestore `place_reviews`, rules deny client. Changelog no mesmo tema.
+
+## [2026-07-15] update | Swipe DnD FAB RF07 PASSO 3
+
+Atualizado [[Detalhe da Viagem RF07]]: ReanimatedSwipeable, overswipe delete, haptics DnD, FAB stub. Changelog no mesmo tema.
+
+## [2026-07-15] update | ActivityCard Places lazy load RF07 PASSO 2
+
+Atualizado [[Detalhe da Viagem RF07]]: `getPlaceDetails`, `ActivityCard`, cache de sessão, i18n openNow. Changelog no mesmo tema.
+
+## [2026-07-15] update | Proxy Google Places RF07 PASSO 1
+
+Atualizado [[Detalhe da Viagem RF07]] com `GET /api/v1/places/lookup` (Places API New, photo URI sem key). Changelog no mesmo tema.
+
+## [2026-07-15] ingest | OpenAI multi-dia + chip Todos
+
+Atualizados [[Geração de Roteiro RF06]] (strict OpenAI + stash) e [[Detalhe da Viagem RF07]] (chip Todos). Changelog no mesmo tema.
+
 ## [2026-07-14] ingest | Detalhe da Viagem RF07 + coords + observability
 
 Criada [[Detalhe da Viagem RF07]]. Atualizados schema (lat/lng), prompt, logs SSE e `/trip-detail` (mapa + DnD + save). Ver também [[Geração de Roteiro RF06]].

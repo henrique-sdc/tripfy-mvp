@@ -111,16 +111,10 @@ export default function TripsScreen() {
   );
 
   function openTrip(trip: SavedTrip) {
+    // Só tripId — o detail busca no Firestore (evita truncar JSON na URL).
     const href = {
       pathname: "/trip-detail",
-      params: {
-        tripId: trip.id,
-        itinerary: JSON.stringify({
-          destination: trip.destination,
-          summary: trip.summary,
-          days: trip.days,
-        }),
-      },
+      params: { tripId: trip.id },
     } as unknown as Href;
     router.push(href);
   }

@@ -86,15 +86,17 @@ Router (trip_router)
 - Service **não** importa SDK de vendor
 
 ### Structured Output
+- **OpenAI:** schema com propriedades obrigatórias `day_1`…`day_N` (OpenAI **não** aplica `minItems` em arrays). O provider acumula o stream, converte para `ItineraryResponse.days[]` e emite o JSON canônico. `max_tokens=16384`.
+- **Gemini:** `response_mime_type=application/json` + `response_schema=ItineraryResponse` (array `days` direto).
 
-- **Gemini:** `response_mime_type=application/json` + `response_schema=ItineraryResponse`
-- **OpenAI:** `response_format.json_schema` com `ItineraryResponse.model_json_schema()` + stream
+> [!warning] Por que day_1…day_N?
+> Com array + `strict`, o GPT fechava JSON válido com **1 dia lotado**. Propriedades nomeadas no `required` forçam os N dias.
 
-Schema de resposta:
+Schema canônico (após conversão OpenAI / nativo Gemini):
 
-- `ActivityResponse` — `time`, `title`, `description`, `location`
+- `ActivityResponse` — `time`, `title`, `description`, `location`, `latitude?`, `longitude?`
 - `ItineraryDayResponse` — `day`, `title`, `activities[]`
-- `ItineraryResponse` — `destination`, `summary`, `days[]`
+- `ItineraryResponse` — `destination`, `summary`, `days[]` (exatamente N dias do pedido)
 
 ### Prompt Injection (PRD 6.2)
 
@@ -114,15 +116,15 @@ Sem Markdown na resposta — só JSON do schema.
 User prompt passa por `headroom.compress` antes do LLM (custo de tokens).
 
 ## Frontend
-
 | Arquivo | Papel |
 |---------|-------|
 | `lib/api.ts` | `generateTripStream` (`react-native-sse`, POST + Bearer) |
+| `lib/pendingItinerary.ts` | Stash em memória do JSON (evita truncar na URL do Expo Router) |
 | `app/wizard/solo.tsx` | Form RF05 + `MagicalGenerating` + chama o stream |
-| `app/trip-detail.tsx` | Renderiza o JSON (`params.itinerary`) |
+| `app/trip-detail.tsx` | Consome stash / `tripId`; chips **Todos** + Dia N |
 | `locales/pt-BR.json` | `wizard.generating.*`, `tripDetail.*` |
 
-Fluxo UX: formulário → loading mágico (sparkles + texto pulsante) → `done` → `router.replace('/trip-detail')`.
+Fluxo UX: formulário → loading mágico → `done` → `stashPendingItinerary` → `router.replace('/trip-detail')`.
 
 Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSource.
 
