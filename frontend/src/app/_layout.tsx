@@ -131,6 +131,7 @@ export default function RootLayout() {
             <Stack.Screen name="help-support" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="edit-vibe" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="companions" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="profile/[id]" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="trash" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="my-reviews" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>

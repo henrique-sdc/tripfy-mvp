@@ -51,6 +51,7 @@ import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import type { ActivityResponse, ItineraryResponse } from "@/lib/api";
 import { cloneTripApi, getTripApi } from "@/lib/api";
+import { appDeepLink } from "@/lib/deep-links";
 import { peekPendingItinerary } from "@/lib/pendingItinerary";
 import { getTrip, saveTrip } from "@/lib/trips";
 
@@ -465,7 +466,7 @@ export default function TripDetailScreen() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const link = `tripfy://trip/${tripId}`;
+    const link = appDeepLink(`/trip/${tripId}`);
     try {
       await Share.share({
         title: displayTripTitle(itinerary, t("tripDetail.fallbackTitle")),

@@ -210,6 +210,7 @@ export default function WizardSoloScreen() {
           destination: destination.trim(),
           days,
           budget,
+          notes: notes.trim(),
         });
         setCreatingMatch(false);
         clearWizardSoloDraft();
@@ -367,29 +368,27 @@ export default function WizardSoloScreen() {
                 />
               </RNView>
 
-              {!isMatch && (
-                <RNView style={styles.field}>
-                  <AppText className="text-[13px] font-semibold tracking-wide">
-                    {t("wizard.notesLabel")}
-                  </AppText>
-                  <RNTextInput
-                    value={notes}
-                    onChangeText={setNotes}
-                    placeholder={t("wizard.notesPlaceholder")}
-                    placeholderTextColor={theme.textMuted}
-                    multiline
-                    textAlignVertical="top"
-                    style={[
-                      styles.notes,
-                      {
-                        color: theme.textPrimary,
-                        backgroundColor: theme.surface,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                  />
-                </RNView>
-              )}
+              <RNView style={styles.field}>
+                <AppText className="text-[13px] font-semibold tracking-wide">
+                  {t("wizard.notesLabel")}
+                </AppText>
+                <RNTextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder={t("wizard.notesPlaceholder")}
+                  placeholderTextColor={theme.textMuted}
+                  multiline
+                  textAlignVertical="top"
+                  style={[
+                    styles.notes,
+                    {
+                      color: theme.textPrimary,
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                />
+              </RNView>
 
               <Pressable
                 onPress={openEditVibe}

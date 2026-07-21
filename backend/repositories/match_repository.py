@@ -82,7 +82,11 @@ async def create_match(owner_uid: str, request: CreateMatchRequest) -> MatchInDB
     return match
 
 
-async def join_match(match_id: str, participant_uid: str) -> MatchInDB:
+async def join_match(
+    match_id: str,
+    participant_uid: str,
+    guest_notes: str = "",
+) -> MatchInDB:
     """Adiciona o convidado e muda a sessão para `generating` de forma atômica."""
 
     def _join() -> MatchInDB:
@@ -101,6 +105,9 @@ async def join_match(match_id: str, participant_uid: str) -> MatchInDB:
 
             # Repetir a mesma aceitação é seguro após timeout/retry do cliente.
             if participant_uid in match.participants:
+                if guest_notes and guest_notes != match.guest_notes:
+                    transaction.update(document, {"guest_notes": guest_notes})
+                    return match.model_copy(update={"guest_notes": guest_notes})
                 return match
 
             if len(match.participants) >= 2:
@@ -114,12 +121,14 @@ async def join_match(match_id: str, participant_uid: str) -> MatchInDB:
                 {
                     "participants": participants,
                     "status": MatchStatus.GENERATING.value,
+                    "guest_notes": guest_notes,
                 },
             )
             return match.model_copy(
                 update={
                     "participants": participants,
                     "status": MatchStatus.GENERATING,
+                    "guest_notes": guest_notes,
                 }
             )
 

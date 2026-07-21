@@ -10,7 +10,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.trip import ItineraryResponse
-from models.user import BudgetRange
+from models.user import BudgetRange, UserPublicProfile
 
 
 class MatchStatus(str, Enum):
@@ -29,6 +29,17 @@ class CreateMatchRequest(BaseModel):
     destination: str = Field(..., min_length=2, max_length=120)
     days: int = Field(..., ge=1, le=30)
     budget: BudgetRange
+    # Pedido especial do dono da sessão — mesmo teto do Solo (RF05).
+    notes: str = Field(default="", max_length=1000)
+
+
+class JoinMatchRequest(BaseModel):
+    """Corpo opcional de POST /matches/{id}/join."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    # Pedido especial do convidado — única voz dele além da vibe do perfil.
+    notes: str = Field(default="", max_length=1000)
 
 
 class GenerationLock(BaseModel):
@@ -46,6 +57,8 @@ class MatchInDB(BaseModel):
     destination: str
     days: int
     budget: BudgetRange
+    notes: str = ""
+    guest_notes: str = ""
     owner_uid: str
     participants: list[str] = Field(..., min_length=1, max_length=2)
     status: MatchStatus
@@ -65,10 +78,11 @@ class MatchInDB(BaseModel):
 
 
 class MatchInviteSummary(BaseModel):
-    """Visão pré-join sem UIDs ou dados dos participantes."""
+    """Visão pré-join: parâmetros da viagem + fatia pública do anfitrião."""
 
     id: str
     destination: str
     days: int
     budget: BudgetRange
     status: MatchStatus
+    owner: UserPublicProfile

@@ -159,6 +159,8 @@ Inclua `tips` (3–5) específicas deste destino para o grupo.
 destino: {sanitize_user_text(match.destination)}
 dias: {match.days}
 orcamento_desta_viagem: {match.budget.value}
+notas_do_anfitriao: {sanitize_user_text(match.notes) or "(nenhuma)"}
+notas_do_convidado: {sanitize_user_text(match.guest_notes) or "(nenhuma)"}
 </parametros_viagem>
 """
 

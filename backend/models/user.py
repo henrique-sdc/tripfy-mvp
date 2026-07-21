@@ -86,3 +86,24 @@ class UserInDB(BaseModel):
     email: str
     created_at: datetime
     travel_preferences: TravelPreferences | None = None
+    # Campos de perfil (RF03) — gravados pelo client; defaults cobrem docs antigos.
+    name: str = ""
+    bio: str = ""
+    photoBase64: str | None = None
+    # Rede unidirecional de companheiros (UIDs). ArrayUnion no repo evita duplicata.
+    companions: list[str] = Field(default_factory=list)
+
+
+class UserPublicProfile(BaseModel):
+    """
+    Fatia segura do perfil para terceiros autenticados.
+
+    Nunca inclui email, created_at, companions, budget, dieta ou other_preferences.
+    """
+
+    uid: str
+    name: str = ""
+    bio: str = ""
+    photoBase64: str | None = None
+    interests: list[Interest] = Field(default_factory=list)
+    pace: Pace | None = None

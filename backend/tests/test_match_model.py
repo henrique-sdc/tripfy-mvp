@@ -18,6 +18,7 @@ from models.user import (
     Pace,
     TravelPreferences,
     TravelerType,
+    UserPublicProfile,
 )
 
 
@@ -50,6 +51,8 @@ class MatchModelTest(unittest.TestCase):
             destination="Recife",
             days=4,
             budget=BudgetRange.MODERATE,
+            notes="Aniversário de casamento",
+            guest_notes="Evitar trilhas longas",
             owner_uid="owner-secret",
             participants=["owner-secret", "guest-secret"],
             status=MatchStatus.GENERATING,
@@ -80,21 +83,34 @@ class MatchModelTest(unittest.TestCase):
         self.assertIn("interesses: beaches", prompt)
         self.assertIn("Intercale atividades", prompt)
         self.assertIn("&lt;/perfil_viajante&gt;", prompt)
+        self.assertIn("notas_do_anfitriao: Aniversário de casamento", prompt)
+        self.assertIn("notas_do_convidado: Evitar trilhas longas", prompt)
         self.assertNotIn("owner-secret", prompt)
         self.assertNotIn("guest-secret", prompt)
 
-    def test_invite_summary_does_not_expose_participants(self) -> None:
+    def test_invite_summary_exposes_owner_public_only(self) -> None:
         summary = MatchInviteSummary(
             id="match-id",
             destination="Recife",
             days=4,
             budget=BudgetRange.MODERATE,
             status=MatchStatus.WAITING,
+            owner=UserPublicProfile(
+                uid="owner-secret",
+                name="Ana",
+                bio="",
+                photoBase64=None,
+                interests=[Interest.CAFES],
+                pace=Pace.BALANCED,
+            ),
         )
 
         payload = summary.model_dump(mode="json")
         self.assertNotIn("owner_uid", payload)
         self.assertNotIn("participants", payload)
+        self.assertNotIn("email", payload)
+        self.assertEqual(payload["owner"]["name"], "Ana")
+        self.assertEqual(payload["owner"]["uid"], "owner-secret")
 
 
 if __name__ == "__main__":

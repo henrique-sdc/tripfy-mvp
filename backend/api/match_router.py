@@ -8,7 +8,12 @@ from loguru import logger
 from core.auth_middleware import CurrentUser, get_current_user
 from core.rate_limit import limiter
 from core.sse import itinerary_sse_stream
-from models.match import CreateMatchRequest, MatchInDB, MatchInviteSummary
+from models.match import (
+    CreateMatchRequest,
+    JoinMatchRequest,
+    MatchInDB,
+    MatchInviteSummary,
+)
 from services import match_service
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -52,6 +57,7 @@ async def join_match(
     request: Request,  # exigido pelo slowapi para identificar o IP
     match_id: MatchId,
     current_user: CurrentUser = Depends(get_current_user),
+    body: JoinMatchRequest | None = None,
 ) -> MatchInDB:
     """Aceita o convite e fecha a sessão com dois participantes."""
     logger.info(
@@ -59,7 +65,8 @@ async def join_match(
         match_id,
         current_user.uid,
     )
-    return await match_service.join_match(match_id, current_user.uid)
+    notes = body.notes if body is not None else ""
+    return await match_service.join_match(match_id, current_user.uid, notes)
 
 
 @router.post("/{match_id}/generate")

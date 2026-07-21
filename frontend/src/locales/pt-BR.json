@@ -6,7 +6,8 @@
     "saving": "Salvando...",
     "genericError": "Algo deu errado. Tente novamente.",
     "networkError": "Sem conexão. Verifique sua internet e tente de novo.",
-    "offlineBanner": "Sem conexão com o servidor. Algumas funções podem estar limitadas."
+    "offlineBanner": "Sem conexão com o servidor. Algumas funções podem estar limitadas.",
+    "retry": "Tentar de novo"
   },
   "onboardingSlides": {
     "slide1": {
@@ -334,7 +335,13 @@
       "you": "Você",
       "companion": "Companheiro",
       "waiting": "Aguardando",
-      "connected": "Conectado"
+      "connected": "Conectado",
+      "inviteFromFriends": "Convidar um companheiro",
+      "inviteCompanionA11y": "Convidar {{name}}",
+      "reviewVibeTitle": "Revisar minha vibe",
+      "reviewVibeHint": "Ajuste interesses e ritmo antes de entrar — isso entra no Match.",
+      "guestNotesLabel": "Algum pedido especial? (Opcional)",
+      "guestNotesPlaceholder": "Ex: Prefiro jantares cedo, evitar museus lotados, celebrar aniversário…"
     },
     "summary": {
       "destination": "Destino",
@@ -343,7 +350,8 @@
     },
     "share": {
       "title": "Convite Tripfy",
-      "message": "Bora planejar {{destination}} comigo? Abra este convite no Tripfy: {{link}}"
+      "message": "Bora planejar {{destination}} comigo? Abre este convite no Tripfy: {{link}}",
+      "messageCompanion": "Oi {{name}}! Bora planejar {{destination}} comigo no Tripfy? {{link}}"
     },
     "generating": {
       "header": "Criando o Match",
@@ -557,8 +565,11 @@
     "dismissPhoto": "Fechar foto",
     "editProfile": "Editar perfil",
     "shareProfile": "Compartilhar perfil",
-    "shareSoonTitle": "Em breve",
-    "shareSoonBody": "Em breve você poderá compartilhar seu perfil pra adicionar amigos e criar Matches com mais facilidade.",
+    "share": {
+      "title": "Meu perfil no Tripfy",
+      "message": "Me adiciona como companheiro no Tripfy:\n{{link}}"
+    },
+    "shareNeedAuth": "Entre na sua conta pra compartilhar o perfil.",
     "stats": {
       "trips": "Roteiros criados",
       "saved": "Salvos",
@@ -573,10 +584,24 @@
     },
     "companions": {
       "title": "Companheiros de viagem",
-      "hint": "Com quem você mais gera roteiros juntos.",
-      "tripsTogether": "{{count}} roteiros em comum",
+      "hint": "Amigos que você adicionou pra Matchar com mais facilidade.",
+      "added": "Companheiro",
       "emptyTitle": "Nenhum companheiro ainda",
-      "emptyBody": "Quando você adicionar amigos e criar Matches, eles aparecem aqui."
+      "emptyBody": "Compartilhe seu perfil ou abra o link de um amigo pra adicionar."
+    }
+  },
+  "publicProfile": {
+    "title": "Perfil",
+    "vibeTitle": "Vibe",
+    "vibeEmpty": "Este viajante ainda não definiu a vibe.",
+    "addCompanion": "Adicionar aos Companheiros",
+    "alreadyCompanion": "Já é companheiro",
+    "ownProfile": "Este é o seu perfil",
+    "addSuccess": "Companheiro adicionado!",
+    "errors": {
+      "notFound": "Perfil não encontrado.",
+      "loadFailed": "Não foi possível carregar este perfil.",
+      "addFailed": "Não foi possível adicionar. Tente de novo."
     }
   },
   "editProfile": {
@@ -676,9 +701,15 @@
   },
   "companions": {
     "title": "Companheiros de viagem",
-    "subtitle": "Ordenados por quem mais gera roteiros com você.",
+    "subtitle": "Amigos que você adicionou pelo perfil compartilhado.",
     "emptyTitle": "Nenhum companheiro ainda",
-    "emptyBody": "Compartilhe seu perfil e adicione amigos. Quando o Match estiver no ar, vocês vão aparecer aqui ordenados pelos roteiros em comum."
+    "emptyBody": "Compartilhe seu perfil ou abra o link de um amigo pra adicionar companheiros.",
+    "removeA11y": "Remover companheiro",
+    "removeTitle": "Remover companheiro?",
+    "removeBody": "{{name}} sai da sua lista e da lista dele(a). Vocês ainda podem se adicionar de novo pelo perfil.",
+    "removeConfirm": "Remover",
+    "removeCancel": "Cancelar",
+    "removeFailed": "Não foi possível remover. Tente de novo."
   },
   "helpSupport": {
     "title": "Ajuda & Suporte",

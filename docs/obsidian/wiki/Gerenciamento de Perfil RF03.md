@@ -27,7 +27,7 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 | `frontend/src/app/edit-vibe.tsx` | Reedita `travel_preferences` (reusa componentes do onboarding) + campo livre |
 | `frontend/src/app/settings.tsx` | Conta, notificações (placeholder), suporte, sair, zona de perigo |
 | `frontend/src/app/help-support.tsx` | FAQ curto, contato, atalho LGPD |
-| `frontend/src/app/companions.tsx` | Lista completa de companheiros (empty até RF11) |
+| `frontend/src/app/companions.tsx` | Lista completa de companheiros (empty até front consumir API) |
 
 ## Navegação
 
@@ -36,7 +36,7 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
  ├─ engrenagem (topo direito)  → /settings
  ├─ avatar                     → /edit-profile
  ├─ "Editar perfil" | "Compartilhar perfil" (50/50)
- │    └─ Compartilhar → Alert "Em breve" (Match futuro)
+ │    └─ Compartilhar → Share `tripfy://profile/{uid}` (ver [[Rede de Companheiros]])
  ├─ "Alterar" em Sua vibe      → /edit-vibe
  └─ "Companheiros de viagem >" → /companions
 
@@ -62,7 +62,8 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 ### Companheiros
 - Ordenados por `trips` (quem mais gera roteiro junto).
 - Preview no perfil: máx. 4; empty state se lista vazia.
-- Lista completa em `/companions` (hoje vazia até RF11 — sem mock inventado).
+- Lista completa em `/companions` (API `GET /users/me/companions` — ver [[Rede de Companheiros]]).
+- Deep link `tripfy://profile/{uid}` → `/profile/[id]` (read-only + CTA add).
 
 ### Fix: flash / tela some ao voltar (Android)
 Causas comuns: `presentation: "card"` desanexa a tela anterior cedo demais + fundo nativo
@@ -148,3 +149,4 @@ push/pop quando nenhuma tela define `contentStyle`. Fix único em
 - [[Autenticação Full Stack]] — Auth + sync
 - [[Preferências Sua Vibe]] — modelo de `travel_preferences` + `other_preferences`
 - [[Detalhe da Viagem RF07]] — trips apagados na exclusão
+- [[Rede de Companheiros]] — GET público + POST companions (backend)

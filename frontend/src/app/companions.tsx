@@ -1,23 +1,21 @@
-// Lista completa de companheiros de viagem.
-// RF11 (Match) vai popular isso; por enquanto empty state honesto.
+// Lista completa de companheiros de viagem (API /users/me/companions).
 
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useColorScheme } from "react-native";
+import { ActivityIndicator, Alert, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/ui/AppText";
+import { useCompanionsList } from "@/hooks/use-companions-list";
 import { useTheme } from "@/hooks/use-theme";
+import { removeCompanion, type UserPublicProfile } from "@/lib/api";
+import { profilePhotoUri } from "@/lib/profile";
 import { Pressable, ScrollView, View } from "@/tw";
-
-type Companion = { id: string; name: string; trips: number };
-
-// Mesma fonte do preview no perfil — hoje vazia até o Match existir.
-const COMPANIONS: Companion[] = [];
 
 function initials(name: string): string {
   return name
@@ -33,11 +31,39 @@ export default function CompanionsScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { companions, setCompanions, loading } = useCompanionsList();
+  const [removingUid, setRemovingUid] = useState<string | null>(null);
 
-  const companions = useMemo(
-    () => [...COMPANIONS].sort((a, b) => b.trips - a.trips),
-    [],
-  );
+  function confirmRemove(c: UserPublicProfile) {
+    const name = c.name.trim() || t("profile.fallbackName");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      t("companions.removeTitle"),
+      t("companions.removeBody", { name }),
+      [
+        { text: t("companions.removeCancel"), style: "cancel" },
+        {
+          text: t("companions.removeConfirm"),
+          style: "destructive",
+          onPress: () => void onRemove(c.uid),
+        },
+      ],
+    );
+  }
+
+  async function onRemove(uid: string) {
+    setRemovingUid(uid);
+    try {
+      await removeCompanion(uid);
+      setCompanions((prev) => prev.filter((c) => c.uid !== uid));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("[companions] remove:", err);
+      Alert.alert(t("companions.removeFailed"));
+    } finally {
+      setRemovingUid(null);
+    }
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -75,7 +101,11 @@ export default function CompanionsScreen() {
           {t("companions.subtitle")}
         </AppText>
 
-        {companions.length === 0 ? (
+        {loading ? (
+          <View className="py-16 items-center">
+            <ActivityIndicator color={theme.accent} />
+          </View>
+        ) : companions.length === 0 ? (
           <View
             className="rounded-2xl border px-4 py-8 items-center gap-3 mt-4"
             style={{
@@ -97,31 +127,74 @@ export default function CompanionsScreen() {
             </AppText>
           </View>
         ) : (
-          companions.map((c) => (
-            <View
-              key={c.id}
-              className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
-              style={{
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              }}
-            >
+          companions.map((c) => {
+            const name = c.name.trim() || t("profile.fallbackName");
+            const photo = profilePhotoUri({ photoBase64: c.photoBase64 });
+            const busy = removingUid === c.uid;
+            return (
               <View
-                className="w-11 h-11 rounded-full items-center justify-center"
-                style={{ backgroundColor: `${theme.accent}22` }}
+                key={c.uid}
+                className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
+                style={{
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  opacity: busy ? 0.6 : 1,
+                }}
               >
-                <AppText tone="accent" className="font-bold">
-                  {initials(c.name)}
-                </AppText>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/profile/${c.uid}`);
+                  }}
+                  className="flex-row items-center gap-3 flex-1"
+                  disabled={busy}
+                >
+                  {photo ? (
+                    <Image
+                      source={{ uri: photo }}
+                      style={{ width: 44, height: 44, borderRadius: 22 }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      className="w-11 h-11 rounded-full items-center justify-center"
+                      style={{ backgroundColor: `${theme.accent}22` }}
+                    >
+                      <AppText tone="accent" className="font-bold">
+                        {initials(name)}
+                      </AppText>
+                    </View>
+                  )}
+                  <View className="flex-1">
+                    <AppText className="text-[15px] font-semibold">
+                      {name}
+                    </AppText>
+                    <AppText tone="secondary" className="text-[12px]">
+                      {t("profile.companions.added")}
+                    </AppText>
+                  </View>
+                </Pressable>
+                <Pressable
+                  onPress={() => confirmRemove(c)}
+                  hitSlop={10}
+                  disabled={busy}
+                  accessibilityLabel={t("companions.removeA11y")}
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{ backgroundColor: `${theme.error}14` }}
+                >
+                  {busy ? (
+                    <ActivityIndicator size="small" color={theme.error} />
+                  ) : (
+                    <Ionicons
+                      name="person-remove-outline"
+                      size={18}
+                      color={theme.error}
+                    />
+                  )}
+                </Pressable>
               </View>
-              <View className="flex-1">
-                <AppText className="text-[15px] font-semibold">{c.name}</AppText>
-                <AppText tone="secondary" className="text-[12px]">
-                  {t("profile.companions.tripsTogether", { count: c.trips })}
-                </AppText>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>

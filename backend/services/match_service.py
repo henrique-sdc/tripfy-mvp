@@ -60,12 +60,19 @@ async def get_match_for_viewer(
     if viewer_uid in match.participants:
         return match
     if match.status == MatchStatus.WAITING:
+        owner_profile = await user_repository.get_public_profile(match.owner_uid)
+        if owner_profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sessão de Match não encontrada.",
+            )
         return MatchInviteSummary(
             id=match.id,
             destination=match.destination,
             days=match.days,
             budget=match.budget,
             status=match.status,
+            owner=owner_profile,
         )
     # Não confirma a existência de sessões fechadas para terceiros.
     raise HTTPException(
@@ -74,12 +81,20 @@ async def get_match_for_viewer(
     )
 
 
-async def join_match(match_id: str, participant_uid: str) -> MatchInDB:
+async def join_match(
+    match_id: str,
+    participant_uid: str,
+    notes: str = "",
+) -> MatchInDB:
     """Valida o convidado e ingressa na sessão compartilhada."""
     await _require_travel_preferences(participant_uid)
 
     try:
-        return await match_repository.join_match(match_id, participant_uid)
+        return await match_repository.join_match(
+            match_id,
+            participant_uid,
+            guest_notes=notes,
+        )
     except match_repository.MatchNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

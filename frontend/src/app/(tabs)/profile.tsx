@@ -1,19 +1,21 @@
 // Perfil — dados reais do Firestore + vibe (RF03).
 
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { collection, getCountFromServer } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, useColorScheme } from "react-native";
+import { Alert, Share, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { ProfilePhotoExpand } from "@/components/profile/ProfilePhotoExpand";
 import { AppText } from "@/components/ui/AppText";
 import { INTERESTS, PACE_OPTIONS } from "@/constants/travel-preferences";
+import { useCompanionsList } from "@/hooks/use-companions-list";
 import { useTheme } from "@/hooks/use-theme";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -21,14 +23,11 @@ import {
   profilePhotoUri,
   type UserProfile,
 } from "@/lib/profile";
+import { appDeepLink } from "@/lib/deep-links";
 import { useAuthStore } from "@/stores/authStore";
 import { useWishlistStore } from "@/stores/wishlistStore";
 import { Pressable, ScrollView, View } from "@/tw";
 
-// Companheiros — lista real virá com RF11 (Match).
-// Hoje fica vazia de propósito: empty state honesto > mock inventado.
-type Companion = { id: string; name: string; trips: number };
-const COMPANIONS: Companion[] = [];
 const COMPANIONS_PREVIEW_LIMIT = 4;
 
 function initials(name: string): string {
@@ -105,6 +104,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tripsCount, setTripsCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const { companions } = useCompanionsList();
 
   // Relê ao focar a tab — sem setLoading(true) se já tem dados (evita
   // “apagar” o perfil na animação de voltar de Configurações).
@@ -176,12 +176,8 @@ export default function ProfileScreen() {
     return chips;
   }, [profile?.travel_preferences, t]);
 
-  // Ordena por quem mais gera roteiro junto; preview limitado a 4.
-  const sortedCompanions = useMemo(
-    () => [...COMPANIONS].sort((a, b) => b.trips - a.trips),
-    [],
-  );
-  const previewCompanions = sortedCompanions.slice(0, COMPANIONS_PREVIEW_LIMIT);
+  // Preview limitado a 4; ordem = ordem do array no Firestore.
+  const previewCompanions = companions.slice(0, COMPANIONS_PREVIEW_LIMIT);
 
   function openEdit() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -203,9 +199,23 @@ export default function ProfileScreen() {
     router.push("/companions");
   }
 
-  function onShareProfile() {
+  async function onShareProfile() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(t("profile.shareSoonTitle"), t("profile.shareSoonBody"));
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      Alert.alert(t("profile.shareNeedAuth"));
+      return;
+    }
+    const link = appDeepLink(`/profile/${uid}`);
+    try {
+      await Share.share({
+        title: t("profile.share.title"),
+        message: t("profile.share.message", { link }),
+        url: link,
+      });
+    } catch (err) {
+      console.error("[profile] share:", err);
+    }
   }
 
   return (
@@ -389,41 +399,55 @@ export default function ProfileScreen() {
               </AppText>
             </View>
           ) : (
-            previewCompanions.map((c) => (
-              <Pressable
-                key={c.id}
-                onPressIn={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-                className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
-                style={{
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                }}
-              >
-                <View
-                  className="w-11 h-11 rounded-full items-center justify-center"
-                  style={{ backgroundColor: `${theme.accent}22` }}
+            previewCompanions.map((c) => {
+              const name =
+                c.name.trim() || t("profile.fallbackName");
+              const photo = profilePhotoUri({ photoBase64: c.photoBase64 });
+              return (
+                <Pressable
+                  key={c.uid}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/profile/${c.uid}`);
+                  }}
+                  className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
+                  style={{
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  }}
                 >
-                  <AppText tone="accent" className="font-bold">
-                    {initials(c.name)}
-                  </AppText>
-                </View>
-                <View className="flex-1">
-                  <AppText className="text-[15px] font-semibold">
-                    {c.name}
-                  </AppText>
-                  <AppText tone="secondary" className="text-[12px]">
-                    {t("profile.companions.tripsTogether", { count: c.trips })}
-                  </AppText>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={theme.textSecondary}
-                />
-              </Pressable>
-            ))
+                  {photo ? (
+                    <Image
+                      source={{ uri: photo }}
+                      style={{ width: 44, height: 44, borderRadius: 22 }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      className="w-11 h-11 rounded-full items-center justify-center"
+                      style={{ backgroundColor: `${theme.accent}22` }}
+                    >
+                      <AppText tone="accent" className="font-bold">
+                        {initials(name)}
+                      </AppText>
+                    </View>
+                  )}
+                  <View className="flex-1">
+                    <AppText className="text-[15px] font-semibold">
+                      {name}
+                    </AppText>
+                    <AppText tone="secondary" className="text-[12px]">
+                      {t("profile.companions.added")}
+                    </AppText>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={theme.textSecondary}
+                  />
+                </Pressable>
+              );
+            })
           )}
         </View>
       </ScrollView>

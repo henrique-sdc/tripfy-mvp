@@ -10,9 +10,27 @@ from loguru import logger
 from starlette.concurrency import run_in_threadpool
 
 from core.firebase import db
-from models.user import TravelPreferences, UserInDB
+from models.user import TravelPreferences, UserInDB, UserPublicProfile
 
 _USERS_COLLECTION = "users"
+
+
+def public_profile_from_user(user: UserInDB) -> UserPublicProfile:
+    """
+    Projeta UserInDB → fatia pública.
+
+    Isolado do I/O para testes unitários sem Firestore e para garantir que
+    email/created_at/companions nunca vazem no serializer.
+    """
+    prefs = user.travel_preferences
+    return UserPublicProfile(
+        uid=user.uid,
+        name=user.name,
+        bio=user.bio,
+        photoBase64=user.photoBase64,
+        interests=list(prefs.interests) if prefs else [],
+        pace=prefs.pace if prefs else None,
+    )
 
 
 async def get_user(uid: str) -> UserInDB | None:
@@ -26,6 +44,14 @@ async def get_user(uid: str) -> UserInDB | None:
         return UserInDB.model_validate(snapshot.to_dict())
 
     return await run_in_threadpool(_fetch)
+
+
+async def get_public_profile(uid: str) -> UserPublicProfile | None:
+    """Perfil público via Admin SDK — bypass das rules owner-only (LGPD)."""
+    user = await get_user(uid)
+    if user is None:
+        return None
+    return public_profile_from_user(user)
 
 
 async def create_user_if_not_exists(uid: str, email: str) -> UserInDB:
@@ -73,3 +99,68 @@ async def save_preferences(uid: str, preferences: TravelPreferences) -> None:
 
     await run_in_threadpool(_update)
     logger.info("Preferências de viagem salvas: uid={}", uid)
+
+
+async def add_companion(my_uid: str, target_uid: str) -> None:
+    """
+    Amizade mútua: my ↔ target via ArrayUnion em batch.
+
+    Quem aceita o link entra na lista de quem compartilhou e vice-versa.
+    """
+
+    def _update() -> None:
+        me_ref = db.collection(_USERS_COLLECTION).document(my_uid)
+        target_ref = db.collection(_USERS_COLLECTION).document(target_uid)
+        batch = db.batch()
+        batch.update(me_ref, {"companions": firestore.ArrayUnion([target_uid])})
+        batch.update(target_ref, {"companions": firestore.ArrayUnion([my_uid])})
+        batch.commit()
+
+    await run_in_threadpool(_update)
+    logger.info(
+        "Companheiros vinculados (mútuo): my_uid={} target_uid={}",
+        my_uid,
+        target_uid,
+    )
+
+
+async def remove_companion(my_uid: str, target_uid: str) -> None:
+    """Remove nos dois lados (ArrayRemove em batch — idempotente)."""
+
+    def _update() -> None:
+        me_ref = db.collection(_USERS_COLLECTION).document(my_uid)
+        target_ref = db.collection(_USERS_COLLECTION).document(target_uid)
+        batch = db.batch()
+        batch.update(me_ref, {"companions": firestore.ArrayRemove([target_uid])})
+        # Conta apagada do outro lado: ainda limpamos a nossa lista.
+        if target_ref.get().exists:
+            batch.update(
+                target_ref, {"companions": firestore.ArrayRemove([my_uid])}
+            )
+        batch.commit()
+
+    await run_in_threadpool(_update)
+    logger.info(
+        "Companheiros desvinculados (mútuo): my_uid={} target_uid={}",
+        my_uid,
+        target_uid,
+    )
+
+
+async def list_companions(my_uid: str) -> list[UserPublicProfile]:
+    """
+    Hidrata os UIDs em companions com a fatia pública.
+
+    Docs apagados são ignorados (lista não quebra). N+1 ok no MVP.
+    """
+    me = await get_user(my_uid)
+    if me is None or not me.companions:
+        return []
+
+    profiles: list[UserPublicProfile] = []
+    for companion_uid in me.companions:
+        profile = await get_public_profile(companion_uid)
+        if profile is not None:
+            profiles.append(profile)
+    return profiles
+

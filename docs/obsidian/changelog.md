@@ -1,4 +1,42 @@
 # Changelog — Tripfy Docs
+## 2026-07-21 — Fix deep link Match → profile
+
+- Links via `Linking.createURL` (path `/match/…`); `tripfy://match/id` virava hostname e abria `profile/[id]` com o ID da sala.
+- Fallback: se `users/{id}/public` 404, tenta `GET /matches/{id}` e redireciona.
+
+## 2026-07-21 — Match convidado: foto do anfitrião + vibe + notas
+
+- `MatchInviteSummary.owner` (público); `guest_notes` no join; prompt com notas anfitrião/convidado.
+- Lobby "Bora viajar juntos?": foto/nome de quem convidou, revisar vibe, pedido especial.
+
+## 2026-07-21 — Match lobby: fotos + convidar companheiro
+
+- Avatares com foto/nome; lista horizontal de amigos no "Quem vai nessa aventura?" (Share personalizado). Home/notificação in-app ficam pra depois.
+
+## 2026-07-21 — Match: pedido especial no wizard
+
+- Campo `notes` na Nova Viagem em Dupla (mesmo do Solo); persiste no Match e entra no prompt RF12.
+
+## 2026-07-21 — Companheiros mútuos + live update
+
+- Add/remove em batch nos dois UIDs; `useCompanionsList` escuta `users/{me}` e atualiza a UI. Ver [[Rede de Companheiros]].
+
+## 2026-07-21 — Remover companheiro
+
+- `DELETE /users/me/companions/{uid}` + botão na lista `/companions` (confirmação). Ver [[Rede de Companheiros]].
+
+## 2026-07-21 — Front: compartilhar perfil + companheiros
+
+- Share `tripfy://profile/{uid}`; tela `profile/[id]` read-only + CTA add.
+- `GET /users/me/companions` hidratado; preview no perfil e `/companions` consomem a API.
+- Ver [[Rede de Companheiros]].
+
+## 2026-07-21 — Backend: perfil público + companheiros
+
+- `GET /api/v1/users/{uid}/public` e `POST /api/v1/users/me/companions/{uid}` (auth + rate limit).
+- `users/{uid}.companions` via `ArrayUnion`; vibe pública só `interests` + `pace` (LGPD).
+- Ver [[Rede de Companheiros]].
+
 ## 2026-07-21 — Cutout Android (câmera) via build nativo
 
 - Plugins `react-native-edge-to-edge` + `withAndroidDisplayCutout` (`shortEdges`).

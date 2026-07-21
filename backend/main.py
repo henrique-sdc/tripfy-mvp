@@ -13,6 +13,7 @@ from api.auth_router import router as auth_router
 from api.match_router import router as match_router
 from api.places_router import router as places_router
 from api.trip_router import router as trip_router
+from api.user_router import router as user_router
 from core.config import settings
 from core.rate_limit import limiter
 
@@ -42,6 +43,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(match_router, prefix="/api/v1")
 app.include_router(places_router, prefix="/api/v1")
 app.include_router(trip_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
 
 
 @app.get("/health")

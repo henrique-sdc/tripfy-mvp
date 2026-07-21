@@ -1,4 +1,12 @@
 # Log — Tripfy Wiki
+## [2026-07-21] update | Rede de Companheiros Passo 2
+
+Front: Share, `profile/[id]`, lista hidratada. Atualizados [[Rede de Companheiros]], [[Gerenciamento de Perfil RF03]], [[changelog]].
+
+## [2026-07-21] ingest | Rede de Companheiros
+
+Criada [[Rede de Companheiros]], atualizados [[index]], [[Gerenciamento de Perfil RF03]] e [[changelog]].
+
 ## [2026-07-21] update | Lixeira purge swipe
 
 Atualizado [[Detalhe da Viagem RF07]]: swipe na lixeira apaga de vez (`purgeTrip`). Changelog no mesmo tema.

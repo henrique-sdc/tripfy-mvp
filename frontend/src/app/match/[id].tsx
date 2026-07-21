@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -6,6 +7,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -13,8 +15,10 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  ScrollView,
   Share,
   StyleSheet,
+  TextInput,
   useColorScheme,
 } from "react-native";
 import Animated, {
@@ -31,19 +35,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MagicalGenerating } from "@/components/trip/MagicalGenerating";
 import { AppText } from "@/components/ui/AppText";
+import { useCompanionsList } from "@/hooks/use-companions-list";
 import { useTheme } from "@/hooks/use-theme";
 import {
   ApiError,
   generateMatchStream,
   getMatch,
+  getPublicProfile,
   type ItineraryResponse,
   joinMatch,
   type MatchInDB,
   type MatchInviteSummary,
   NetworkError,
+  type UserPublicProfile,
 } from "@/lib/api";
 import { db } from "@/lib/firebase";
+import { appDeepLink } from "@/lib/deep-links";
 import { stashPendingItinerary } from "@/lib/pendingItinerary";
+import {
+  getUserProfile,
+  profilePhotoUri,
+  type UserProfile,
+} from "@/lib/profile";
 import { useAuthStore } from "@/stores/authStore";
 import { Pressable, View } from "@/tw";
 
@@ -52,8 +65,24 @@ const SPRING = { damping: 20, stiffness: 300 };
 
 type MatchView = MatchInviteSummary | MatchInDB;
 
+type PersonSlot = {
+  label: string;
+  name?: string;
+  photoUri: string | null;
+  waiting?: boolean;
+};
+
 function isParticipantMatch(match: MatchView): match is MatchInDB {
   return "owner_uid" in match;
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function ActionButton({
@@ -112,14 +141,71 @@ function ActionButton({
   );
 }
 
-function PairVisual({
-  connected,
-  inviteeView,
+function PersonAvatar({
+  slot,
+  accent,
 }: {
-  connected: boolean;
-  inviteeView: boolean;
+  slot: PersonSlot;
+  accent: boolean;
 }) {
-  const { t } = useTranslation();
+  const theme = useTheme();
+  const display = slot.name?.trim() || slot.label;
+  const borderStyle = slot.waiting ? ("dashed" as const) : ("solid" as const);
+
+  return (
+    <View style={styles.personColumn}>
+      <View
+        style={[
+          styles.avatar,
+          {
+            backgroundColor: accent ? `${theme.accent}16` : theme.surface,
+            borderColor: accent ? theme.accent : theme.border,
+            borderStyle,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        {slot.photoUri ? (
+          <Image
+            source={{ uri: slot.photoUri }}
+            style={styles.avatarImage}
+            contentFit="cover"
+          />
+        ) : slot.waiting ? (
+          <Ionicons
+            name="person-add-outline"
+            size={38}
+            color={theme.textMuted}
+          />
+        ) : (
+          <AppText tone="accent" className="text-[28px] font-bold">
+            {initials(display)}
+          </AppText>
+        )}
+      </View>
+      <AppText
+        tone={slot.waiting ? "secondary" : "primary"}
+        className="text-[14px] font-semibold text-center"
+        numberOfLines={1}
+      >
+        {slot.name?.trim() || slot.label}
+      </AppText>
+      {slot.name?.trim() && slot.label !== slot.name.trim() ? (
+        <AppText tone="secondary" className="text-[11px] text-center">
+          {slot.label}
+        </AppText>
+      ) : null}
+    </View>
+  );
+}
+
+function PairVisual({
+  left,
+  right,
+}: {
+  left: PersonSlot;
+  right: PersonSlot;
+}) {
   const theme = useTheme();
 
   return (
@@ -127,60 +213,13 @@ function PairVisual({
       entering={FadeInDown.duration(220).easing(Easing.out(Easing.cubic))}
       style={styles.pairRow}
     >
-      <View style={styles.personColumn}>
-        <View
-          style={[
-            styles.avatar,
-            { backgroundColor: `${theme.accent}16`, borderColor: theme.border },
-          ]}
-        >
-          <Ionicons
-            name={inviteeView ? "people-outline" : "person"}
-            size={38}
-            color={theme.accent}
-          />
-        </View>
-        <AppText className="text-[14px] font-semibold">
-          {inviteeView ? t("match.lobby.companion") : t("match.lobby.you")}
-        </AppText>
-      </View>
-
+      <PersonAvatar slot={left} accent />
       <View
         style={[styles.connection, { backgroundColor: theme.background }]}
       >
         <Ionicons name="infinite" size={34} color={theme.accent} />
       </View>
-
-      <View style={styles.personColumn}>
-        <View
-          style={[
-            styles.avatar,
-            {
-              backgroundColor: connected
-                ? `${theme.accent}16`
-                : theme.surface,
-              borderColor: connected ? theme.accent : theme.border,
-              borderStyle: connected ? "solid" : "dashed",
-            },
-          ]}
-        >
-          <Ionicons
-            name={connected || inviteeView ? "person" : "person-add-outline"}
-            size={38}
-            color={connected || inviteeView ? theme.accent : theme.textMuted}
-          />
-        </View>
-        <AppText
-          tone={connected || inviteeView ? "primary" : "secondary"}
-          className="text-[14px] font-semibold"
-        >
-          {inviteeView
-            ? t("match.lobby.you")
-            : connected
-              ? t("match.lobby.connected")
-              : t("match.lobby.waiting")}
-        </AppText>
-      </View>
+      <PersonAvatar slot={right} accent={!right.waiting} />
     </Animated.View>
   );
 }
@@ -199,6 +238,15 @@ export default function MatchLobbyScreen() {
   const [joining, setJoining] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState(false);
+  const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
+  const [otherProfile, setOtherProfile] = useState<UserPublicProfile | null>(
+    null,
+  );
+  const [selectedCompanion, setSelectedCompanion] =
+    useState<UserPublicProfile | null>(null);
+  const [guestNotes, setGuestNotes] = useState("");
+
+  const { companions } = useCompanionsList();
 
   const closeStreamRef = useRef<(() => void) | null>(null);
   const previousStatusRef = useRef<MatchView["status"] | null>(null);
@@ -222,6 +270,127 @@ export default function MatchLobbyScreen() {
       (fullMatch.status === "generating" ||
         fullMatch.generation_lock != null),
   );
+  const connected = Boolean(fullMatch?.participants.length === 2);
+  const otherUid =
+    fullMatch && user
+      ? fullMatch.participants.find((uid) => uid !== user.uid)
+      : undefined;
+  const inviteOwner =
+    match && !isParticipantMatch(match) ? match.owner : null;
+  const isGuestLobby = Boolean(match && !isOwner && !fullMatch);
+
+  // Foto/nome do usuário logado (lado "Você").
+  useEffect(() => {
+    let cancelled = false;
+    void getUserProfile()
+      .then((profile) => {
+        if (!cancelled) setMyProfile(profile);
+      })
+      .catch((err) => console.error("[match] my profile:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Quando a dupla fecha, hidrata o outro participante (foto/nome).
+  useEffect(() => {
+    if (!otherUid) {
+      setOtherProfile(null);
+      return;
+    }
+    let cancelled = false;
+    void getPublicProfile(otherUid)
+      .then((profile) => {
+        if (!cancelled) {
+          setOtherProfile(profile);
+          setSelectedCompanion(null);
+        }
+      })
+      .catch((err) => console.error("[match] other profile:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [otherUid]);
+
+  const myPhotoUri = profilePhotoUri(myProfile, user?.photoURL);
+  const myDisplayName =
+    myProfile?.name?.trim() ||
+    user?.displayName?.trim() ||
+    t("profile.fallbackName");
+
+  const pairSlots = useMemo(() => {
+    const meSlot: PersonSlot = {
+      label: t("match.lobby.you"),
+      name: myDisplayName,
+      photoUri: myPhotoUri,
+    };
+
+    if (!isOwner) {
+      // Convidado: esquerda = anfitrião (do invite ou pós-join), direita = eu.
+      const ownerSource = otherProfile ?? inviteOwner;
+      const ownerSlot: PersonSlot = ownerSource
+        ? {
+            label: t("match.lobby.companion"),
+            name: ownerSource.name.trim() || t("profile.fallbackName"),
+            photoUri: profilePhotoUri({
+              photoBase64: ownerSource.photoBase64,
+            }),
+          }
+        : {
+            label: t("match.lobby.companion"),
+            photoUri: null,
+          };
+      return { left: ownerSlot, right: meSlot };
+    }
+
+    if (connected && otherProfile) {
+      return {
+        left: meSlot,
+        right: {
+          label: t("match.lobby.connected"),
+          name: otherProfile.name.trim() || t("profile.fallbackName"),
+          photoUri: profilePhotoUri({
+            photoBase64: otherProfile.photoBase64,
+          }),
+        } satisfies PersonSlot,
+      };
+    }
+
+    if (selectedCompanion) {
+      return {
+        left: meSlot,
+        right: {
+          label: t("match.lobby.companion"),
+          name:
+            selectedCompanion.name.trim() || t("profile.fallbackName"),
+          photoUri: profilePhotoUri({
+            photoBase64: selectedCompanion.photoBase64,
+          }),
+        } satisfies PersonSlot,
+      };
+    }
+
+    return {
+      left: meSlot,
+      right: {
+        label: t("match.lobby.waiting"),
+        photoUri: null,
+        waiting: true,
+      } satisfies PersonSlot,
+    };
+  }, [
+    connected,
+    inviteOwner,
+    isOwner,
+    myDisplayName,
+    myPhotoUri,
+    otherProfile,
+    selectedCompanion,
+    t,
+  ]);
+
+  const showCompanionPicker =
+    isOwner && !connected && companions.length > 0 && !isGenerating;
 
   const navigateToItinerary = useCallback(
     (itinerary: ItineraryResponse) => {
@@ -357,17 +526,24 @@ export default function MatchLobbyScreen() {
     transform: [{ scale: pulse.value }],
   }));
 
-  async function shareInvite() {
+  async function shareInvite(companion?: UserPublicProfile | null) {
     if (!matchId || !match) return;
     setErrorKey(null);
-    const link = `tripfy://match/${matchId}`;
+    const link = appDeepLink(`/match/${matchId}`);
+    const friendName = companion?.name.trim();
     try {
       await Share.share({
         title: t("match.share.title"),
-        message: t("match.share.message", {
-          destination: match.destination,
-          link,
-        }),
+        message: friendName
+          ? t("match.share.messageCompanion", {
+              name: friendName,
+              destination: match.destination,
+              link,
+            })
+          : t("match.share.message", {
+              destination: match.destination,
+              link,
+            }),
         url: link,
       });
     } catch {
@@ -375,12 +551,18 @@ export default function MatchLobbyScreen() {
     }
   }
 
+  function inviteCompanion(companion: UserPublicProfile) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedCompanion(companion);
+    void shareInvite(companion);
+  }
+
   async function acceptInvite() {
     if (!matchId || joining) return;
     setJoining(true);
     setErrorKey(null);
     try {
-      const joined = await joinMatch(matchId);
+      const joined = await joinMatch(matchId, { notes: guestNotes });
       setMatch(joined);
     } catch (error) {
       setErrorKey(
@@ -396,6 +578,11 @@ export default function MatchLobbyScreen() {
     } finally {
       setJoining(false);
     }
+  }
+
+  function openEditVibe() {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/edit-vibe");
   }
 
   function retryGeneration() {
@@ -550,11 +737,14 @@ export default function MatchLobbyScreen() {
           )}
         </View>
       ) : (
-        <View
-          style={[
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[
             styles.content,
             { paddingBottom: Math.max(insets.bottom, 24) },
           ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View style={styles.copy}>
             <AppText
@@ -572,10 +762,78 @@ export default function MatchLobbyScreen() {
             </AppText>
           </View>
 
-          <PairVisual
-            connected={Boolean(fullMatch?.participants.length === 2)}
-            inviteeView={!isOwner}
-          />
+          <PairVisual left={pairSlots.left} right={pairSlots.right} />
+
+          {showCompanionPicker ? (
+            <View style={styles.companionsBlock}>
+              <AppText className="text-[13px] font-semibold">
+                {t("match.lobby.inviteFromFriends")}
+              </AppText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.companionsRow}
+              >
+                {companions.map((c) => {
+                  const name =
+                    c.name.trim() || t("profile.fallbackName");
+                  const photo = profilePhotoUri({
+                    photoBase64: c.photoBase64,
+                  });
+                  const selected = selectedCompanion?.uid === c.uid;
+                  return (
+                    <Pressable
+                      key={c.uid}
+                      onPress={() => inviteCompanion(c)}
+                      style={[
+                        styles.companionChip,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: selected
+                            ? theme.accent
+                            : theme.border,
+                        },
+                      ]}
+                      accessibilityLabel={t(
+                        "match.lobby.inviteCompanionA11y",
+                        { name },
+                      )}
+                    >
+                      {photo ? (
+                        <Image
+                          source={{ uri: photo }}
+                          style={styles.companionChipPhoto}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.companionChipPhoto,
+                            {
+                              backgroundColor: `${theme.accent}22`,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            },
+                          ]}
+                        >
+                          <AppText tone="accent" className="text-[12px] font-bold">
+                            {initials(name)}
+                          </AppText>
+                        </View>
+                      )}
+                      <AppText
+                        className="text-[12px] font-semibold"
+                        numberOfLines={1}
+                        style={{ maxWidth: 72 }}
+                      >
+                        {name.split(/\s+/)[0]}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
 
           <View
             style={[
@@ -618,6 +876,65 @@ export default function MatchLobbyScreen() {
             </View>
           </View>
 
+          {isGuestLobby ? (
+            <View style={styles.guestExtras}>
+              <Pressable
+                onPress={openEditVibe}
+                style={[
+                  styles.vibeRow,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.vibeIcon,
+                    { backgroundColor: `${theme.accent}18` },
+                  ]}
+                >
+                  <Ionicons name="sparkles" size={18} color={theme.accent} />
+                </View>
+                <View style={styles.flex}>
+                  <AppText className="text-[14px] font-semibold">
+                    {t("match.lobby.reviewVibeTitle")}
+                  </AppText>
+                  <AppText tone="secondary" className="text-[12px]">
+                    {t("match.lobby.reviewVibeHint")}
+                  </AppText>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.textSecondary}
+                />
+              </Pressable>
+
+              <View style={styles.field}>
+                <AppText className="text-[13px] font-semibold">
+                  {t("match.lobby.guestNotesLabel")}
+                </AppText>
+                <TextInput
+                  value={guestNotes}
+                  onChangeText={setGuestNotes}
+                  placeholder={t("match.lobby.guestNotesPlaceholder")}
+                  placeholderTextColor={theme.textMuted}
+                  multiline
+                  textAlignVertical="top"
+                  style={[
+                    styles.notesInput,
+                    {
+                      color: theme.textPrimary,
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          ) : null}
+
           {errorKey && (
             <AppText tone="error" className="text-center text-[13px]">
               {t(errorKey)}
@@ -628,7 +945,7 @@ export default function MatchLobbyScreen() {
             <ActionButton
               onPress={
                 isOwner
-                  ? () => void shareInvite()
+                  ? () => void shareInvite(selectedCompanion)
                   : () => void acceptInvite()
               }
               disabled={joining}
@@ -645,7 +962,7 @@ export default function MatchLobbyScreen() {
                   : t("match.actions.join")}
             </ActionButton>
           </Animated.View>
-        </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -653,6 +970,7 @@ export default function MatchLobbyScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  flex: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -669,7 +987,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
     justifyContent: "space-between",
@@ -694,6 +1012,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
   connection: {
     width: 54,
     height: 54,
@@ -702,6 +1024,57 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: "center",
     justifyContent: "center",
+  },
+  companionsBlock: {
+    gap: 10,
+  },
+  companionsRow: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  companionChip: {
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    minWidth: 84,
+  },
+  companionChipPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  guestExtras: {
+    gap: 14,
+  },
+  field: {
+    gap: 8,
+  },
+  vibeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  vibeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notesInput: {
+    minHeight: 88,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   summary: {
     borderWidth: 1,

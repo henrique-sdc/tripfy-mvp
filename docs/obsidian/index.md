@@ -12,4 +12,5 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Geração de Roteiro RF06]] — RF06: LLM trocável (`openai`/`gemini`), SSE, prompt anti-injection, prefs do Firestore.
 - [[Detalhe da Viagem RF07]] — RF07: Lista/Mapa, drag-and-drop, coração → Firestore, coords opcionais.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
+- [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.

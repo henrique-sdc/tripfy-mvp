@@ -357,15 +357,33 @@ export async function cloneTripApi(
 
 export type MatchStatus = "waiting" | "generating" | "completed";
 
+/** Fatia pública de users/{uid} — sem email (LGPD). */
+export type UserPublicProfile = {
+  uid: string;
+  name: string;
+  bio: string;
+  photoBase64: string | null;
+  interests: string[];
+  pace: string | null;
+};
+
 export type MatchInviteSummary = {
   id: string;
   destination: string;
   days: number;
   budget: string;
   status: MatchStatus;
+  owner: UserPublicProfile;
 };
 
-export type MatchInDB = MatchInviteSummary & {
+export type MatchInDB = {
+  id: string;
+  destination: string;
+  days: number;
+  budget: string;
+  status: MatchStatus;
+  notes?: string;
+  guest_notes?: string;
   owner_uid: string;
   participants: string[];
   created_at: unknown;
@@ -382,6 +400,7 @@ export type CreateMatchParams = {
   destination: string;
   days: number;
   budget: string;
+  notes?: string;
 };
 
 /** Wrapper de fetch que injeta o Bearer token e valida a resposta. */
@@ -473,12 +492,55 @@ export async function getMatch(
 }
 
 /** POST /matches/{id}/join — aceita o convite com o UID do token. */
-export async function joinMatch(matchId: string): Promise<MatchInDB> {
+export async function joinMatch(
+  matchId: string,
+  opts?: { notes?: string },
+): Promise<MatchInDB> {
   const response = await authFetch(
     `/matches/${encodeURIComponent(matchId)}/join`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify({ notes: opts?.notes?.trim() ?? "" }),
+    },
   );
   return (await response.json()) as MatchInDB;
+}
+
+/** GET /users/{uid}/public */
+export async function getPublicProfile(
+  uid: string,
+  signal?: AbortSignal,
+): Promise<UserPublicProfile> {
+  const response = await authFetch(
+    `/users/${encodeURIComponent(uid.trim())}/public`,
+    { method: "GET", signal },
+  );
+  return (await response.json()) as UserPublicProfile;
+}
+
+/** POST /users/me/companions/{uid} — ArrayUnion no backend. */
+export async function addCompanion(uid: string): Promise<void> {
+  await authFetch(`/users/me/companions/${encodeURIComponent(uid.trim())}`, {
+    method: "POST",
+  });
+}
+
+/** DELETE /users/me/companions/{uid} — ArrayRemove no backend. */
+export async function removeCompanion(uid: string): Promise<void> {
+  await authFetch(`/users/me/companions/${encodeURIComponent(uid.trim())}`, {
+    method: "DELETE",
+  });
+}
+
+/** GET /users/me/companions — lista hidratada. */
+export async function listMyCompanions(
+  signal?: AbortSignal,
+): Promise<UserPublicProfile[]> {
+  const response = await authFetch("/users/me/companions", {
+    method: "GET",
+    signal,
+  });
+  return (await response.json()) as UserPublicProfile[];
 }
 
 /**
