@@ -96,7 +96,7 @@ Schema canônico (após conversão OpenAI / nativo Gemini):
 
 - `ActivityResponse` — `time`, `title`, `description`, `location`, `latitude?`, `longitude?`
 - `ItineraryDayResponse` — `day`, `title`, `activities[]`
-- `ItineraryResponse` — `destination`, `summary`, `days[]` (exatamente N dias do pedido)
+- `ItineraryResponse` — `destination`, `summary`, `tips[]` (3–5 dicas específicas do destino), `days[]` (exatamente N dias do pedido)
 
 ### Prompt Injection (PRD 6.2)
 

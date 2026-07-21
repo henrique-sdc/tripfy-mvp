@@ -18,19 +18,30 @@ aliases:
 Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 
 ## Capabilidades
-| Feature | Como |
-|---------|------|
-| Layout | Mapa em cima (~34%) + lista embaixo (sem toggle) |
-| Chip **Todos** | Primeiro botão; lista + mapa agregam todas as paradas (DnD desligado) |
-| Drag & drop (RF07.1) | `react-native-draggable-flatlist` no dia selecionado |
-| Remover parada | Swipe esquerda (Mail) — mín. 1 atividade/dia |
-| Reordenar horários | `reassignTimes` redistribui slots do dia após drag |
-| Mapa | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go) |
-| Entrada | Stash `pendingItinerary` (pós-geração) ou `tripId` (aba Viagens) |
-| Salvar | coração → `users/{uid}/trips/{tripId}` (client SDK) |
-| Places proxy | `GET /places/lookup` — `place_id` + foto/nota/`open_now` |
-| Place Details | `GET /places/{place_id}/details` — painel rico (Google) |
-| Reviews Tripfy | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews` |
+
+| Feature                  | Como                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Layout                   | Mapa em cima (~34%) + lista embaixo (sem toggle)                                                                                       |
+| Chip **Todos**           | Primeiro botão; lista + mapa agregam todas as paradas (DnD desligado)                                                                  |
+| Drag & drop (RF07.1)     | `react-native-draggable-flatlist` no dia; **sem** `GestureHandlerRootView` aninhado (já no `_layout`); handle ≡ com `onPressIn={drag}` |
+| Remover parada           | Swipe esquerda (Mail) — `dragOffsetFromRightEdge` pra não matar o DnD; mín. 1 atividade/dia                                            |
+| Reordenar horários       | `reassignTimes` redistribui slots do dia após drag                                                                                     |
+| Mapa                     | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go)                                                                                    |
+| Entrada                  | Stash `pendingItinerary` (pós-geração) ou `tripId` (aba Viagens)                                                                       |
+| **Auto-save**            | Debounce 700ms → Firestore; `<SyncIndicator>` (salvando / salvo / erro). Sem coração.                                                  |
+| Editar meta              | Toque no destino → destino + resumo + **notas pessoais** (`EditTripMetaModal`)                                                         |
+| Editar título do dia     | Toque no título do dia → `EditDayTitleModal` (auto-save)                                                                               |
+| Notas pessoais           | Campo `notes` no doc Firestore / `SavedTripResponse`; linha sob o título do dia                                                        |
+| Editar parada            | Lápis no card → time + title + description + **dia** (cross-day)                                                                       |
+| Nova parada              | FAB → `AddActivityModal` (só com dia selecionado); endereço opcional → Places lookup → pin no mapa                                     |
+| Dias                     | Chip `+ Dia`; lixeira no título do dia (reindex 1..N); mín. 1 dia                                                                      |
+| **Lixeira**              | Soft delete 30d (`deleted_at`); Configurações → `/trash`; long-press em Viagens                                                        |
+| **Minhas avaliações**    | `GET /places/reviews/me` → `/my-reviews` (editar/excluir)                                                                              |
+| **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim”                                                                  |
+| Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
+| Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
+| Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
+| Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`                                                             |
 
 ## Proxy Google Places (PASSO 1 — backend)
 
@@ -41,13 +52,13 @@ GET /api/v1/places/lookup?query={nome}&lat={lat}&lng={lng}
 Authorization: Bearer <Firebase ID Token>
 ```
 
-| Campo resposta | Origem |
-|----------------|--------|
-| `place_id` | `places.id` (New) / `place_id` (legacy) — âncora details/reviews |
-| `photo_url` | Places Photos (New) com `skipHttpRedirect` → URI `googleusercontent` (sem key) |
-| `rating` | `places.rating` |
-| `reviews_count` | `places.userRatingCount` |
-| `open_now` | `places.currentOpeningHours.openNow` |
+| Campo resposta  | Origem                                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| `place_id`      | `places.id` (New) / `place_id` (legacy) — âncora details/reviews               |
+| `photo_url`     | Places Photos (New) com `skipHttpRedirect` → URI `googleusercontent` (sem key) |
+| `rating`        | `places.rating`                                                                |
+| `reviews_count` | `places.userRatingCount`                                                       |
+| `open_now`      | `places.currentOpeningHours.openNow`                                           |
 
 - Serviço: `services/places_service.py` · Router: `api/places_router.py`
 - Chave: `GOOGLE_MAPS_API_KEY` (só server-side)
@@ -65,13 +76,15 @@ POST /api/v1/places/{place_id}/reviews     → upsert do uid (10/min)
 DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 ```
 
-| `PlaceFullDetailsResponse` | Fonte |
-|----------------------------|--------|
-| name, formatted_address, phone, website | Place Details |
-| editorial_summary | editorial / generative summary |
-| weekday_text, open_now | opening hours |
-| photo_urls (máx. 5) | resolvidas server-side |
-| latitude, longitude | location / geometry |
+| `PlaceFullDetailsResponse`              | Fonte                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| name, formatted_address, phone, website | Place Details                                                                  |
+| editorial_summary                       | editorial / generative summary                                                 |
+| weekday_text, open_now                  | opening hours                                                                  |
+| photo_urls (máx. 5)                     | resolvidas server-side                                                         |
+| latitude, longitude                     | location / geometry                                                            |
+| `price_level`                           | New `priceLevel` → `$`…`$$$$`; legacy `price_level` 0–4                        |
+| `menu_uri`                              | Opcional; Google **não** documenta campo estável — null na maioria dos lugares |
 
 **Reviews:** coleção `place_reviews`; doc id `{place_id}_{uid}` (1 review por usuário). Só Admin SDK — rules `allow read, write: if false`. Deploy: `firebase deploy --only firestore:rules`.
 
@@ -82,21 +95,27 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 > Sem isso o lookup cai no legacy (se habilitado) ou falha.
 
 > [!note] Próximos passos UI
-> Sheet Knowledge Panel + edit time/title ✅ · Modo Edição avançado (notas, troca de local, add real) e mapa nativo depois.
+> Auto-save + SyncIndicator + edit meta/description ✅ · Fases seguintes: gestão de dias, social/lixeira, clone.
 
 ## PlaceDetailsSheet (PASSO 2 frontend)
 
 - `components/trip/PlaceDetailsSheet.tsx` — Modal + pan dismiss (física CreateTripSheet).
-- Abas **Sobre** (fotos, rating Google, resumo, endereço, horários) e **Comunidade** (reviews Tripfy + form).
-- Tap no hero do `ActivityCard` (com `place_id`) abre o sheet; lápis abre `EditActivityModal` (time + title).
+- Abas **Sobre** (fotos, rating, **preço médio**, menu se houver, resumo, endereço, horários) e **Comunidade**.
+- Tap no hero do `ActivityCard` (com `place_id`) abre o sheet; lápis abre `EditActivityModal` (time + title + description).
 - API: `getPlaceFullDetails`, `getPlaceReviews`, `upsertPlaceReview` em `lib/api.ts`.
 
 ## Edição tátil (PASSO 3)
 
 - **Swipe-to-delete:** `ReanimatedSwipeable` — lixeira vermelha; ícone escala com `progress`; overswipe (`progress ≥ 1.45`) apaga; última parada do dia bloqueada.
-- **DnD:** `onDragBegin` Light + `onDragEnd` Medium; sombra no row ativo; `reassignTimes` intacto.
+- **DnD:** root único no `_layout`; handle ≡ + long-press; `dragOffsetFromRightEdge` no swipe.
 - **FAB** “Nova Parada”: Alert “Em breve” (add manual no próximo ciclo).
 - Remoção pelo X do card saiu — gesto = fonte da verdade.
+
+## Auto-save (Fase 1)
+
+- Abertura pós-SSE / qualquer edição marca `dirty` → debounce 700ms → `saveTrip`.
+- Header: lápis (meta) + `<SyncIndicator>` (spinner / cloud-done / erro).
+- Sem botão coração e sem Alerts de “salvo com sucesso”.
 
 ## ActivityCard (PASSO 2)
 

@@ -32,6 +32,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Índice de deep link / clone — client escreve o próprio; leitura só Admin.
+    match /trip_shares/{tripId} {
+      allow create, update: if request.auth != null
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.trip_id == tripId;
+      allow delete: if request.auth != null
+        && resource.data.owner_uid == request.auth.uid;
+      allow read: if false;
+    }
+
     // Qualquer outra coleção fica bloqueada até ganhar regra explícita.
     match /{document=**} {
       allow read, write: if false;

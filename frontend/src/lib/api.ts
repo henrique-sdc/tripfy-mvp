@@ -78,6 +78,10 @@ export type ItineraryDayResponse = {
 export type ItineraryResponse = {
   destination: string;
   summary: string;
+  /** Dicas geradas pela LLM específicas do destino (3–5). */
+  tips?: string[];
+  /** Notas pessoais do usuário (não vêm da LLM). */
+  notes?: string;
   days: ItineraryDayResponse[];
 };
 
@@ -88,6 +92,8 @@ export type PlaceDetailsResponse = {
   rating: number | null;
   reviews_count: number | null;
   open_now: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 /** Espelho de PlaceFullDetailsResponse — Knowledge Panel. */
@@ -105,6 +111,8 @@ export type PlaceFullDetailsResponse = {
   photo_urls: string[];
   latitude: number | null;
   longitude: number | null;
+  price_level: string | null;
+  menu_uri: string | null;
 };
 
 export type PlaceReviewCreate = {
@@ -187,6 +195,8 @@ export async function getPlaceDetails(
         rating: null,
         reviews_count: null,
         open_now: null,
+        latitude: null,
+        longitude: null,
       };
       placeDetailsCache.set(key, empty);
       return empty;
@@ -248,6 +258,98 @@ export async function deleteOwnPlaceReview(placeId: string): Promise<void> {
     `/places/${encodeURIComponent(placeId.trim())}/reviews/me`,
     { method: "DELETE" },
   );
+}
+
+/** GET /places/reviews/me — todas as avaliações do usuário. */
+export async function getMyPlaceReviews(
+  limit = 50,
+  signal?: AbortSignal,
+): Promise<PlaceReviewResponse[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await authFetch(`/places/reviews/me?${params}`, {
+    method: "GET",
+    signal,
+  });
+  return (await response.json()) as PlaceReviewResponse[];
+}
+
+/** Espelho de SavedTripResponse do backend (CRUD / clone / deep link). */
+export type SavedTripApi = {
+  id: string;
+  owner_uid: string;
+  destination: string;
+  summary: string;
+  tips: string[];
+  notes?: string;
+  days: ItineraryDayResponse[];
+  deleted_at: string | null;
+  cloned_from: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  is_owner: boolean;
+  read_only: boolean;
+};
+
+export type CloneTripResponse = {
+  id: string;
+  destination: string;
+};
+
+/** GET /trips — ativas do usuário. */
+export async function listTripsApi(
+  signal?: AbortSignal,
+): Promise<SavedTripApi[]> {
+  const response = await authFetch("/trips", { method: "GET", signal });
+  return (await response.json()) as SavedTripApi[];
+}
+
+/** GET /trips/trash */
+export async function listTrashTrips(
+  signal?: AbortSignal,
+): Promise<SavedTripApi[]> {
+  const response = await authFetch("/trips/trash", { method: "GET", signal });
+  return (await response.json()) as SavedTripApi[];
+}
+
+/** GET /trips/{id} — dono ou visitante (read_only). */
+export async function getTripApi(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<SavedTripApi> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}`,
+    { method: "GET", signal },
+  );
+  return (await response.json()) as SavedTripApi;
+}
+
+/** DELETE /trips/{id} — soft delete. */
+export async function softDeleteTripApi(tripId: string): Promise<void> {
+  await authFetch(`/trips/${encodeURIComponent(tripId.trim())}`, {
+    method: "DELETE",
+  });
+}
+
+/** POST /trips/{id}/restore */
+export async function restoreTripApi(
+  tripId: string,
+): Promise<SavedTripApi> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/restore`,
+    { method: "POST" },
+  );
+  return (await response.json()) as SavedTripApi;
+}
+
+/** POST /trips/{id}/clone */
+export async function cloneTripApi(
+  tripId: string,
+): Promise<CloneTripResponse> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/clone`,
+    { method: "POST" },
+  );
+  return (await response.json()) as CloneTripResponse;
 }
 
 export type MatchStatus = "waiting" | "generating" | "completed";

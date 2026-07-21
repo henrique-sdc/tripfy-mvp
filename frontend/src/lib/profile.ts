@@ -127,7 +127,17 @@ export async function deleteUserAccount(): Promise<void> {
   const uid = user.uid;
 
   const tripsSnap = await getDocs(collection(db, "users", uid, "trips"));
-  await Promise.all(tripsSnap.docs.map((d) => deleteDoc(d.ref)));
+  await Promise.all(
+    tripsSnap.docs.map(async (d) => {
+      await deleteDoc(d.ref);
+      // Índice de share — senão deep links órfãos apontam pra dono morto.
+      try {
+        await deleteDoc(doc(db, "trip_shares", d.id));
+      } catch {
+        // Sem índice antigo: ok.
+      }
+    }),
+  );
 
   await deleteDoc(doc(db, "users", uid));
 

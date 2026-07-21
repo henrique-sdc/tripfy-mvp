@@ -6,7 +6,7 @@ import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, useColorScheme } from "react-native";
+import { ActivityIndicator, Alert, useColorScheme } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
-import { listTrips, type SavedTrip } from "@/lib/trips";
+import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
 import { Pressable, ScrollView, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -26,9 +26,11 @@ const SPRING = { damping: 20, stiffness: 300 };
 function TripCard({
   trip,
   onPress,
+  onTrash,
 }: {
   trip: SavedTrip;
   onPress: () => void;
+  onTrash: () => void;
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -41,6 +43,11 @@ function TripCard({
   return (
     <AnimatedPressable
       onPress={onPress}
+      onLongPress={() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        onTrash();
+      }}
+      delayLongPress={420}
       onPressIn={() => {
         scale.value = withSpring(0.98, SPRING);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -119,6 +126,34 @@ export default function TripsScreen() {
     router.push(href);
   }
 
+  function askTrash(trip: SavedTrip) {
+    Alert.alert(
+      t("trips.trashTitle"),
+      t("trips.trashBody", { destination: trip.destination }),
+      [
+        { text: t("trips.trashCancel"), style: "cancel" },
+        {
+          text: t("trips.trashConfirm"),
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await softDeleteTrip(trip.id);
+                setTrips((prev) => prev.filter((x) => x.id !== trip.id));
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+              } catch (err) {
+                console.error("[trips] Soft delete falhou:", err);
+                Alert.alert(t("trips.loadError"), t("trips.trashError"));
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
@@ -183,6 +218,7 @@ export default function TripsScreen() {
                 key={trip.id}
                 trip={trip}
                 onPress={() => openTrip(trip)}
+                onTrash={() => askTrash(trip)}
               />
             ))}
           </View>

@@ -39,8 +39,10 @@ type Props = {
   dimmed?: boolean;
   /** Abre o Knowledge Panel quando o lookup devolveu place_id. */
   onOpenDetails?: (placeId: string) => void;
-  /** Abre modal de edição (time + title). */
+  /** Abre modal de edição (time + title + description). */
   onEdit?: () => void;
+  /** Inicia o drag no handle (mais confiável que long-press no card inteiro). */
+  onDragHandlePressIn?: () => void;
 };
 
 export function ActivityCard({
@@ -51,6 +53,7 @@ export function ActivityCard({
   dimmed = false,
   onOpenDetails,
   onEdit,
+  onDragHandlePressIn,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -251,11 +254,17 @@ export function ActivityCard({
                     {activity.time}
                   </AppText>
                   {showDragHandle ? (
-                    <Ionicons
-                      name="menu"
-                      size={16}
-                      color="rgba(255,255,255,0.7)"
-                    />
+                    <Pressable
+                      onPressIn={onDragHandlePressIn}
+                      hitSlop={8}
+                      accessibilityLabel={t("tripDetail.dragHandle")}
+                    >
+                      <Ionicons
+                        name="menu"
+                        size={16}
+                        color="rgba(255,255,255,0.7)"
+                      />
+                    </Pressable>
                   ) : null}
                 </View>
                 <View style={styles.heroTopRight}>
@@ -332,7 +341,13 @@ export function ActivityCard({
                 {activity.time}
               </AppText>
               {showDragHandle ? (
-                <Ionicons name="menu" size={16} color={theme.textMuted} />
+                <Pressable
+                  onPressIn={onDragHandlePressIn}
+                  hitSlop={8}
+                  accessibilityLabel={t("tripDetail.dragHandle")}
+                >
+                  <Ionicons name="menu" size={16} color={theme.textMuted} />
+                </Pressable>
               ) : null}
               {details?.rating != null ? (
                 <View style={styles.ratingInline}>

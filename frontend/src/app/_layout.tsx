@@ -119,6 +119,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="trip-detail" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="trip/[id]" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="match/[id]" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="trending" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="edit-profile" options={PUSH_SCREEN_OPTIONS} />
@@ -126,6 +127,8 @@ export default function RootLayout() {
             <Stack.Screen name="help-support" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="edit-vibe" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="companions" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="trash" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="my-reviews" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>
         </Stack>
       </ThemeProvider>

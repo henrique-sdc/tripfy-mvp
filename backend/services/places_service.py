@@ -23,17 +23,34 @@ _PHOTO_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/photo"
 
 _FIELD_MASK_SEARCH = (
     "places.id,places.photos,places.rating,"
-    "places.userRatingCount,places.currentOpeningHours"
+    "places.userRatingCount,places.currentOpeningHours,places.location"
 )
 _FIELD_MASK_DETAILS = (
     "id,displayName,formattedAddress,nationalPhoneNumber,internationalPhoneNumber,"
     "websiteUri,editorialSummary,generativeSummary,regularOpeningHours,"
-    "currentOpeningHours,rating,userRatingCount,photos,location"
+    "currentOpeningHours,rating,userRatingCount,photos,location,priceLevel"
 )
 _LEGACY_DETAILS_FIELDS = (
     "place_id,name,formatted_address,formatted_phone_number,international_phone_number,"
-    "website,editorial_summary,opening_hours,rating,user_ratings_total,photos,geometry"
+    "website,editorial_summary,opening_hours,rating,user_ratings_total,photos,geometry,"
+    "price_level"
 )
+
+# Places (New) priceLevel → símbolos estilo Google Maps / Wanderlog.
+_PRICE_LEVEL_NEW: dict[str, str] = {
+    "PRICE_LEVEL_FREE": "Grátis",
+    "PRICE_LEVEL_INEXPENSIVE": "$",
+    "PRICE_LEVEL_MODERATE": "$$",
+    "PRICE_LEVEL_EXPENSIVE": "$$$",
+    "PRICE_LEVEL_VERY_EXPENSIVE": "$$$$",
+}
+_PRICE_LEVEL_LEGACY: dict[int, str] = {
+    0: "Grátis",
+    1: "$",
+    2: "$$",
+    3: "$$$",
+    4: "$$$$",
+}
 
 _BIAS_RADIUS_M = 5000.0
 _PHOTO_MAX_PX = 800
@@ -90,12 +107,15 @@ def map_place_to_details(
         except (TypeError, ValueError):
             reviews = None
 
+    location = place.get("location") if isinstance(place.get("location"), dict) else {}
     return PlaceDetailsResponse(
         place_id=extract_place_id_new(place),
         photo_url=photo_url,
         rating=rating,
         reviews_count=reviews,
         open_now=open_now,
+        latitude=_as_float(location.get("latitude")),
+        longitude=_as_float(location.get("longitude")),
     )
 
 
@@ -126,12 +146,19 @@ def map_legacy_result_to_details(
     raw_id = result.get("place_id")
     place_id = raw_id.strip() if isinstance(raw_id, str) and raw_id.strip() else None
 
+    geometry = result.get("geometry") or {}
+    loc = geometry.get("location") if isinstance(geometry, dict) else {}
+    lat = _as_float(loc.get("lat")) if isinstance(loc, dict) else None
+    lng = _as_float(loc.get("lng")) if isinstance(loc, dict) else None
+
     return PlaceDetailsResponse(
         place_id=place_id,
         photo_url=photo_url,
         rating=rating,
         reviews_count=reviews,
         open_now=open_now,
+        latitude=lat,
+        longitude=lng,
     )
 
 
@@ -266,6 +293,33 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
+def format_price_level_new(raw: Any) -> str | None:
+    """Converte enum Places (New) em $, $$…; ignora UNKNOWN/unspecified."""
+    if not isinstance(raw, str):
+        return None
+    return _PRICE_LEVEL_NEW.get(raw.strip())
+
+
+def format_price_level_legacy(raw: Any) -> str | None:
+    """Legacy usa inteiro 0–4."""
+    level = _as_int(raw)
+    if level is None:
+        return None
+    return _PRICE_LEVEL_LEGACY.get(level)
+
+
+def extract_menu_uri(place: dict[str, Any]) -> str | None:
+    """
+    Google não documenta menuUri estável na Places API.
+    Aceita chaves experimentais se aparecerem; senão None (não inventa URL).
+    """
+    for key in ("menuUri", "menu_uri"):
+        value = place.get(key)
+        if isinstance(value, str) and value.startswith("http"):
+            return value
+    return None
+
+
 def map_new_details_to_full(
     place: dict[str, Any],
     place_id: str,
@@ -319,6 +373,8 @@ def map_new_details_to_full(
         photo_urls=photo_urls,
         latitude=lat,
         longitude=lng,
+        price_level=format_price_level_new(place.get("priceLevel")),
+        menu_uri=extract_menu_uri(place),
     )
 
 
@@ -371,6 +427,8 @@ def map_legacy_details_to_full(
         photo_urls=photo_urls,
         latitude=lat,
         longitude=lng,
+        price_level=format_price_level_legacy(result.get("price_level")),
+        menu_uri=extract_menu_uri(result),
     )
 
 

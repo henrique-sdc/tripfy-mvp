@@ -23,6 +23,7 @@ class PlacesMappingTest(unittest.TestCase):
             "rating": 4.7,
             "userRatingCount": 1280,
             "currentOpeningHours": {"openNow": True},
+            "location": {"latitude": -23.55, "longitude": -46.63},
         }
         details = map_place_to_details(place, "https://lh3.googleusercontent.com/x")
 
@@ -31,6 +32,8 @@ class PlacesMappingTest(unittest.TestCase):
         self.assertEqual(details.rating, 4.7)
         self.assertEqual(details.reviews_count, 1280)
         self.assertTrue(details.open_now)
+        self.assertEqual(details.latitude, -23.55)
+        self.assertEqual(details.longitude, -46.63)
 
     def test_extract_place_id_from_resource_name(self) -> None:
         self.assertEqual(
@@ -46,6 +49,8 @@ class PlacesMappingTest(unittest.TestCase):
         self.assertIsNone(details.rating)
         self.assertIsNone(details.reviews_count)
         self.assertIsNone(details.open_now)
+        self.assertIsNone(details.latitude)
+        self.assertIsNone(details.longitude)
 
     def test_maps_legacy_payload(self) -> None:
         result = {
@@ -53,12 +58,15 @@ class PlacesMappingTest(unittest.TestCase):
             "rating": 4.2,
             "user_ratings_total": 90,
             "opening_hours": {"open_now": False},
+            "geometry": {"location": {"lat": 38.7, "lng": -9.1}},
         }
         details = map_legacy_result_to_details(result, None)
         self.assertEqual(details.place_id, "ChIJlegacy1234567890")
         self.assertEqual(details.rating, 4.2)
         self.assertEqual(details.reviews_count, 90)
         self.assertFalse(details.open_now)
+        self.assertEqual(details.latitude, 38.7)
+        self.assertEqual(details.longitude, -9.1)
 
     def test_detects_new_api_blocked(self) -> None:
         self.assertTrue(
@@ -93,6 +101,8 @@ class PlacesMappingTest(unittest.TestCase):
             "rating": 4.6,
             "userRatingCount": 9000,
             "location": {"latitude": 52.5, "longitude": 13.4},
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "menuUri": "https://example.com/cardapio",
         }
         full = map_new_details_to_full(
             place, "ChIJfull1234567890ab", ["https://lh3.googleusercontent.com/a"]
@@ -101,6 +111,8 @@ class PlacesMappingTest(unittest.TestCase):
         self.assertEqual(full.weekday_text, ["Monday: Open 24 hours"])
         self.assertEqual(full.latitude, 52.5)
         self.assertEqual(len(full.photo_urls), 1)
+        self.assertEqual(full.price_level, "$$")
+        self.assertEqual(full.menu_uri, "https://example.com/cardapio")
 
     def test_map_legacy_full_details(self) -> None:
         result = {
@@ -112,11 +124,14 @@ class PlacesMappingTest(unittest.TestCase):
                 "weekday_text": ["Domingo: fechado"],
             },
             "geometry": {"location": {"lat": 52.1, "lng": 13.2}},
+            "price_level": 2,
         }
         full = map_legacy_details_to_full(result, "ChIJlegfull123456789", [])
         self.assertEqual(full.name, "Café")
         self.assertFalse(full.open_now)
         self.assertEqual(full.longitude, 13.2)
+        self.assertEqual(full.price_level, "$$")
+        self.assertIsNone(full.menu_uri)
 
 
 class PlaceReviewModelTest(unittest.TestCase):

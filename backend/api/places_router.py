@@ -52,6 +52,22 @@ async def lookup_place(
     return await places_service.lookup_place(query, lat=lat, lng=lng)
 
 
+@router.get("/reviews/me", response_model=list[PlaceReviewResponse])
+@limiter.limit(_REVIEWS_GET_LIMIT)
+async def list_my_reviews(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> list[PlaceReviewResponse]:
+    """Todas as avaliações do usuário autenticado (antes de /{place_id}/…)."""
+    logger.info(
+        "Listando minhas reviews: uid={} limit={}",
+        current_user.uid,
+        limit,
+    )
+    return await review_repository.list_by_user(current_user.uid, limit=limit)
+
+
 @router.get("/{place_id}/details", response_model=PlaceFullDetailsResponse)
 @limiter.limit(_DETAILS_LIMIT)
 async def get_place_details(
@@ -59,7 +75,7 @@ async def get_place_details(
     place_id: str = Path(..., min_length=10, max_length=256),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> PlaceFullDetailsResponse:
-    """Painel rico do local (endereço, horários, fotos, resumo editorial)."""
+    """Painel rico do local (endereço, horários, fotos, preço, menu se houver)."""
     cleaned = validate_place_id(place_id)
     logger.info(
         "Places details: uid={} place_id={}",

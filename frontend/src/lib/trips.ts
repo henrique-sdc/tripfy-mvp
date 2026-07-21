@@ -1,8 +1,8 @@
 // Persistência de roteiros do usuário em users/{uid}/trips/{tripId}.
+// Soft delete: deleted_at. Índice trip_shares/{id} pra deep link/clone (RF09).
 
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 
 import type { ItineraryResponse } from "@/lib/api";
@@ -17,6 +18,8 @@ import { auth, db } from "@/lib/firebase";
 
 export type SavedTrip = ItineraryResponse & {
   id: string;
+  owner_uid?: string;
+  deleted_at?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 };
@@ -26,6 +29,10 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
   return {
     destination: itinerary.destination,
     summary: itinerary.summary,
+    tips: Array.isArray(itinerary.tips)
+      ? itinerary.tips.map((t) => String(t).trim()).filter(Boolean)
+      : [],
+    notes: typeof itinerary.notes === "string" ? itinerary.notes.trim() : "",
     days: itinerary.days.map((d) => ({
       day: d.day,
       title: d.title,
@@ -58,22 +65,51 @@ export async function saveTrip(
     ref,
     {
       ...stripClientKeys(itinerary),
+      owner_uid: uid,
+      trip_id: ref.id,
       updated_at: serverTimestamp(),
-      ...(isNew ? { created_at: serverTimestamp() } : {}),
+      ...(isNew
+        ? { created_at: serverTimestamp(), deleted_at: null }
+        : {}),
     },
+    { merge: true },
+  );
+
+  // Índice pra deep link / clone via Admin SDK (client não lê trip_shares).
+  await setDoc(
+    doc(db, "trip_shares", ref.id),
+    { owner_uid: uid, trip_id: ref.id },
     { merge: true },
   );
 
   return ref.id;
 }
 
-export async function deleteTrip(tripId: string): Promise<void> {
+/** Soft delete — 30 dias na lixeira (não apaga o doc). */
+export async function softDeleteTrip(tripId: string): Promise<void> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Usuário não autenticado.");
-  await deleteDoc(doc(db, "users", uid, "trips", tripId));
+  await updateDoc(doc(db, "users", uid, "trips", tripId), {
+    deleted_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  });
 }
 
-/** Lista roteiros do usuário (mais recentes primeiro). */
+/** @deprecated use softDeleteTrip — mantido pra imports antigos. */
+export async function deleteTrip(tripId: string): Promise<void> {
+  return softDeleteTrip(tripId);
+}
+
+export async function restoreTripLocal(tripId: string): Promise<void> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Usuário não autenticado.");
+  await updateDoc(doc(db, "users", uid, "trips", tripId), {
+    deleted_at: null,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** Lista roteiros ativos (sem deleted_at). */
 export async function listTrips(): Promise<SavedTrip[]> {
   const uid = auth.currentUser?.uid;
   if (!uid) return [];
@@ -83,17 +119,25 @@ export async function listTrips(): Promise<SavedTrip[]> {
     orderBy("updated_at", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        owner_uid: String(data.owner_uid ?? uid),
       destination: String(data.destination ?? ""),
       summary: String(data.summary ?? ""),
+      tips: Array.isArray(data.tips)
+        ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
+        : [],
+      notes: typeof data.notes === "string" ? data.notes : "",
       days: Array.isArray(data.days) ? data.days : [],
+      deleted_at: data.deleted_at,
       created_at: data.created_at,
       updated_at: data.updated_at,
     } as SavedTrip;
-  });
+    })
+    .filter((t) => t.deleted_at == null);
 }
 
 export async function getTrip(tripId: string): Promise<SavedTrip | null> {
@@ -102,10 +146,16 @@ export async function getTrip(tripId: string): Promise<SavedTrip | null> {
   const snap = await getDoc(doc(db, "users", uid, "trips", tripId));
   if (!snap.exists()) return null;
   const data = snap.data();
+  if (data.deleted_at != null) return null;
   return {
     id: snap.id,
+    owner_uid: String(data.owner_uid ?? uid),
     destination: String(data.destination ?? ""),
     summary: String(data.summary ?? ""),
+    tips: Array.isArray(data.tips)
+      ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
+      : [],
+    notes: typeof data.notes === "string" ? data.notes : "",
     days: Array.isArray(data.days) ? data.days : [],
     created_at: data.created_at,
     updated_at: data.updated_at,

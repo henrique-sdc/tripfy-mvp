@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   FlatList,
+  Linking,
   Modal,
   Pressable as RNPressable,
   ScrollView,
@@ -396,6 +397,16 @@ function AboutTab({
             ) : null}
           </RNView>
         ) : null}
+        {details.price_level ? (
+          <RNView style={styles.metaChip}>
+            <AppText className="text-[13px] font-semibold">
+              {details.price_level}
+            </AppText>
+            <AppText tone="muted" className="text-[12px]">
+              {t("tripDetail.placeSheet.priceLevel")}
+            </AppText>
+          </RNView>
+        ) : null}
         {details.open_now === true ? (
           <AppText tone="success" className="text-[12px] font-semibold">
             {t("tripDetail.openNow")}
@@ -438,6 +449,26 @@ function AboutTab({
             {details.website}
           </AppText>
         </RNView>
+      ) : null}
+
+      {details.menu_uri ? (
+        <RNPressable
+          onPress={() => {
+            void Linking.openURL(details.menu_uri!);
+          }}
+          style={styles.rowIcon}
+          accessibilityRole="link"
+          accessibilityLabel={t("tripDetail.placeSheet.menu")}
+        >
+          <Ionicons
+            name="restaurant-outline"
+            size={16}
+            color={theme.textMuted}
+          />
+          <AppText tone="accent" className="text-[13px] font-semibold">
+            {t("tripDetail.placeSheet.menu")}
+          </AppText>
+        </RNPressable>
       ) : null}
 
       {details.weekday_text.length > 0 ? (

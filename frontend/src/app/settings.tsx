@@ -204,6 +204,16 @@ export default function SettingsScreen() {
             label={t("settings.editVibe")}
             onPress={() => router.push("/edit-vibe")}
           />
+          <SettingsRow
+            icon="star-outline"
+            label={t("settings.myReviews")}
+            onPress={() => router.push("/my-reviews")}
+          />
+          <SettingsRow
+            icon="trash-outline"
+            label={t("settings.trash")}
+            onPress={() => router.push("/trash")}
+          />
         </View>
 
         <View className="gap-3">

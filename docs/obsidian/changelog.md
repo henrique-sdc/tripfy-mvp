@@ -1,4 +1,38 @@
 # Changelog — Tripfy Docs
+## 2026-07-21 — Nova parada com endereço → pin no mapa
+
+- Campo opcional de endereço em `AddActivityModal`; lookup Places devolve `latitude`/`longitude` e a parada entra no mapa. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-21 — Swipe delete de parada = Home
+
+- `SwipeableActivityRow` espelha `InviteBanner`: arrasta até o fim e solta → apaga (sem depender de toque na lixeira). Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-20 — Título do dia editável + notas pessoais
+
+- Toque no título do dia → `EditDayTitleModal`; toque em "Todos"/resumo abre meta.
+- Campo `notes` na viagem (Firestore + API clone/get); linha de notas no detail + no `EditTripMetaModal`. Ver [[Detalhe da Viagem RF07]].
+
+
+## 2026-07-20 — Dicas LLM no footer do roteiro
+
+- `ItineraryResponse.tips[]` (3–5) geradas pela LLM por destino; card visual distinto no `/trip-detail`. Ver [[Geração de Roteiro RF06]].
+
+## 2026-07-20 — Fase 3: Lixeira, reviews, clone, dicas
+
+- Soft delete 30 dias (`deleted_at`) + `GET /trips/trash` + restore; telas `/trash` e `/my-reviews`.
+- `POST /trips/{id}/clone` + deep link `tripfy://trip/{id}` + índice `trip_shares`.
+- Footer Dicas Tripfy no detail. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-20 — Fase 2: Nova parada + dias + cross-day
+
+- FAB abre `AddActivityModal`; chips `+ Dia`; lixeira no dia selecionado (reindex).
+- EditActivityModal move parada entre dias (chips). Auto-save da Fase 1 cobre tudo. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-20 — Fase 1: Auto-save + Sync + Places Plus + DnD fix
+
+- Auto-save no `/trip-detail` (debounce) + `<SyncIndicator>`; removido coração manual.
+- Edit destino/resumo + description na parada; Places Details com `price_level` / `menu_uri`.
+- Fix DnD: sem `GestureHandlerRootView` aninhado + handle de drag. Ver [[Detalhe da Viagem RF07]].
 
 ## 2026-07-20 — PlaceDetailsSheet + Social + Edit (frontend)
 

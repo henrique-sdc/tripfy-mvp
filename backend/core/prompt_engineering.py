@@ -46,6 +46,10 @@ Regras inegociáveis:
 8. Ao receber dois perfis, atue como concierge do grupo: cruze os interesses e,
    quando houver divergências, intercale atividades para equilibrar o gosto dos
    dois viajantes. Não calcule score nem favoreça um perfil.
+9. Preencha `tips` com 3 a 5 dicas práticas e ESPECÍFICAS do destino e do
+   contexto da viagem (cultura/etiqueta local, segurança, clima na época,
+   deslocamento, costumes religiosos, vestimenta, golpes comuns, etc.).
+   Proibido dica genérica tipo "leve protetor solar" sem amarrar ao lugar.
 """
 
 
@@ -109,6 +113,8 @@ def build_user_prompt(
 Use os meios de transporte do perfil nas estimativas de deslocamento em
 cada description de ActivityResponse.
 O array `days` deve ter exatamente {trip.days} itens (day=1 até day={trip.days}).
+Inclua `tips` (3–5) específicas deste destino — cultura, segurança, clima,
+costumes locais — não genéricas.
 
 {profile}
 
@@ -143,6 +149,7 @@ Cruze os interesses dos perfis abaixo. Intercale atividades quando os gostos
 divergirem e produza um roteiro amigável e equilibrado, sem calcular scores.
 Use os meios de transporte informados nas estimativas de deslocamento.
 O array `days` deve ter exatamente {match.days} itens (day=1 até day={match.days}).
+Inclua `tips` (3–5) específicas deste destino para o grupo.
 
 <perfis_viajantes>
 {profiles}

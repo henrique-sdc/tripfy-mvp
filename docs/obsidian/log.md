@@ -1,4 +1,16 @@
 # Log — Tripfy Wiki
+## [2026-07-20] update | Fase 3 Ecossistema usuário
+
+Atualizado [[Detalhe da Viagem RF07]]: soft-delete/lixeira, minhas reviews, clone/share, trip_shares, footer dicas. Changelog no mesmo tema.
+
+## [2026-07-20] update | Fase 2 Gerenciamento roteiro
+
+Atualizado [[Detalhe da Viagem RF07]]: AddActivityModal, +Dia, excluir dia, mover parada entre dias via modal. Changelog no mesmo tema.
+
+## [2026-07-20] update | Fase 1 Auto-save Sync Places DnD
+
+Atualizado [[Detalhe da Viagem RF07]]: auto-save, SyncIndicator, price_level/menu_uri, fix GestureHandlerRootView aninhado. Changelog no mesmo tema.
+
 ## [2026-07-20] update | PlaceDetailsSheet frontend PASSO 2
 
 Atualizado [[Detalhe da Viagem RF07]]: sheet Sobre/Comunidade, edit time/title, api client. Changelog no mesmo tema.

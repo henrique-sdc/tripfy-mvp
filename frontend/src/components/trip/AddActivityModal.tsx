@@ -1,12 +1,13 @@
-// Modal mínimo para editar horário, título, descrição e dia da parada (RF07).
+// Modal pra adicionar parada manual no dia atual (RF07).
+// Endereço opcional → lookup Places → lat/lng pro mapa.
 
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -14,67 +15,94 @@ import {
 
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
+import { getPlaceDetails } from "@/lib/api";
 
-export type DayOption = {
-  day: number;
+export type NewActivityPayload = {
+  time: string;
   title: string;
+  description: string;
+  location: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type Props = {
   visible: boolean;
-  initialTime: string;
-  initialTitle: string;
-  initialDescription: string;
-  /** Índice em `days` (0-based). */
-  initialDayIndex: number;
-  days: DayOption[];
+  /** Destino da viagem — melhora o geocode ("rua X, Lisboa"). */
+  destination?: string;
   onClose: () => void;
-  onSave: (
-    time: string,
-    title: string,
-    description: string,
-    dayIndex: number,
-  ) => void;
+  onSave: (payload: NewActivityPayload) => void;
 };
 
-export function EditActivityModal({
+export function AddActivityModal({
   visible,
-  initialTime,
-  initialTitle,
-  initialDescription,
-  initialDayIndex,
-  days,
+  destination,
   onClose,
   onSave,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const [time, setTime] = useState(initialTime);
-  const [title, setTitle] = useState(initialTitle);
-  const [description, setDescription] = useState(initialDescription);
-  const [dayIndex, setDayIndex] = useState(initialDayIndex);
+  const [time, setTime] = useState("09:00");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setTime(initialTime);
-      setTitle(initialTitle);
-      setDescription(initialDescription);
-      setDayIndex(initialDayIndex);
+      setTime("09:00");
+      setTitle("");
+      setDescription("");
+      setAddress("");
+      setResolving(false);
     }
-  }, [
-    visible,
-    initialTime,
-    initialTitle,
-    initialDescription,
-    initialDayIndex,
-  ]);
+  }, [visible]);
 
-  const canSave = title.trim().length > 0 && time.trim().length > 0;
+  const canSave =
+    title.trim().length > 0 && time.trim().length > 0 && !resolving;
 
-  function submit() {
+  async function submit() {
     if (!canSave) return;
+    setResolving(true);
+
+    const trimmedTitle = title.trim();
+    const trimmedAddress = address.trim();
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    const location = trimmedAddress || trimmedTitle;
+
+    if (trimmedAddress) {
+      try {
+        // Destino no query reduz ambiguidade (ex.: "Praça do Comércio, Lisboa").
+        const query = destination?.trim()
+          ? `${trimmedAddress}, ${destination.trim()}`
+          : trimmedAddress;
+        const details = await getPlaceDetails(query);
+        if (
+          typeof details.latitude === "number" &&
+          typeof details.longitude === "number" &&
+          Number.isFinite(details.latitude) &&
+          Number.isFinite(details.longitude)
+        ) {
+          latitude = details.latitude;
+          longitude = details.longitude;
+        }
+      } catch (err) {
+        // Sem pin — parada ainda salva; card pode enriquecer depois.
+        console.warn("[AddActivityModal] Geocode falhou:", err);
+      }
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSave(time.trim(), title.trim(), description.trim(), dayIndex);
+    onSave({
+      time: time.trim(),
+      title: trimmedTitle,
+      description: description.trim(),
+      location,
+      latitude,
+      longitude,
+    });
+    setResolving(false);
   }
 
   return (
@@ -93,11 +121,11 @@ export function EditActivityModal({
           onPress={(e) => e.stopPropagation()}
         >
           <AppText className="text-[18px] font-bold" style={{ letterSpacing: -0.3 }}>
-            {t("tripDetail.editActivity.title")}
+            {t("tripDetail.addActivity.title")}
           </AppText>
 
           <AppText tone="secondary" className="text-[12px]">
-            {t("tripDetail.editActivity.timeLabel")}
+            {t("tripDetail.addActivity.timeLabel")}
           </AppText>
           <TextInput
             value={time}
@@ -105,6 +133,7 @@ export function EditActivityModal({
             placeholder="09:00"
             placeholderTextColor={theme.textMuted}
             maxLength={8}
+            editable={!resolving}
             style={[
               styles.input,
               {
@@ -116,14 +145,15 @@ export function EditActivityModal({
           />
 
           <AppText tone="secondary" className="text-[12px]">
-            {t("tripDetail.editActivity.nameLabel")}
+            {t("tripDetail.addActivity.nameLabel")}
           </AppText>
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder={t("tripDetail.editActivity.namePlaceholder")}
+            placeholder={t("tripDetail.addActivity.namePlaceholder")}
             placeholderTextColor={theme.textMuted}
             maxLength={120}
+            editable={!resolving}
             style={[
               styles.input,
               {
@@ -135,15 +165,39 @@ export function EditActivityModal({
           />
 
           <AppText tone="secondary" className="text-[12px]">
-            {t("tripDetail.editActivity.descriptionLabel")}
+            {t("tripDetail.addActivity.addressLabel")}
+          </AppText>
+          <TextInput
+            value={address}
+            onChangeText={setAddress}
+            placeholder={t("tripDetail.addActivity.addressPlaceholder")}
+            placeholderTextColor={theme.textMuted}
+            maxLength={200}
+            editable={!resolving}
+            style={[
+              styles.input,
+              {
+                color: theme.textPrimary,
+                borderColor: theme.border,
+                backgroundColor: theme.background,
+              },
+            ]}
+          />
+          <AppText tone="muted" className="text-[11px]" style={styles.hint}>
+            {t("tripDetail.addActivity.addressHint")}
+          </AppText>
+
+          <AppText tone="secondary" className="text-[12px]">
+            {t("tripDetail.addActivity.descriptionLabel")}
           </AppText>
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder={t("tripDetail.editActivity.descriptionPlaceholder")}
+            placeholder={t("tripDetail.addActivity.descriptionPlaceholder")}
             placeholderTextColor={theme.textMuted}
             maxLength={500}
             multiline
+            editable={!resolving}
             textAlignVertical="top"
             style={[
               styles.input,
@@ -156,61 +210,18 @@ export function EditActivityModal({
             ]}
           />
 
-          {days.length > 1 ? (
-            <>
-              <AppText tone="secondary" className="text-[12px]">
-                {t("tripDetail.editActivity.dayLabel")}
-              </AppText>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.dayChips}
-              >
-                {days.map((d, i) => {
-                  const active = dayIndex === i;
-                  return (
-                    <Pressable
-                      key={d.day}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setDayIndex(i);
-                      }}
-                      style={[
-                        styles.dayChip,
-                        {
-                          backgroundColor: active
-                            ? theme.accent
-                            : theme.background,
-                          borderColor: active ? theme.accent : theme.border,
-                        },
-                      ]}
-                    >
-                      <AppText
-                        className="text-[12px] font-semibold"
-                        style={{
-                          color: active ? "#fff" : theme.textSecondary,
-                        }}
-                      >
-                        {t("tripDetail.dayChip", { day: d.day })}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </>
-          ) : null}
-
           <View style={styles.actions}>
             <Pressable
               onPress={onClose}
+              disabled={resolving}
               style={[styles.btn, { borderColor: theme.border }]}
             >
               <AppText tone="secondary" className="text-[14px] font-semibold">
-                {t("tripDetail.editActivity.cancel")}
+                {t("tripDetail.addActivity.cancel")}
               </AppText>
             </Pressable>
             <Pressable
-              onPress={submit}
+              onPress={() => void submit()}
               disabled={!canSave}
               style={[
                 styles.btn,
@@ -221,12 +232,16 @@ export function EditActivityModal({
                 },
               ]}
             >
-              <AppText
-                className="text-[14px] font-semibold"
-                style={{ color: theme.buttonText }}
-              >
-                {t("tripDetail.editActivity.save")}
-              </AppText>
+              {resolving ? (
+                <ActivityIndicator color={theme.buttonText} />
+              ) : (
+                <AppText
+                  className="text-[14px] font-semibold"
+                  style={{ color: theme.buttonText }}
+                >
+                  {t("tripDetail.addActivity.save")}
+                </AppText>
+              )}
             </Pressable>
           </View>
         </Pressable>
@@ -261,19 +276,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
-  dayChips: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingBottom: 8,
-  },
-  dayChip: {
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    justifyContent: "center",
+  hint: {
+    marginTop: -4,
+    marginBottom: 4,
   },
   actions: {
     flexDirection: "row",

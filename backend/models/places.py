@@ -32,6 +32,9 @@ class PlaceDetailsResponse(BaseModel):
         default=None,
         description="Se está aberto agora (null se horário indisponível)",
     )
+    # Opcional: Text Search já traz geometry — útil pra pin no mapa (nova parada).
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class PlaceFullDetailsResponse(BaseModel):
@@ -53,3 +56,11 @@ class PlaceFullDetailsResponse(BaseModel):
     )
     latitude: float | None = None
     longitude: float | None = None
+    price_level: str | None = Field(
+        default=None,
+        description='Faixa de preço estilo Maps (ex.: "$", "$$", "$$$")',
+    )
+    menu_uri: str | None = Field(
+        default=None,
+        description="URL do cardápio quando o Google expõe (raro; null se ausente)",
+    )

@@ -96,8 +96,12 @@ def _openai_day_keyed_schema(day_count: int) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "destination": {"type": "string"},
         "summary": {"type": "string"},
+        "tips": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
     }
-    required = ["destination", "summary"]
+    required = ["destination", "summary", "tips"]
     for i in range(1, day_count + 1):
         key = f"day_{i}"
         properties[key] = {"$ref": "#/$defs/ItineraryDayResponse"}
@@ -132,6 +136,7 @@ def _keyed_json_to_itinerary(raw: str, day_count: int) -> ItineraryResponse:
     return ItineraryResponse(
         destination=data["destination"],
         summary=data["summary"],
+        tips=[str(t) for t in (data.get("tips") or []) if str(t).strip()],
         days=days,
     )
 
@@ -288,7 +293,14 @@ if __name__ == "__main__":
     assert issubclass(GeminiProvider, LLMProvider)
     assert issubclass(OpenAIProvider, LLMProvider)
     schema = _openai_day_keyed_schema(3)
-    assert schema["required"] == ["destination", "summary", "day_1", "day_2", "day_3"]
+    assert schema["required"] == [
+        "destination",
+        "summary",
+        "tips",
+        "day_1",
+        "day_2",
+        "day_3",
+    ]
     assert "day_2" in schema["properties"]
     # Regressão: strip de metadata NÃO pode apagar o campo `title`.
     activity_props = schema["$defs"]["ActivityResponse"]["properties"]
@@ -298,7 +310,7 @@ if __name__ == "__main__":
     assert "title" in schema["$defs"]["ActivityResponse"]["required"]
     assert "title" in schema["$defs"]["ItineraryDayResponse"]["required"]
     sample = (
-        '{"destination":"X","summary":"Y",'
+        '{"destination":"X","summary":"Y","tips":["a","b","c"],'
         '"day_1":{"day":1,"title":"A","activities":[{"time":"09:00","title":"t",'
         '"description":"d","location":"l","latitude":null,"longitude":null}]},'
         '"day_2":{"day":2,"title":"B","activities":[{"time":"09:00","title":"t",'
@@ -307,6 +319,7 @@ if __name__ == "__main__":
         '"description":"d","location":"l","latitude":null,"longitude":null}]}}'
     )
     converted = _keyed_json_to_itinerary(sample, 3)
+    assert len(converted.tips) == 3
     assert len(converted.days) == 3
     assert converted.days[1].day == 2
     print("llm_provider ok")

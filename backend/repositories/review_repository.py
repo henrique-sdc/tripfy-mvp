@@ -63,6 +63,32 @@ async def list_by_place(place_id: str, limit: int = 20) -> list[PlaceReviewRespo
     return await run_in_threadpool(_fetch)
 
 
+async def list_by_user(uid: str, limit: int = 50) -> list[PlaceReviewResponse]:
+    """Todas as reviews do usuário (Minhas Avaliações)."""
+
+    def _fetch() -> list[PlaceReviewResponse]:
+        snaps = (
+            db.collection(_COLLECTION)
+            .where("user_uid", "==", uid)
+            .limit(min(limit, 100))
+            .stream()
+        )
+        items: list[PlaceReviewResponse] = []
+        for snap in snaps:
+            raw = snap.to_dict() or {}
+            if "created_at" not in raw:
+                continue
+            items.append(_snapshot_to_review(snap.id, raw))
+
+        def _sort_key(r: PlaceReviewResponse) -> datetime:
+            return r.updated_at or r.created_at
+
+        items.sort(key=_sort_key, reverse=True)
+        return items[:limit]
+
+    return await run_in_threadpool(_fetch)
+
+
 async def get_by_place_and_user(
     place_id: str, uid: str
 ) -> PlaceReviewResponse | None:
