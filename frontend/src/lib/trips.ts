@@ -27,8 +27,11 @@ export type SavedTrip = ItineraryResponse & {
 
 /** Remove campos só-de-UI antes de gravar no Firestore. */
 export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse {
+  const title =
+    typeof itinerary.title === "string" ? itinerary.title.trim() : "";
   return {
     destination: itinerary.destination,
+    title,
     summary: itinerary.summary,
     tips: Array.isArray(itinerary.tips)
       ? itinerary.tips.map((t) => String(t).trim()).filter(Boolean)
@@ -154,17 +157,21 @@ export async function listTrips(): Promise<SavedTrip[]> {
       return {
         id: d.id,
         owner_uid: String(data.owner_uid ?? uid),
-      destination: String(data.destination ?? ""),
-      summary: String(data.summary ?? ""),
-      tips: Array.isArray(data.tips)
-        ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
-        : [],
-      notes: typeof data.notes === "string" ? data.notes : "",
-      days: Array.isArray(data.days) ? data.days : [],
-      deleted_at: data.deleted_at,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    } as SavedTrip;
+        destination: String(data.destination ?? ""),
+        title:
+          typeof data.title === "string" && data.title.trim()
+            ? data.title.trim()
+            : undefined,
+        summary: String(data.summary ?? ""),
+        tips: Array.isArray(data.tips)
+          ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
+          : [],
+        notes: typeof data.notes === "string" ? data.notes : "",
+        days: Array.isArray(data.days) ? data.days : [],
+        deleted_at: data.deleted_at,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      } as SavedTrip;
     })
     .filter((t) => t.deleted_at == null);
 }
@@ -180,6 +187,10 @@ export async function getTrip(tripId: string): Promise<SavedTrip | null> {
     id: snap.id,
     owner_uid: String(data.owner_uid ?? uid),
     destination: String(data.destination ?? ""),
+    title:
+      typeof data.title === "string" && data.title.trim()
+        ? data.title.trim()
+        : undefined,
     summary: String(data.summary ?? ""),
     tips: Array.isArray(data.tips)
       ? data.tips.map((x: unknown) => String(x)).filter(Boolean)

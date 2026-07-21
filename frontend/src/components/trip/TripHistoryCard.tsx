@@ -47,6 +47,11 @@ export function TripHistoryCard({ trip, onPress }: Props) {
 
   const days = trip.days?.length ?? 0;
   const relative = relativeTimeParts(trip.created_at ?? trip.updated_at);
+  const place = trip.destination.trim();
+  const displayTitle =
+    (typeof trip.title === "string" && trip.title.trim()) ||
+    place ||
+    t("tripDetail.fallbackTitle");
 
   useEffect(() => {
     if (reduceMotion) {
@@ -206,8 +211,20 @@ export function TripHistoryCard({ trip, onPress }: Props) {
 
       <View style={styles.body}>
         <AppText className="text-[17px] font-bold" numberOfLines={1}>
-          {trip.destination || t("tripDetail.fallbackTitle")}
+          {displayTitle}
         </AppText>
+        {place ? (
+          <View style={styles.placeRow}>
+            <Ionicons
+              name="location-outline"
+              size={13}
+              color={theme.textMuted}
+            />
+            <AppText tone="muted" className="text-[12px] flex-1" numberOfLines={1}>
+              {place}
+            </AppText>
+          </View>
+        ) : null}
         <AppText tone="muted" className="text-[13px]" numberOfLines={1}>
           {metaLine}
         </AppText>
@@ -244,5 +261,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
     paddingRight: 4,
+  },
+  placeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 });

@@ -283,6 +283,7 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
       animationType="none"
       onRequestClose={dismiss}
       statusBarTranslucent
+      navigationBarTranslucent
     >
       <GestureHandlerRootView style={styles.fill}>
         <RNView style={[styles.fill, styles.end]}>

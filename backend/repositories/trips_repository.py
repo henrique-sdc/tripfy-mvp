@@ -85,6 +85,7 @@ def _doc_to_saved(
         id=trip_id,
         owner_uid=owner,
         destination=str(data.get("destination") or ""),
+        title=str(data.get("title") or "").strip(),
         summary=str(data.get("summary") or ""),
         tips=[
             str(t).strip()
@@ -136,6 +137,7 @@ def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
         )
     return {
         "destination": data.get("destination") or "",
+        "title": str(data.get("title") or "").strip(),
         "summary": data.get("summary") or "",
         "notes": data.get("notes") or "",
         "tips": [

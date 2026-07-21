@@ -1,4 +1,20 @@
 # Changelog — Tripfy Docs
+## 2026-07-21 — Cutout Android (câmera) via build nativo
+
+- Plugins `react-native-edge-to-edge` + `withAndroidDisplayCutout` (`shortEdges`).
+- Expo Go **não** aplica isso — usar `npx expo run:android` no Pixel/Moto.
+- Runtime: `StatusBar.setTranslucent` + Stack `statusBarTranslucent`.
+
+## 2026-07-21 — Edge-to-edge: notch + gesture bar
+
+- Status/nav transparentes (`androidStatusBar`, `expo-navigation-bar` `enforceContrast: false`).
+- Root `useSystemBars` + tabs sem `sceneStyle` transparente; modais com `navigationBarTranslucent`.
+
+## 2026-07-21 — Título da viagem ≠ destino
+
+- Campo `title` (exibição) separado de `destination` (lugar real). Editar meta não sobrescreve o local.
+- Cards na aba Viagens: título + linha `location` com o destino. Ver [[Detalhe da Viagem RF07]].
+
 ## 2026-07-21 — Wizard: Revisar vibe volta com form intacto
 
 - "Revisar minha Vibe" abre `/edit-vibe` via push; save/back retorna ao wizard.

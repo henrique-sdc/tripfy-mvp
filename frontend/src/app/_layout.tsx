@@ -3,14 +3,14 @@ import "../global.css";
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import * as SystemUI from "expo-system-ui";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
+import { AppStatusBar, useSystemBars } from "@/hooks/use-system-bars";
 import { useTheme } from "@/hooks/use-theme";
 import { selectIsAuthenticated, useAuthStore } from "@/stores/authStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -27,6 +27,8 @@ const PUSH_SCREEN_OPTIONS = {
   animationDuration: 280,
   // Sem presentation: "card" — no Android isso desanexa a tela anterior cedo
   // demais e a UI “some” no meio da animação de voltar.
+  statusBarTranslucent: true,
+  navigationBarTranslucent: true,
 };
 
 export default function RootLayout() {
@@ -35,6 +37,8 @@ export default function RootLayout() {
 
   // Liga Firebase ↔ Zustand ↔ Backend (restaura sessão persistida na subida).
   useAuth();
+  // Edge-to-edge: fundo nativo + ícones da nav bar no tema (sem scrim preto).
+  useSystemBars();
 
   const isLoading = useAuthStore((s) => s.isLoading);
   const hasPreferences = useAuthStore((s) => s.hasPreferences);
@@ -42,12 +46,6 @@ export default function RootLayout() {
 
   const hasSeenSlides = useOnboardingStore((s) => s.hasSeenSlides);
   const hasSlidesHydrated = useOnboardingStore((s) => s.hasHydrated);
-
-  // Fundo nativo do SO = tema do app — evita flash branco/preto atrás do stack
-  // durante push/pop (bug clássico no Android + react-native-screens).
-  useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(theme.background);
-  }, [theme.background]);
 
   const navTheme = useMemo(() => {
     const base = colorScheme === "dark" ? DarkTheme : DefaultTheme;
@@ -74,6 +72,7 @@ export default function RootLayout() {
       style={{ flex: 1, backgroundColor: theme.background }}
     >
       <ThemeProvider value={navTheme}>
+        <AppStatusBar />
         <AnimatedSplashOverlay />
         <OfflineBanner />
         {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
@@ -89,6 +88,9 @@ export default function RootLayout() {
             // Evita unmount precoce da tela anterior no Android (tela some
             // no meio do pop). iOS ignora / trata como no-op seguro.
             freezeOnBlur: Platform.OS === "ios",
+            // Desenha sob status/nav (edge-to-edge) — fundo do tema sobe até a câmera.
+            statusBarTranslucent: true,
+            navigationBarTranslucent: true,
           }}
         >
           <Stack.Protected guard={!hasSeenSlides}>
@@ -116,6 +118,8 @@ export default function RootLayout() {
                 animation: "slide_from_bottom",
                 animationDuration: 280,
                 headerShown: false,
+                statusBarTranslucent: true,
+                navigationBarTranslucent: true,
               }}
             />
             <Stack.Screen name="trip-detail" options={PUSH_SCREEN_OPTIONS} />

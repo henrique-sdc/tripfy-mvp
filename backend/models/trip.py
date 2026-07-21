@@ -88,6 +88,8 @@ class SavedTripResponse(BaseModel):
     id: str
     owner_uid: str
     destination: str
+    # Título customizado; vazio = UI usa destination.
+    title: str = ""
     summary: str
     tips: list[str] = Field(default_factory=list)
     # Notas pessoais do dono (não geradas pela LLM).

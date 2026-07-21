@@ -471,6 +471,9 @@
     },
     "editTrip": {
       "title": "Editar viagem",
+      "titleLabel": "Título",
+      "titlePlaceholder": "Ex.: Viagem dos sonhos",
+      "placeLabel": "Destino",
       "destinationLabel": "Destino / título",
       "destinationPlaceholder": "Ex.: Lisboa em 4 dias",
       "summaryLabel": "Resumo",

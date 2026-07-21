@@ -68,6 +68,8 @@ type LocalDay = {
 };
 type LocalItinerary = {
   destination: string;
+  /** Título de exibição; vazio = usa destination. */
+  title: string;
   summary: string;
   tips: string[];
   notes: string;
@@ -80,6 +82,7 @@ type DaySelection = null | number;
 function stampKeys(raw: ItineraryResponse): LocalItinerary {
   return {
     destination: raw.destination,
+    title: typeof raw.title === "string" ? raw.title.trim() : "",
     summary: raw.summary,
     tips: Array.isArray(raw.tips)
       ? raw.tips.map((t) => String(t).trim()).filter(Boolean)
@@ -111,6 +114,14 @@ function parseItinerary(
   }
 }
 
+function displayTripTitle(
+  itinerary: Pick<LocalItinerary, "title" | "destination"> | null,
+  fallback: string,
+): string {
+  if (!itinerary) return fallback;
+  return itinerary.title.trim() || itinerary.destination.trim() || fallback;
+}
+
 function hasCoords(a: LocalActivity): boolean {
   return (
     typeof a.latitude === "number" &&
@@ -123,6 +134,7 @@ function hasCoords(a: LocalActivity): boolean {
 function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
   return {
     destination: itinerary.destination,
+    title: itinerary.title.trim(),
     summary: itinerary.summary,
     tips: itinerary.tips,
     notes: itinerary.notes,
@@ -456,7 +468,7 @@ export default function TripDetailScreen() {
     const link = `tripfy://trip/${tripId}`;
     try {
       await Share.share({
-        title: itinerary?.destination ?? t("tripDetail.fallbackTitle"),
+        title: displayTripTitle(itinerary, t("tripDetail.fallbackTitle")),
         message: t("tripDetail.shareMessage", {
           destination: itinerary?.destination ?? "",
           link,
@@ -734,9 +746,10 @@ export default function TripDetailScreen() {
   }, [itinerary, showingAll, daySelection, patchItinerary, t]);
 
   const onEditMeta = useCallback(
-    (destination: string, summary: string, notes: string) => {
+    (title: string, summary: string, notes: string) => {
       if (!itinerary) return;
-      patchItinerary({ ...itinerary, destination, summary, notes });
+      // Título separado do destino real — Places / foto continuam no destination.
+      patchItinerary({ ...itinerary, title, summary, notes });
       setEditingMeta(false);
     },
     [itinerary, patchItinerary],
@@ -843,7 +856,12 @@ export default function TripDetailScreen() {
         <RNPressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.replace("/(tabs)");
+            // Volta pra origem (Viagens, Lixeira, etc.). Sem histórico → aba Viagens.
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/trips" as Href);
+            }
           }}
           hitSlop={12}
           style={[styles.iconBtn, { backgroundColor: theme.surface }]}
@@ -875,7 +893,7 @@ export default function TripDetailScreen() {
               style={{ letterSpacing: -0.3 }}
               numberOfLines={1}
             >
-              {itinerary?.destination ?? t("tripDetail.fallbackTitle")}
+              {displayTripTitle(itinerary, t("tripDetail.fallbackTitle"))}
             </AppText>
           </RNPressable>
           <AppText tone="secondary" className="text-[12px]">
@@ -1224,7 +1242,11 @@ export default function TripDetailScreen() {
 
       <EditTripMetaModal
         visible={editingMeta}
-        initialDestination={itinerary?.destination ?? ""}
+        initialTitle={displayTripTitle(
+          itinerary,
+          t("tripDetail.fallbackTitle"),
+        )}
+        place={itinerary?.destination ?? ""}
         initialSummary={itinerary?.summary ?? ""}
         initialNotes={itinerary?.notes ?? ""}
         onClose={() => setEditingMeta(false)}

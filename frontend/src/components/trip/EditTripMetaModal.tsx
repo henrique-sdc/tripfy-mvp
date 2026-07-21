@@ -1,4 +1,5 @@
-// Modais mínimos: meta da viagem (destino/resumo/notas) e título do dia.
+// Modais mínimos: meta da viagem (título/resumo/notas) e título do dia.
+// `destination` (lugar real) não é editável aqui — só o título de exibição.
 
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
@@ -16,16 +17,20 @@ import { useTheme } from "@/hooks/use-theme";
 
 type MetaProps = {
   visible: boolean;
-  initialDestination: string;
+  /** Título de exibição (fallback = place se vazio no pai). */
+  initialTitle: string;
+  /** Destino real — só leitura no modal. */
+  place: string;
   initialSummary: string;
   initialNotes: string;
   onClose: () => void;
-  onSave: (destination: string, summary: string, notes: string) => void;
+  onSave: (title: string, summary: string, notes: string) => void;
 };
 
 export function EditTripMetaModal({
   visible,
-  initialDestination,
+  initialTitle,
+  place,
   initialSummary,
   initialNotes,
   onClose,
@@ -33,24 +38,24 @@ export function EditTripMetaModal({
 }: MetaProps) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const [destination, setDestination] = useState(initialDestination);
+  const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
   const [notes, setNotes] = useState(initialNotes);
 
   useEffect(() => {
     if (visible) {
-      setDestination(initialDestination);
+      setTitle(initialTitle);
       setSummary(initialSummary);
       setNotes(initialNotes);
     }
-  }, [visible, initialDestination, initialSummary, initialNotes]);
+  }, [visible, initialTitle, initialSummary, initialNotes]);
 
-  const canSave = destination.trim().length > 0;
+  const canSave = title.trim().length > 0;
 
   function submit() {
     if (!canSave) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSave(destination.trim(), summary.trim(), notes.trim());
+    onSave(title.trim(), summary.trim(), notes.trim());
   }
 
   return (
@@ -58,6 +63,8 @@ export function EditTripMetaModal({
       visible={visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -73,12 +80,12 @@ export function EditTripMetaModal({
           </AppText>
 
           <AppText tone="secondary" className="text-[12px]">
-            {t("tripDetail.editTrip.destinationLabel")}
+            {t("tripDetail.editTrip.titleLabel")}
           </AppText>
           <TextInput
-            value={destination}
-            onChangeText={setDestination}
-            placeholder={t("tripDetail.editTrip.destinationPlaceholder")}
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t("tripDetail.editTrip.titlePlaceholder")}
             placeholderTextColor={theme.textMuted}
             maxLength={80}
             style={[
@@ -90,6 +97,17 @@ export function EditTripMetaModal({
               },
             ]}
           />
+
+          {place.trim() ? (
+            <View style={styles.placeRow}>
+              <AppText tone="muted" className="text-[12px]">
+                {t("tripDetail.editTrip.placeLabel")}
+              </AppText>
+              <AppText tone="secondary" className="text-[13px]" numberOfLines={2}>
+                {place.trim()}
+              </AppText>
+            </View>
+          ) : null}
 
           <AppText tone="secondary" className="text-[12px]">
             {t("tripDetail.editTrip.summaryLabel")}
@@ -207,6 +225,8 @@ export function EditDayTitleModal({
       visible={visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -288,6 +308,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 20,
     gap: 8,
+  },
+  placeRow: {
+    gap: 2,
+    marginBottom: 8,
   },
   input: {
     height: 44,

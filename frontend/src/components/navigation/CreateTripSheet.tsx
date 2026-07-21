@@ -89,7 +89,7 @@ function RichChoiceCard({
             }),
           },
         ]}
-        className="flex-row items-center gap-4 rounded-[24px] border p-4"
+        className="flex-row items-center gap-4 rounded-3xl border p-4"
       >
         <View
           className="w-14 h-14 rounded-full items-center justify-center"
@@ -190,6 +190,7 @@ export function CreateTripSheet() {
       animationType="none"
       onRequestClose={dismiss}
       statusBarTranslucent
+      navigationBarTranslucent
     >
       <GestureHandlerRootView style={styles.fill}>
         <View style={[styles.fill, styles.end]}>

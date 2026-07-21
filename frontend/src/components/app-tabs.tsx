@@ -9,9 +9,11 @@ import {
   FloatingTabBar,
   type FloatingTabBarProps,
 } from "@/components/navigation/FloatingTabBar";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function AppTabs() {
   const { t } = useTranslation();
+  const theme = useTheme();
 
   return (
     <>
@@ -21,7 +23,9 @@ export default function AppTabs() {
         )}
         screenOptions={{
           headerShown: false,
-          sceneStyle: { backgroundColor: "transparent" },
+          // Fundo do tema (não transparent) — evita “buraco” preto atrás das
+          // cenas no edge-to-edge / notch / gesture bar.
+          sceneStyle: { backgroundColor: theme.background },
         }}
       >
         <Tabs.Screen

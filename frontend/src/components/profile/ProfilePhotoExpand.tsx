@@ -244,6 +244,7 @@ export function ProfilePhotoExpand({
         transparent
         animationType="none"
         statusBarTranslucent
+        navigationBarTranslucent
         onShow={onModalShow}
         onRequestClose={() => closeExpand()}
       >

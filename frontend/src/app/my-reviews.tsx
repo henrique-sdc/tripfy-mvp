@@ -240,6 +240,8 @@ export default function MyReviewsScreen() {
         visible={editing != null}
         transparent
         animationType="fade"
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={() => setEditing(null)}
       >
         <RNPressable

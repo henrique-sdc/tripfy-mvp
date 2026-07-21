@@ -77,6 +77,8 @@ export type ItineraryDayResponse = {
 
 export type ItineraryResponse = {
   destination: string;
+  /** Título customizado (opcional). Vazio = usa destination. */
+  title?: string;
   summary: string;
   /** Dicas geradas pela LLM específicas do destino (3–5). */
   tips?: string[];
@@ -278,6 +280,7 @@ export type SavedTripApi = {
   id: string;
   owner_uid: string;
   destination: string;
+  title?: string;
   summary: string;
   tips: string[];
   notes?: string;

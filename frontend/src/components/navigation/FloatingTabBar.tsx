@@ -33,11 +33,13 @@ const GRADIENT = ["#2e1065", "#7c3aed", "#9d4edd"] as const;
 
 export function useTabBarPadding(extra = 16): number {
   const insets = useSafeAreaInsets();
+  // Gesture bar / home indicator: nunca use 0 no Android — senão corta o conteúdo.
+  const bottomInset = Math.max(insets.bottom, isIOS ? 0 : 16);
   return (
     TAB_BAR_CONTENT_HEIGHT +
     MAGIC_BUTTON_OVERHANG +
     TAB_BAR_FLOAT_MARGIN +
-    (isIOS ? insets.bottom : Math.max(insets.bottom, 8)) +
+    bottomInset +
     extra
   );
 }
@@ -228,8 +230,8 @@ export function FloatingTabBar(props: FloatingTabBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const bottomPad = isIOS
-    ? insets.bottom
-    : Math.max(insets.bottom, 8) + TAB_BAR_FLOAT_MARGIN;
+    ? Math.max(insets.bottom, 8)
+    : Math.max(insets.bottom, 16) + TAB_BAR_FLOAT_MARGIN;
 
   const items = buildTabItems(props);
   // Ordem das rotas: [Início, Salvos] | ✨ | [Viagens, Perfil]

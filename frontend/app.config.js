@@ -32,6 +32,35 @@ module.exports = () => {
     },
   };
 
+  // Edge-to-edge + cutout: só entram no binário nativo (expo run:android / EAS).
+  // Expo Go ignora esses plugins — por isso o Pixel/Moto ainda cortam no Go.
+  const plugins = Array.isArray(expo.plugins) ? [...expo.plugins] : [];
+  const hasEdge = plugins.some(
+    (p) =>
+      p === "react-native-edge-to-edge" ||
+      (Array.isArray(p) && p[0] === "react-native-edge-to-edge"),
+  );
+  if (!hasEdge) {
+    plugins.push([
+      "react-native-edge-to-edge",
+      {
+        android: {
+          parentTheme: "Default",
+          enforceNavigationBarContrast: false,
+        },
+      },
+    ]);
+  }
+  const hasCutout = plugins.some(
+    (p) =>
+      p === "./plugins/withAndroidDisplayCutout" ||
+      (Array.isArray(p) && p[0] === "./plugins/withAndroidDisplayCutout"),
+  );
+  if (!hasCutout) {
+    plugins.push("./plugins/withAndroidDisplayCutout");
+  }
+  expo.plugins = plugins;
+
   if (mapsKey) {
     console.log(
       `[app.config] Google Maps key injetada do .env (len=${mapsKey.length}).`,
