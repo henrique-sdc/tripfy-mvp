@@ -1,4 +1,4 @@
-// Viagens — lista real do Firestore (users/{uid}/trips).
+// Viagens — lista premium (cards Places + swipe Soft Delete + pull-to-refresh).
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -6,83 +6,84 @@ import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Alert, useColorScheme } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable as RNPressable,
+  RefreshControl,
+  StyleSheet,
+  useColorScheme,
+} from "react-native";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
+import { TripHistoryCard } from "@/components/trip/TripHistoryCard";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
-import { Pressable, ScrollView, View } from "@/tw";
+import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
+import { Pressable, View } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 20, stiffness: 300 };
+const DELETE_ACTION_W = 76;
+const OVERSWIPE_DELETE_AT = 1.45;
 
-function TripCard({
-  trip,
-  onPress,
-  onTrash,
+/** Ação vermelha estilo Mail — overswipe ou tap na lixeira. */
+function SwipeDeleteAction({
+  progress,
+  onDelete,
+  accessibilityLabel,
 }: {
-  trip: SavedTrip;
-  onPress: () => void;
-  onTrash: () => void;
+  progress: SharedValue<number>;
+  onDelete: () => void;
+  accessibilityLabel: string;
 }) {
-  const theme = useTheme();
-  const { t } = useTranslation();
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const days = trip.days?.length ?? 0;
+  const fired = useSharedValue(false);
+
+  useAnimatedReaction(
+    () => progress.value,
+    (current) => {
+      if (current >= OVERSWIPE_DELETE_AT && !fired.value) {
+        fired.value = true;
+        runOnJS(onDelete)();
+      }
+      if (current < 0.2) {
+        fired.value = false;
+      }
+    },
+  );
+
+  const iconStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      progress.value,
+      [0, 1, OVERSWIPE_DELETE_AT],
+      [0.9, 1, 1.2],
+      Extrapolation.CLAMP,
+    );
+    return { opacity: 1, transform: [{ scale }] };
+  });
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onLongPress={() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        onTrash();
-      }}
-      delayLongPress={420}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, SPRING);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
-      }}
-      style={[
-        style,
-        {
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
-        },
-      ]}
-      className="rounded-3xl border p-4 gap-2"
+    <RNPressable
+      onPress={onDelete}
+      style={styles.deleteAction}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
     >
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <AppText className="text-[17px] font-bold" numberOfLines={1}>
-            {trip.destination || t("tripDetail.fallbackTitle")}
-          </AppText>
-          <AppText tone="secondary" className="text-[13px]" numberOfLines={2}>
-            {trip.summary || t("trips.noSummary")}
-          </AppText>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={theme.textSecondary}
-        />
-      </View>
-      <AppText tone="muted" className="text-[12px]">
-        {t("tripDetail.daysCount", { count: days })}
-      </AppText>
-    </AnimatedPressable>
+      <Animated.View style={[styles.deleteIconWrap, iconStyle]}>
+        <Ionicons name="trash" size={22} color="#FFFFFF" />
+      </Animated.View>
+    </RNPressable>
   );
 }
 
@@ -92,28 +93,37 @@ export default function TripsScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const tabPad = useTabBarPadding();
+  const openCreateSheet = useCreateTripSheetStore((s) => s.open);
+
   const [trips, setTrips] = useState<SavedTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await listTrips();
-      setTrips(rows);
-    } catch (err) {
-      console.error("[trips] Falha ao listar:", err);
-      setError(t("trips.loadError"));
-      setTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const reload = useCallback(
+    async (opts?: { refresh?: boolean }) => {
+      const isRefresh = opts?.refresh === true;
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const rows = await listTrips();
+        setTrips(rows);
+      } catch (err) {
+        console.error("[trips] Falha ao listar:", err);
+        setError(t("trips.loadError"));
+        if (!isRefresh) setTrips([]);
+      } finally {
+        if (isRefresh) setRefreshing(false);
+        else setLoading(false);
+      }
+    },
+    [t],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      reload();
+      void reload();
     }, [reload]),
   );
 
@@ -126,104 +136,163 @@ export default function TripsScreen() {
     router.push(href);
   }
 
-  function askTrash(trip: SavedTrip) {
-    Alert.alert(
-      t("trips.trashTitle"),
-      t("trips.trashBody", { destination: trip.destination }),
-      [
-        { text: t("trips.trashCancel"), style: "cancel" },
-        {
-          text: t("trips.trashConfirm"),
-          style: "destructive",
-          onPress: () => {
-            void (async () => {
-              try {
-                await softDeleteTrip(trip.id);
-                setTrips((prev) => prev.filter((x) => x.id !== trip.id));
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success,
-                );
-              } catch (err) {
-                console.error("[trips] Soft delete falhou:", err);
-                Alert.alert(t("trips.loadError"), t("trips.trashError"));
-              }
-            })();
-          },
-        },
-      ],
+  function trashTrip(trip: SavedTrip) {
+    // Otimista: some da lista na hora; soft-delete é reversível na lixeira.
+    setTrips((prev) => prev.filter((x) => x.id !== trip.id));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    void (async () => {
+      try {
+        await softDeleteTrip(trip.id);
+      } catch (err) {
+        console.error("[trips] Soft delete falhou:", err);
+        Alert.alert(t("trips.loadError"), t("trips.trashError"));
+        void reload();
+      }
+    })();
+  }
+
+  const listHeader = (
+    <View className="mb-5">
+      <AppText
+        className="font-bold mb-1"
+        style={{ fontSize: 28, letterSpacing: -0.5 }}
+      >
+        {t("trips.title")}
+      </AppText>
+      <AppText tone="secondary" className="text-[14px]">
+        {t("trips.subtitle")}
+      </AppText>
+    </View>
+  );
+
+  function renderEmpty() {
+    if (loading) {
+      return (
+        <View className="items-center py-16">
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View
+          className="items-center rounded-3xl border border-dashed py-14 px-6 gap-3"
+          style={{ borderColor: theme.border }}
+        >
+          <AppText className="text-[15px] font-semibold text-center">
+            {error}
+          </AppText>
+          <Pressable
+            onPress={() => void reload()}
+            className="mt-2 rounded-full px-4 py-2"
+            style={{ backgroundColor: theme.accent }}
+          >
+            <AppText style={{ color: "#fff" }} className="font-semibold">
+              {t("trips.retry")}
+            </AppText>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View className="items-center justify-center py-20 px-4 gap-3">
+        <Ionicons name="map-outline" size={56} color={theme.textMuted} />
+        <AppText className="text-[17px] font-semibold text-center">
+          {t("trips.emptySaved")}
+        </AppText>
+        <AppText tone="secondary" className="text-[14px] text-center mb-2">
+          {t("trips.emptySavedHint")}
+        </AppText>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            openCreateSheet();
+          }}
+          className="rounded-full px-5 py-3"
+          style={{ backgroundColor: theme.accent }}
+          accessibilityRole="button"
+          accessibilityLabel={t("trips.createCta")}
+        >
+          <AppText style={{ color: "#fff" }} className="font-semibold text-[15px]">
+            {t("trips.createCta")}
+          </AppText>
+        </Pressable>
+      </View>
     );
   }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <ScrollView
-        className="flex-1"
+      <FlatList
+        data={error || loading ? [] : trips}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={renderEmpty}
         contentContainerStyle={{
           paddingTop: insets.top + 16,
           paddingBottom: tabPad,
           paddingHorizontal: 24,
+          flexGrow: 1,
         }}
-        contentInsetAdjustmentBehavior="never"
-      >
-        <AppText
-          className="font-bold mb-1"
-          style={{ fontSize: 28, letterSpacing: -0.5 }}
-        >
-          {t("trips.title")}
-        </AppText>
-        <AppText tone="secondary" className="text-[14px] mb-5">
-          {t("trips.subtitle")}
-        </AppText>
-
-        {loading ? (
-          <View className="items-center py-16">
-            <ActivityIndicator color={theme.accent} />
-          </View>
-        ) : error ? (
-          <View
-            className="items-center rounded-3xl border border-dashed py-14 px-6 gap-3"
-            style={{ borderColor: theme.border }}
-          >
-            <AppText className="text-[15px] font-semibold text-center">
-              {error}
-            </AppText>
-            <Pressable
-              onPress={reload}
-              className="mt-2 rounded-full px-4 py-2"
-              style={{ backgroundColor: theme.accent }}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void reload({ refresh: true })}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
+        renderItem={({ item }) => (
+          <View style={styles.swipeClip}>
+            <Swipeable
+              friction={2}
+              rightThreshold={40}
+              overshootRight
+              overshootFriction={8}
+              dragOffsetFromRightEdge={28}
+              renderRightActions={(progress, _translation, methods) => (
+                <SwipeDeleteAction
+                  progress={progress}
+                  accessibilityLabel={t("trips.swipeDeleteA11y")}
+                  onDelete={() => {
+                    methods.close();
+                    trashTrip(item);
+                  }}
+                />
+              )}
             >
-              <AppText style={{ color: "#fff" }} className="font-semibold">
-                {t("trips.retry")}
-              </AppText>
-            </Pressable>
-          </View>
-        ) : trips.length === 0 ? (
-          <View
-            className="items-center rounded-3xl border border-dashed py-14 px-6 gap-3"
-            style={{ borderColor: theme.border }}
-          >
-            <Ionicons name="map-outline" size={36} color={theme.textMuted} />
-            <AppText className="text-[15px] font-semibold text-center">
-              {t("trips.emptySaved")}
-            </AppText>
-            <AppText tone="secondary" className="text-[13px] text-center">
-              {t("trips.emptySavedHint")}
-            </AppText>
-          </View>
-        ) : (
-          <View className="gap-3">
-            {trips.map((trip) => (
-              <TripCard
-                key={trip.id}
-                trip={trip}
-                onPress={() => openTrip(trip)}
-                onTrash={() => askTrash(trip)}
+              <TripHistoryCard
+                trip={item}
+                onPress={() => openTrip(item)}
               />
-            ))}
+            </Swipeable>
           </View>
         )}
-      </ScrollView>
+      />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  swipeClip: {
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  deleteAction: {
+    flex: 1,
+    backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingRight: 0,
+  },
+  deleteIconWrap: {
+    width: DELETE_ACTION_W,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

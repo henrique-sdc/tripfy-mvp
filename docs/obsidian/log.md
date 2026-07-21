@@ -1,4 +1,12 @@
 # Log — Tripfy Wiki
+## [2026-07-21] update | Lixeira purge swipe
+
+Atualizado [[Detalhe da Viagem RF07]]: swipe na lixeira apaga de vez (`purgeTrip`). Changelog no mesmo tema.
+
+## [2026-07-21] update | Aba Viagens cards premium
+
+Atualizado [[Home e Bottom Tabs]]: TripHistoryCard, swipe soft-delete, pull-to-refresh, empty CTA. Changelog no mesmo tema.
+
 ## [2026-07-20] update | Fase 3 Ecossistema usuário
 
 Atualizado [[Detalhe da Viagem RF07]]: soft-delete/lixeira, minhas reviews, clone/share, trip_shares, footer dicas. Changelog no mesmo tema.

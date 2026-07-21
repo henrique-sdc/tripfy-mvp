@@ -24,6 +24,10 @@ import {
   type PlaceReviewResponse,
   upsertPlaceReview,
 } from "@/lib/api";
+import {
+  formatShortDate,
+  isReviewEdited,
+} from "@/lib/formatRelativeTime";
 import { Pressable, ScrollView, View } from "@/tw";
 
 export default function MyReviewsScreen() {
@@ -162,7 +166,11 @@ export default function MyReviewsScreen() {
             </AppText>
           </View>
         ) : (
-          reviews.map((review) => (
+          reviews.map((review) => {
+            const dateLabel = formatShortDate(review.created_at);
+            const edited = isReviewEdited(review.updated_at);
+
+            return (
             <View
               key={review.id}
               className="rounded-3xl border p-4 gap-2"
@@ -182,9 +190,20 @@ export default function MyReviewsScreen() {
                 ))}
               </View>
               <AppText className="text-[14px] leading-5">{review.comment}</AppText>
-              <AppText tone="muted" className="text-[11px]" numberOfLines={1}>
-                {review.place_id}
-              </AppText>
+              {(dateLabel || edited) ? (
+                <View className="flex-row items-center gap-1">
+                  {dateLabel ? (
+                    <AppText tone="muted" className="text-[11px]">
+                      {dateLabel}
+                    </AppText>
+                  ) : null}
+                  {edited ? (
+                    <AppText tone="muted" className="text-[11px]">
+                      · {t("myReviews.edited")}
+                    </AppText>
+                  ) : null}
+                </View>
+              ) : null}
               <View className="flex-row gap-2 mt-1">
                 <Pressable
                   onPress={() => openEdit(review)}
@@ -212,7 +231,8 @@ export default function MyReviewsScreen() {
                 </Pressable>
               </View>
             </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 

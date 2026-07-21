@@ -38,6 +38,15 @@ Destino, DayStepper, CapsuleSelector, notas, revisar vibe. Layout StyleSheet nat
 
 Ticket ≤7d · AiCommandBar · Invite swipe-delete · Destinos+❤️ · Em Alta → `/trending`
 
+## Aba Viagens
+
+Lista premium em `(tabs)/trips.tsx`:
+
+- `TripHistoryCard` — foto do destino via `getPlaceDetails(destination)`, meta (dias · relativo), press 0.97.
+- Swipe-to-delete (mesmo padrão Mail do [[Detalhe da Viagem RF07]]) → soft delete otimista; restore em `/trash`.
+- Em `/trash`, swipe apaga de vez (`purgeTrip`).
+- Pull-to-refresh; empty state com CTA → `createTripSheetStore.open()`.
+
 ## Stores
 
 `createTripSheetStore`, `wishlistStore` (AsyncStorage).

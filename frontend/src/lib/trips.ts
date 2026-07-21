@@ -3,6 +3,7 @@
 
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -107,6 +108,34 @@ export async function restoreTripLocal(tripId: string): Promise<void> {
     deleted_at: null,
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Apaga de vez — só se já estiver na lixeira (`deleted_at` set).
+ * Também limpa o índice trip_shares.
+ */
+export async function purgeTrip(tripId: string): Promise<void> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Usuário não autenticado.");
+
+  const id = tripId.trim();
+  if (!id) throw new Error("tripId inválido.");
+
+  const ref = doc(db, "users", uid, "trips", id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Viagem não encontrada.");
+  if (snap.data()?.deleted_at == null) {
+    throw new Error("Só dá pra apagar de vez itens da lixeira.");
+  }
+
+  await deleteDoc(ref);
+
+  // Índice de share — best-effort (pode não existir).
+  try {
+    await deleteDoc(doc(db, "trip_shares", id));
+  } catch (err) {
+    console.warn("[trips] Falha ao limpar trip_shares:", err);
+  }
 }
 
 /** Lista roteiros ativos (sem deleted_at). */

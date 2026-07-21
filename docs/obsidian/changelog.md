@@ -1,4 +1,24 @@
 # Changelog — Tripfy Docs
+## 2026-07-21 — Wizard: Revisar vibe volta com form intacto
+
+- "Revisar minha Vibe" abre `/edit-vibe` via push; save/back retorna ao wizard.
+- Rascunho em memória (`wizardDraft`) preserva destino/dias/orçamento/notas se o modal remountar. Ver [[Home e Bottom Tabs]].
+
+## 2026-07-21 — Review: editar/excluir no sheet + data/editada
+
+- Comunidade no `PlaceDetailsSheet`: lápis + lixeira na própria review; data e badge "Editada".
+- Minhas avaliações também mostram data/`Editada`. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-21 — Lixeira: swipe = apagar de vez
+
+- Swipe/overswipe em `/trash` chama `purgeTrip` (só se `deleted_at` set) + limpa `trip_shares`. Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-21 — Aba Viagens: cards premium + swipe
+
+- `TripHistoryCard`: thumb Places (80×80), shimmer→fade, dias + tempo relativo; press spring 0.97.
+- Lista com `FlatList`, pull-to-refresh, swipe Soft Delete (Mail/overswipe); empty CTA abre CreateTripSheet.
+- Ver [[Home e Bottom Tabs]].
+
 ## 2026-07-21 — Nova parada com endereço → pin no mapa
 
 - Campo opcional de endereço em `AddActivityModal`; lookup Places devolve `latitude`/`longitude` e a parada entra no mapa. Ver [[Detalhe da Viagem RF07]].

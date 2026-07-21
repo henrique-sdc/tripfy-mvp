@@ -37,6 +37,11 @@ import {
   NetworkError,
 } from "@/lib/api";
 import { stashPendingItinerary } from "@/lib/pendingItinerary";
+import {
+  clearWizardSoloDraft,
+  peekWizardSoloDraft,
+  stashWizardSoloDraft,
+} from "@/lib/wizardDraft";
 import { Pressable, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -152,12 +157,46 @@ export default function WizardSoloScreen() {
   const canSubmit =
     destination.trim().length >= 2 && !loading && !creatingMatch;
 
+  // Se o modal desmontou ao abrir edit-vibe, reaplica destino/dias/etc.
+  // peek sem clear — Strict Mode remonta e ainda precisa do rascunho.
+  useEffect(() => {
+    const saved = peekWizardSoloDraft();
+    if (!saved) return;
+    setDestination(saved.destination);
+    setDays(saved.days);
+    setBudget(saved.budget);
+    setNotes(saved.notes);
+  }, []);
+
   useEffect(() => {
     return () => {
       closeStreamRef.current?.();
       closeStreamRef.current = null;
     };
   }, []);
+
+  function closeWizard() {
+    clearWizardSoloDraft();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (loading) {
+      closeStreamRef.current?.();
+      closeStreamRef.current = null;
+      setLoading(false);
+    }
+    router.back();
+  }
+
+  function openEditVibe() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Guarda o form antes do push — Android pode desmontar o modal.
+    stashWizardSoloDraft({
+      destination,
+      days,
+      budget,
+      notes,
+    });
+    router.push("/edit-vibe");
+  }
 
   async function onGenerate() {
     if (!canSubmit) return;
@@ -173,6 +212,7 @@ export default function WizardSoloScreen() {
           budget,
         });
         setCreatingMatch(false);
+        clearWizardSoloDraft();
         const href = `/match/${match.id}` as Href;
         router.replace(href);
       } catch (error) {
@@ -204,6 +244,7 @@ export default function WizardSoloScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // Stash em memória — JSON multi-dia estoura o limite de params da URL.
         stashPendingItinerary(itinerary);
+        clearWizardSoloDraft();
         router.replace("/trip-detail" as Href);
       },
       (error) => {
@@ -238,15 +279,7 @@ export default function WizardSoloScreen() {
           ]}
         >
           <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (loading) {
-                closeStreamRef.current?.();
-                closeStreamRef.current = null;
-                setLoading(false);
-              }
-              router.back();
-            }}
+            onPress={closeWizard}
             hitSlop={12}
             style={[styles.closeBtn, { backgroundColor: theme.surface }]}
             accessibilityLabel={t("wizard.close")}
@@ -359,11 +392,7 @@ export default function WizardSoloScreen() {
               )}
 
               <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.back();
-                  setTimeout(() => router.navigate("/(tabs)/profile"), 200);
-                }}
+                onPress={openEditVibe}
                 style={[
                   styles.vibeRow,
                   {

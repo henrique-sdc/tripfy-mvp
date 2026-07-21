@@ -35,7 +35,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Editar parada            | Lápis no card → time + title + description + **dia** (cross-day)                                                                       |
 | Nova parada              | FAB → `AddActivityModal` (só com dia selecionado); endereço opcional → Places lookup → pin no mapa                                     |
 | Dias                     | Chip `+ Dia`; lixeira no título do dia (reindex 1..N); mín. 1 dia                                                                      |
-| **Lixeira**              | Soft delete 30d (`deleted_at`); Configurações → `/trash`; long-press em Viagens                                                        |
+| **Lixeira**              | Soft delete 30d (`deleted_at`); Configurações → `/trash`; swipe em Viagens; swipe na lixeira = purge definitivo                         |
 | **Minhas avaliações**    | `GET /places/reviews/me` → `/my-reviews` (editar/excluir)                                                                              |
 | **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim”                                                                  |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |

@@ -11,6 +11,7 @@ import {
   FlatList,
   Linking,
   Modal,
+  Alert,
   Pressable as RNPressable,
   ScrollView,
   StyleSheet,
@@ -36,12 +37,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import {
+  deleteOwnPlaceReview,
   getPlaceFullDetails,
   getPlaceReviews,
   type PlaceFullDetailsResponse,
   type PlaceReviewResponse,
   upsertPlaceReview,
 } from "@/lib/api";
+import { auth } from "@/lib/firebase";
+import {
+  formatShortDate,
+  isReviewEdited,
+} from "@/lib/formatRelativeTime";
 
 const ENTER = { duration: 240, easing: Easing.out(Easing.cubic) };
 const DISMISS_MS = 180;
@@ -199,6 +206,76 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
     }
   }, [placeId, rating, comment, saving]);
 
+  const ownUid = auth.currentUser?.uid ?? null;
+  const ownReview =
+    ownUid != null
+      ? (reviews.find((r) => r.user_uid === ownUid) ?? null)
+      : null;
+
+  function openReviewForm(existing?: PlaceReviewResponse | null) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const source = existing ?? ownReview;
+    if (source) {
+      setRating(source.rating);
+      setComment(source.comment);
+    } else {
+      setRating(5);
+      setComment("");
+    }
+    setShowForm(true);
+  }
+
+  function toggleReviewForm() {
+    if (showForm) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setShowForm(false);
+      setComment("");
+      setRating(5);
+      return;
+    }
+    openReviewForm(ownReview);
+  }
+
+  function askDeleteOwnReview() {
+    if (!placeId || !ownReview) return;
+    Alert.alert(
+      t("tripDetail.placeSheet.deleteReviewTitle"),
+      t("tripDetail.placeSheet.deleteReviewBody"),
+      [
+        {
+          text: t("tripDetail.placeSheet.deleteReviewCancel"),
+          style: "cancel",
+        },
+        {
+          text: t("tripDetail.placeSheet.deleteReviewConfirm"),
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await deleteOwnPlaceReview(placeId);
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+                setReviews((prev) =>
+                  prev.filter((r) => r.id !== ownReview.id),
+                );
+                setShowForm(false);
+                setComment("");
+                setRating(5);
+              } catch (err) {
+                console.warn("[PlaceDetailsSheet] falha ao excluir review:", err);
+                Alert.alert(
+                  t("tripDetail.placeSheet.deleteReviewTitle"),
+                  t("tripDetail.placeSheet.deleteError"),
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <Modal
       visible={open}
@@ -312,16 +389,17 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
                 ) : (
                   <CommunityTab
                     reviews={reviews}
+                    ownUid={ownUid}
                     showForm={showForm}
+                    isEditingOwn={ownReview != null}
                     rating={rating}
                     comment={comment}
                     saving={saving}
                     theme={theme}
                     t={t}
-                    onToggleForm={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowForm((v) => !v);
-                    }}
+                    onToggleForm={toggleReviewForm}
+                    onEditOwn={() => openReviewForm(ownReview)}
+                    onDeleteOwn={askDeleteOwnReview}
                     onRating={setRating}
                     onComment={setComment}
                     onSave={onSaveReview}
@@ -493,29 +571,49 @@ function AboutTab({
 
 function CommunityTab({
   reviews,
+  ownUid,
   showForm,
+  isEditingOwn,
   rating,
   comment,
   saving,
   theme,
   t,
   onToggleForm,
+  onEditOwn,
+  onDeleteOwn,
   onRating,
   onComment,
   onSave,
 }: {
   reviews: PlaceReviewResponse[];
+  ownUid: string | null;
   showForm: boolean;
+  isEditingOwn: boolean;
   rating: number;
   comment: string;
   saving: boolean;
   theme: ReturnType<typeof useTheme>;
   t: (key: string) => string;
   onToggleForm: () => void;
+  onEditOwn: () => void;
+  onDeleteOwn: () => void;
   onRating: (n: number) => void;
   onComment: (s: string) => void;
   onSave: () => void;
 }) {
+  const writeLabel = showForm
+    ? t("tripDetail.placeSheet.cancelReview")
+    : isEditingOwn
+      ? t("tripDetail.placeSheet.editReview")
+      : t("tripDetail.placeSheet.writeReview");
+
+  const saveLabel = saving
+    ? t("tripDetail.placeSheet.saving")
+    : isEditingOwn
+      ? t("tripDetail.placeSheet.saveEdit")
+      : t("tripDetail.placeSheet.saveReview");
+
   return (
     <RNView style={styles.gap}>
       <RNPressable
@@ -529,9 +627,7 @@ function CommunityTab({
           className="text-[14px] font-semibold"
           style={{ color: theme.buttonText }}
         >
-          {showForm
-            ? t("tripDetail.placeSheet.cancelReview")
-            : t("tripDetail.placeSheet.writeReview")}
+          {writeLabel}
         </AppText>
       </RNPressable>
 
@@ -591,9 +687,7 @@ function CommunityTab({
               className="text-[14px] font-semibold"
               style={{ color: "#FFFFFF" }}
             >
-              {saving
-                ? t("tripDetail.placeSheet.saving")
-                : t("tripDetail.placeSheet.saveReview")}
+              {saveLabel}
             </AppText>
           </RNPressable>
         </RNView>
@@ -604,23 +698,79 @@ function CommunityTab({
           {t("tripDetail.placeSheet.emptyReviews")}
         </AppText>
       ) : (
-        reviews.map((r) => (
-          <RNView
-            key={r.id}
-            style={[
-              styles.reviewCard,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <RNView style={styles.metaChip}>
-              <Ionicons name="star" size={12} color="#F5C518" />
-              <AppText className="text-[12px] font-semibold">{r.rating}</AppText>
+        reviews.map((r) => {
+          const isOwn = ownUid != null && r.user_uid === ownUid;
+          const dateLabel = formatShortDate(r.created_at);
+          const edited = isReviewEdited(r.updated_at);
+
+          return (
+            <RNView
+              key={r.id}
+              style={[
+                styles.reviewCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <RNView style={styles.reviewHeader}>
+                <RNView style={styles.metaChip}>
+                  <Ionicons name="star" size={12} color="#F5C518" />
+                  <AppText className="text-[12px] font-semibold">
+                    {r.rating}
+                  </AppText>
+                </RNView>
+
+                <RNView style={styles.reviewMeta}>
+                  {dateLabel ? (
+                    <AppText tone="muted" className="text-[11px]">
+                      {dateLabel}
+                    </AppText>
+                  ) : null}
+                  {edited ? (
+                    <AppText tone="muted" className="text-[11px]">
+                      · {t("tripDetail.placeSheet.edited")}
+                    </AppText>
+                  ) : null}
+                </RNView>
+
+                {isOwn ? (
+                  <RNView style={styles.reviewActions}>
+                    <RNPressable
+                      onPress={onEditOwn}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(
+                        "tripDetail.placeSheet.editReviewA11y",
+                      )}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={18}
+                        color={theme.textSecondary}
+                      />
+                    </RNPressable>
+                    <RNPressable
+                      onPress={onDeleteOwn}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(
+                        "tripDetail.placeSheet.deleteReviewA11y",
+                      )}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={theme.error}
+                      />
+                    </RNPressable>
+                  </RNView>
+                ) : null}
+              </RNView>
+              <AppText tone="secondary" className="text-[13px] leading-5">
+                {r.comment}
+              </AppText>
             </RNView>
-            <AppText tone="secondary" className="text-[13px] leading-5">
-              {r.comment}
-            </AppText>
-          </RNView>
-        ))
+          );
+        })
       )}
     </RNView>
   );
@@ -723,5 +873,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     gap: 6,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  reviewMeta: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexWrap: "wrap",
+  },
+  reviewActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
 });
