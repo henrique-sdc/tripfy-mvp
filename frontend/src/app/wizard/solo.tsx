@@ -1,11 +1,15 @@
 // Wizard Solo — formulário de nova viagem (RF05) + geração SSE (RF06).
 // Layout com style.flex nativo (NativeWind flex-1 quebra em fullScreenModal).
+// Datas: início + fim (máx. 15 dias inclusivos) → IA usa época/clima.
 
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -17,12 +21,7 @@ import {
   useColorScheme,
   View as RNView,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
@@ -38,110 +37,61 @@ import {
 } from "@/lib/api";
 import { stashPendingItinerary } from "@/lib/pendingItinerary";
 import {
+  MAX_TRIP_DAYS,
+  MIN_TRIP_DAYS,
+  addLocalDays,
+  clampEndToMaxSpan,
+  inclusiveDayCount,
+  parseIsoDate,
+  startOfLocalDay,
+  toIsoDate,
+} from "@/lib/tripDates";
+import {
   clearWizardSoloDraft,
   peekWizardSoloDraft,
   stashWizardSoloDraft,
 } from "@/lib/wizardDraft";
-import { Pressable, View } from "@/tw";
+import { Pressable } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 20, stiffness: 300 };
-const MIN_DAYS = 1;
-const MAX_DAYS = 30;
+type PickerField = "start" | "end" | null;
 
-function DayStepper({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  const { t } = useTranslation();
-  const theme = useTheme();
-
-  function bump(delta: number) {
-    const next = Math.min(MAX_DAYS, Math.max(MIN_DAYS, value + delta));
-    if (next === value) return;
-    Haptics.selectionAsync();
-    onChange(next);
-  }
-
-  return (
-    <View
-      className="flex-row items-center justify-between rounded-2xl border px-3 py-2"
-      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-    >
-      <StepperBtn
-        icon="remove"
-        onPress={() => bump(-1)}
-        disabled={value <= MIN_DAYS}
-      />
-      <AppText className="text-[18px] font-bold">
-        {t("wizard.daysLabel", { count: value })}
-      </AppText>
-      <StepperBtn
-        icon="add"
-        onPress={() => bump(1)}
-        disabled={value >= MAX_DAYS}
-      />
-    </View>
-  );
+function defaultStart(): Date {
+  return startOfLocalDay(new Date());
 }
 
-function StepperBtn({
-  icon,
-  onPress,
-  disabled,
-}: {
-  icon: "add" | "remove";
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  const theme = useTheme();
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+function defaultEnd(start: Date): Date {
+  // Default 5 dias (legado do stepper).
+  return addLocalDays(start, 4);
+}
 
-  return (
-    <AnimatedPressable
-      disabled={disabled}
-      onPress={onPress}
-      onPressIn={() => {
-        if (disabled) return;
-        scale.value = withSpring(0.9, SPRING);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
-      }}
-      style={[
-        style,
-        {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: theme.background,
-          opacity: disabled ? 0.35 : 1,
-        },
-      ]}
-    >
-      <Ionicons name={icon} size={22} color={theme.textPrimary} />
-    </AnimatedPressable>
-  );
+function formatDateChip(d: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(d);
 }
 
 export default function WizardSoloScreen() {
-  const { t } = useTranslation();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { t, i18n } = useTranslation();
+  const { mode, destination: destParam, days: daysParam } =
+    useLocalSearchParams<{
+      mode?: string;
+      destination?: string;
+      days?: string;
+    }>();
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const isMatch = mode === "match";
+  const locale = i18n.language || "pt-BR";
+
+  const today = useMemo(() => defaultStart(), []);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(() => defaultEnd(today));
+  const [picker, setPicker] = useState<PickerField>(null);
 
   const [destination, setDestination] = useState("");
-  const [days, setDays] = useState(5);
   const [budget, setBudget] = useState("moderate");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -149,24 +99,51 @@ export default function WizardSoloScreen() {
   const [matchErrorKey, setMatchErrorKey] = useState<string | null>(null);
   const closeStreamRef = useRef<(() => void) | null>(null);
 
+  const days = inclusiveDayCount(startDate, endDate);
+  const datesValid = days >= MIN_TRIP_DAYS && days <= MAX_TRIP_DAYS;
+
   const budgetOptions = BUDGET_OPTIONS.map((o) => ({
     value: o.value,
     label: t(o.labelKey),
   }));
 
   const canSubmit =
-    destination.trim().length >= 2 && !loading && !creatingMatch;
+    destination.trim().length >= 2 &&
+    datesValid &&
+    !loading &&
+    !creatingMatch;
 
-  // Se o modal desmontou ao abrir edit-vibe, reaplica destino/dias/etc.
-  // peek sem clear — Strict Mode remonta e ainda precisa do rascunho.
+  // Draft (edit-vibe) tem prioridade; senão query da Em Alta.
   useEffect(() => {
     const saved = peekWizardSoloDraft();
-    if (!saved) return;
-    setDestination(saved.destination);
-    setDays(saved.days);
-    setBudget(saved.budget);
-    setNotes(saved.notes);
-  }, []);
+    if (saved) {
+      setDestination(saved.destination);
+      setBudget(saved.budget);
+      setNotes(saved.notes);
+      const s = parseIsoDate(saved.start_date);
+      const e = parseIsoDate(saved.end_date);
+      if (s) setStartDate(s);
+      if (e) setEndDate(clampEndToMaxSpan(s ?? today, e));
+      return;
+    }
+
+    const fromQuery =
+      typeof destParam === "string" ? destParam.trim() : "";
+    if (fromQuery.length >= 2) {
+      setDestination(fromQuery);
+    }
+
+    const hintDays = Number(
+      typeof daysParam === "string" ? daysParam : NaN,
+    );
+    if (
+      Number.isFinite(hintDays) &&
+      hintDays >= MIN_TRIP_DAYS &&
+      hintDays <= MAX_TRIP_DAYS
+    ) {
+      setEndDate(addLocalDays(today, hintDays - 1));
+    }
+  }, [today, destParam, daysParam]);
 
   useEffect(() => {
     return () => {
@@ -188,9 +165,10 @@ export default function WizardSoloScreen() {
 
   function openEditVibe() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Guarda o form antes do push — Android pode desmontar o modal.
     stashWizardSoloDraft({
       destination,
+      start_date: toIsoDate(startDate),
+      end_date: toIsoDate(endDate),
       days,
       budget,
       notes,
@@ -198,20 +176,46 @@ export default function WizardSoloScreen() {
     router.push("/edit-vibe");
   }
 
+  function onStartChange(_event: DateTimePickerEvent, date?: Date) {
+    if (Platform.OS === "android") setPicker(null);
+    if (!date) return;
+    Haptics.selectionAsync();
+    const nextStart = startOfLocalDay(date);
+    setStartDate(nextStart);
+    setEndDate((prev) => clampEndToMaxSpan(nextStart, prev));
+  }
+
+  function onEndChange(_event: DateTimePickerEvent, date?: Date) {
+    if (Platform.OS === "android") setPicker(null);
+    if (!date) return;
+    Haptics.selectionAsync();
+    setEndDate(clampEndToMaxSpan(startDate, date));
+  }
+
   async function onGenerate() {
     if (!canSubmit) return;
+    if (!datesValid) {
+      Alert.alert(
+        t("wizard.dateRangeError", { max: MAX_TRIP_DAYS }),
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const payload = {
+      destination: destination.trim(),
+      days,
+      start_date: toIsoDate(startDate),
+      end_date: toIsoDate(endDate),
+      budget,
+      notes: notes.trim(),
+    };
 
     if (isMatch) {
       setCreatingMatch(true);
       setMatchErrorKey(null);
       try {
-        const match = await createMatch({
-          destination: destination.trim(),
-          days,
-          budget,
-          notes: notes.trim(),
-        });
+        const match = await createMatch(payload);
         setCreatingMatch(false);
         clearWizardSoloDraft();
         const href = `/match/${match.id}` as Href;
@@ -232,18 +236,12 @@ export default function WizardSoloScreen() {
 
     closeStreamRef.current?.();
     closeStreamRef.current = generateTripStream(
-      {
-        destination: destination.trim(),
-        days,
-        budget,
-        notes: notes.trim(),
-      },
+      payload,
       undefined,
       (itinerary) => {
         closeStreamRef.current = null;
         setLoading(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Stash em memória — JSON multi-dia estoura o limite de params da URL.
         stashPendingItinerary(itinerary);
         clearWizardSoloDraft();
         router.replace("/trip-detail" as Href);
@@ -260,6 +258,8 @@ export default function WizardSoloScreen() {
       },
     );
   }
+
+  const maxEnd = addLocalDays(startDate, MAX_TRIP_DAYS - 1);
 
   return (
     <RNView style={[styles.root, { backgroundColor: theme.background }]}>
@@ -311,10 +311,7 @@ export default function WizardSoloScreen() {
         {loading ? (
           <MagicalGenerating destination={destination.trim()} />
         ) : (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            style={styles.flex}
-          >
+          <Animated.View entering={FadeIn.duration(200)} style={styles.flex}>
             <RNScrollView
               style={styles.flex}
               contentContainerStyle={styles.scrollContent}
@@ -354,7 +351,94 @@ export default function WizardSoloScreen() {
                 <AppText className="text-[13px] font-semibold tracking-wide">
                   {t("wizard.durationLabel")}
                 </AppText>
-                <DayStepper value={days} onChange={setDays} />
+                <RNView style={styles.dateRow}>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setPicker(picker === "start" ? null : "start");
+                    }}
+                    style={[
+                      styles.dateChip,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor:
+                          picker === "start" ? theme.accent : theme.border,
+                      },
+                    ]}
+                    accessibilityLabel={t("wizard.startDateLabel")}
+                  >
+                    <AppText tone="muted" className="text-[11px]">
+                      {t("wizard.startDateLabel")}
+                    </AppText>
+                    <AppText className="text-[15px] font-semibold">
+                      {formatDateChip(startDate, locale)}
+                    </AppText>
+                  </Pressable>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color={theme.textMuted}
+                  />
+                  <Pressable
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setPicker(picker === "end" ? null : "end");
+                    }}
+                    style={[
+                      styles.dateChip,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor:
+                          picker === "end" ? theme.accent : theme.border,
+                      },
+                    ]}
+                    accessibilityLabel={t("wizard.endDateLabel")}
+                  >
+                    <AppText tone="muted" className="text-[11px]">
+                      {t("wizard.endDateLabel")}
+                    </AppText>
+                    <AppText className="text-[15px] font-semibold">
+                      {formatDateChip(endDate, locale)}
+                    </AppText>
+                  </Pressable>
+                </RNView>
+
+                {picker === "start" ? (
+                  <DateTimePicker
+                    value={startDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    minimumDate={today}
+                    onChange={onStartChange}
+                    themeVariant={scheme === "dark" ? "dark" : "light"}
+                  />
+                ) : null}
+                {picker === "end" ? (
+                  <DateTimePicker
+                    value={endDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    minimumDate={startDate}
+                    maximumDate={maxEnd}
+                    onChange={onEndChange}
+                    themeVariant={scheme === "dark" ? "dark" : "light"}
+                  />
+                ) : null}
+
+                <AppText
+                  className="text-[14px] font-semibold"
+                  style={{ color: theme.accent }}
+                >
+                  {t("wizard.daysComputed", { count: days })}
+                </AppText>
+                <AppText tone="muted" className="text-[11px]">
+                  {t("wizard.maxDaysHint", { max: MAX_TRIP_DAYS })}
+                </AppText>
+                {!datesValid ? (
+                  <AppText tone="error" className="text-[12px]">
+                    {t("wizard.dateRangeError", { max: MAX_TRIP_DAYS })}
+                  </AppText>
+                ) : null}
               </RNView>
 
               <RNView style={styles.field}>
@@ -483,6 +567,19 @@ const styles = StyleSheet.create({
     gap: 28,
   },
   field: { gap: 10 },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dateChip: {
+    flex: 1,
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",

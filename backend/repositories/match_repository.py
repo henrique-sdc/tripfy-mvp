@@ -61,6 +61,31 @@ async def get_match(match_id: str) -> MatchInDB | None:
     return await run_in_threadpool(_fetch)
 
 
+async def list_pending_by_owner(owner_uid: str) -> list[MatchInDB]:
+    """Lobbies `waiting` do dono.
+
+    Filtra status em memória pra evitar índice composto owner+status no MVP
+    (dono tem poucas sessões). Upgrade: where status==waiting + índice.
+    """
+
+    def _list() -> list[MatchInDB]:
+        snapshots = (
+            db.collection(_MATCHES_COLLECTION)
+            .where("owner_uid", "==", owner_uid)
+            .stream()
+        )
+        pending: list[MatchInDB] = []
+        for snapshot in snapshots:
+            match = _match_from_snapshot(snapshot)
+            if match.status == MatchStatus.WAITING:
+                pending.append(match)
+        # Mais recente primeiro — Home mostra o topo.
+        pending.sort(key=lambda m: m.created_at, reverse=True)
+        return pending
+
+    return await run_in_threadpool(_list)
+
+
 async def create_match(owner_uid: str, request: CreateMatchRequest) -> MatchInDB:
     """Cria uma sessão em espera com o proprietário como primeiro participante."""
 

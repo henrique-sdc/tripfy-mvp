@@ -33,6 +33,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import {
+  formatTripDateSpan,
+} from "@/lib/tripDates";
 import { MagicalGenerating } from "@/components/trip/MagicalGenerating";
 import { AppText } from "@/components/ui/AppText";
 import { useCompanionsList } from "@/hooks/use-companions-list";
@@ -859,7 +862,19 @@ export default function MatchLobbyScreen() {
                   {t("match.summary.duration")}
                 </AppText>
                 <AppText className="text-[15px] font-semibold">
-                  {t("wizard.daysLabel", { count: match.days })}
+                  {(() => {
+                    const start = match.start_date?.trim() || "";
+                    const end = match.end_date?.trim() || "";
+                    const span =
+                      start && end ? formatTripDateSpan(start, end) : "";
+                    if (span) {
+                      return t("match.dateRange", {
+                        range: span,
+                        count: match.days,
+                      });
+                    }
+                    return t("wizard.daysLabel", { count: match.days });
+                  })()}
                 </AppText>
               </View>
             </View>

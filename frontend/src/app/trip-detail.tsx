@@ -325,7 +325,15 @@ export default function TripDetailScreen() {
   const [loadingRemote, setLoadingRemote] = useState(
     !itinerary && Boolean(params.tripId),
   );
-  const [detailsPlaceId, setDetailsPlaceId] = useState<string | null>(null);
+  const [detailsPlace, setDetailsPlace] = useState<{
+    placeId: string | null;
+    fallback: {
+      title: string;
+      description: string;
+      location: string;
+      photoUrl: string | null;
+    };
+  } | null>(null);
   const [editingActivityKey, setEditingActivityKey] = useState<string | null>(
     null,
   );
@@ -817,7 +825,17 @@ export default function TripDetailScreen() {
                   showDragHandle={canDrag}
                   dimmed={isActive}
                   onDragHandlePressIn={canDrag ? drag : undefined}
-                  onOpenDetails={(placeId) => setDetailsPlaceId(placeId)}
+                  onOpenDetails={(payload) =>
+                    setDetailsPlace({
+                      placeId: payload.placeId,
+                      fallback: {
+                        title: payload.title,
+                        description: payload.description,
+                        location: payload.location,
+                        photoUrl: payload.photoUrl,
+                      },
+                    })
+                  }
                   onEdit={
                     readOnly
                       ? undefined
@@ -1207,8 +1225,9 @@ export default function TripDetailScreen() {
       )}
 
       <PlaceDetailsSheet
-        placeId={detailsPlaceId}
-        onClose={() => setDetailsPlaceId(null)}
+        placeId={detailsPlace?.placeId ?? null}
+        fallback={detailsPlace?.fallback ?? null}
+        onClose={() => setDetailsPlace(null)}
       />
 
       <EditActivityModal

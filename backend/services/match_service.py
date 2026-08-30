@@ -18,6 +18,7 @@ from models.match import (
     CreateMatchRequest,
     MatchInDB,
     MatchInviteSummary,
+    MatchPendingSummary,
     MatchStatus,
 )
 from models.trip import ItineraryResponse
@@ -46,6 +47,26 @@ async def create_match(owner_uid: str, request: CreateMatchRequest) -> MatchInDB
     return await match_repository.create_match(owner_uid, request)
 
 
+async def list_pending_matches(owner_uid: str) -> list[MatchPendingSummary]:
+    """Resumos das salas waiting do dono — alimenta o banner da Home."""
+    matches = await match_repository.list_pending_by_owner(owner_uid)
+    logger.info(
+        "Matches pendentes listados: owner_uid={} count={}",
+        owner_uid,
+        len(matches),
+    )
+    return [
+        MatchPendingSummary(
+            id=m.id,
+            destination=m.destination,
+            days=m.days,
+            status=m.status,
+            created_at=m.created_at,
+        )
+        for m in matches
+    ]
+
+
 async def get_match_for_viewer(
     match_id: str,
     viewer_uid: str,
@@ -70,6 +91,8 @@ async def get_match_for_viewer(
             id=match.id,
             destination=match.destination,
             days=match.days,
+            start_date=match.start_date,
+            end_date=match.end_date,
             budget=match.budget,
             status=match.status,
             owner=owner_profile,

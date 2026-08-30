@@ -101,7 +101,10 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 
 - `components/trip/PlaceDetailsSheet.tsx` — Modal + pan dismiss (física CreateTripSheet).
 - Abas **Sobre** (fotos, rating, **preço médio**, menu se houver, resumo, endereço, horários) e **Comunidade**.
-- Tap no hero do `ActivityCard` (com `place_id`) abre o sheet; lápis abre `EditActivityModal` (time + title + description).
+- Tap no hero do `ActivityCard` abre o sheet **sempre** — com `place_id` ou só com fallback do roteiro.
+- Fallback: se Places falha ou devolve endereço como nome (`Cl. 82 #12 -21`), usa título/descrição/local da parada (`lib/placeDisplay.ts`).
+- Lookup Places: `título, endereço` (endereço sozinho casa pin genérico).
+- Comunidade desabilitada sem `place_id`.
 - API: `getPlaceFullDetails`, `getPlaceReviews`, `upsertPlaceReview` em `lib/api.ts`.
 
 ## Edição tátil (PASSO 3)

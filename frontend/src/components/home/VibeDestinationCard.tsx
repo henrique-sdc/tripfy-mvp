@@ -5,20 +5,13 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Alert } from "react-native";
+import { Pressable as GHPressable } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
 
 import { AppText } from "@/components/ui/AppText";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { useWishlistStore } from "@/stores/wishlistStore";
 import { Pressable, View } from "@/tw";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 20, stiffness: 300 };
 
 export type VibeDestination = {
   id: string;
@@ -37,10 +30,6 @@ export function VibeDestinationCard({ dest, width }: Props) {
   const openSheet = useCreateTripSheetStore((s) => s.open);
   const saved = useWishlistStore((s) => s.has(dest.id));
   const toggle = useWishlistStore((s) => s.toggle);
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   const name = t(dest.nameKey);
   const height = width * 0.62;
@@ -71,22 +60,24 @@ export function VibeDestinationCard({ dest, width }: Props) {
     );
   }
 
+  // GH Pressable cede o gesto ao ScrollView horizontal — sem “travar” no arraste.
+  // borderRadius no Pressable + Image: overflow do GH às vezes não clipa no Android.
   return (
-    <AnimatedPressable
+    <GHPressable
       onPress={onCardPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.97, SPRING);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
-      }}
-      style={[style, { width }]}
-      className="rounded-3xl overflow-hidden mr-3"
+      style={{ width, marginRight: 12 }}
     >
-      <View style={{ width, height }}>
+      <View
+        style={{
+          width,
+          height,
+          borderRadius: 24,
+          overflow: "hidden",
+        }}
+      >
         <Image
           source={{ uri: dest.image }}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%", borderRadius: 24 }}
           contentFit="cover"
           transition={200}
         />
@@ -99,6 +90,7 @@ export function VibeDestinationCard({ dest, width }: Props) {
             right: 0,
             top: 0,
             bottom: 0,
+            borderRadius: 24,
           }}
           pointerEvents="none"
         />
@@ -129,6 +121,6 @@ export function VibeDestinationCard({ dest, width }: Props) {
           </AppText>
         </View>
       </View>
-    </AnimatedPressable>
+    </GHPressable>
   );
 }

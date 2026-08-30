@@ -55,6 +55,10 @@ export type SyncResponse = {
 export type GenerateTripParams = {
   destination: string;
   days: number;
+  /** ISO YYYY-MM-DD */
+  start_date: string;
+  /** ISO YYYY-MM-DD */
+  end_date: string;
   budget: string;
   notes?: string;
 };
@@ -120,6 +124,8 @@ export type PlaceFullDetailsResponse = {
 export type PlaceReviewCreate = {
   rating: number;
   comment: string;
+  /** Nome do lugar — gravado pra "Minhas avaliações" lembrar o contexto. */
+  place_name?: string;
 };
 
 export type PlaceReviewResponse = {
@@ -128,6 +134,7 @@ export type PlaceReviewResponse = {
   user_uid: string;
   rating: number;
   comment: string;
+  place_name?: string;
   created_at: string;
   updated_at: string | null;
 };
@@ -371,6 +378,8 @@ export type MatchInviteSummary = {
   id: string;
   destination: string;
   days: number;
+  start_date?: string | null;
+  end_date?: string | null;
   budget: string;
   status: MatchStatus;
   owner: UserPublicProfile;
@@ -380,6 +389,8 @@ export type MatchInDB = {
   id: string;
   destination: string;
   days: number;
+  start_date?: string | null;
+  end_date?: string | null;
   budget: string;
   status: MatchStatus;
   notes?: string;
@@ -399,6 +410,10 @@ export type MatchInDB = {
 export type CreateMatchParams = {
   destination: string;
   days: number;
+  /** ISO YYYY-MM-DD */
+  start_date: string;
+  /** ISO YYYY-MM-DD */
+  end_date: string;
   budget: string;
   notes?: string;
 };
@@ -479,6 +494,26 @@ export async function createMatch(
     body: JSON.stringify(params),
   });
   return (await response.json()) as MatchInDB;
+}
+
+/** Resumo do lobby waiting do dono — banner da Home. */
+export type MatchPendingSummary = {
+  id: string;
+  destination: string;
+  days: number;
+  status: MatchStatus;
+  created_at: string;
+};
+
+/** GET /matches/pending — lobbies waiting onde eu sou o owner. */
+export async function getMyPendingMatches(
+  signal?: AbortSignal,
+): Promise<MatchPendingSummary[]> {
+  const response = await authFetch("/matches/pending", {
+    method: "GET",
+    signal,
+  });
+  return (await response.json()) as MatchPendingSummary[];
 }
 
 /** GET /matches/{id} — resumo pré-join ou visão completa do participante. */
@@ -695,6 +730,8 @@ export function generateTripStream(
     {
       destination: params.destination,
       days: params.days,
+      start_date: params.start_date,
+      end_date: params.end_date,
       budget: params.budget,
       notes: params.notes ?? "",
     },

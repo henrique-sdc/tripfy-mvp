@@ -13,6 +13,7 @@ from models.match import (
     JoinMatchRequest,
     MatchInDB,
     MatchInviteSummary,
+    MatchPendingSummary,
 )
 from services import match_service
 
@@ -38,6 +39,17 @@ async def create_match(
     """Cria uma sessão `waiting` com o usuário autenticado como proprietário."""
     logger.info("Criação de Match solicitada: owner_uid={}", current_user.uid)
     return await match_service.create_match(current_user.uid, body)
+
+
+# Rota estática ANTES de /{match_id} — senão "pending" vira path param.
+@router.get("/pending", response_model=list[MatchPendingSummary])
+@limiter.limit(_RATE_LIMIT)
+async def list_pending_matches(
+    request: Request,  # exigido pelo slowapi para identificar o IP
+    current_user: CurrentUser = Depends(get_current_user),
+) -> list[MatchPendingSummary]:
+    """Lobbies waiting do dono autenticado — banner da Home."""
+    return await match_service.list_pending_matches(current_user.uid)
 
 
 @router.get("/{match_id}", response_model=MatchInDB | MatchInviteSummary)

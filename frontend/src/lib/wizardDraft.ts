@@ -3,6 +3,10 @@
 
 export type WizardSoloDraft = {
   destination: string;
+  /** ISO YYYY-MM-DD */
+  start_date: string;
+  /** ISO YYYY-MM-DD */
+  end_date: string;
   days: number;
   budget: string;
   notes: string;

@@ -25,14 +25,12 @@ const OPEN_X = -DELETE_W;
 const SPRING = { damping: 24, stiffness: 280 };
 
 type InviteBannerProps = {
-  inviterName: string;
   destination: string;
   onAccept?: () => void;
   onDismiss?: () => void;
 };
 
 export function InviteBanner({
-  inviterName,
   destination,
   onAccept,
   onDismiss,
@@ -98,7 +96,7 @@ export function InviteBanner({
         <Animated.View style={[styles.trashHit, trashStyle]}>
           <Pressable
             onPress={dismiss}
-            accessibilityLabel={t("home.invite.dismissA11y")}
+            accessibilityLabel={t("home.pending.dismissA11y")}
             style={styles.trashBtn}
           >
             <Ionicons name="trash" size={22} color="#fff" />
@@ -137,13 +135,10 @@ export function InviteBanner({
 
             <View style={styles.copy}>
               <AppText className="text-[14px] font-medium leading-5">
-                {t("home.invite.message", {
-                  name: inviterName,
-                  destination,
-                })}
+                {t("home.pending.message", { destination })}
               </AppText>
               <AppText tone="accent" className="text-[13px] font-bold">
-                {t("home.invite.accept")}
+                {t("home.pending.cta")}
               </AppText>
             </View>
           </Pressable>

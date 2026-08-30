@@ -32,11 +32,20 @@ Modal + GestureHandlerRootView interno. Dismiss tap/pan. RichChoiceCard (FadeInD
 
 ## Wizard Solo
 
-Destino, DayStepper, CapsuleSelector, notas, revisar vibe. Layout StyleSheet nativo. RF06 ainda mock.
+Destino, calendário ida/volta (máx. 15 dias), CapsuleSelector, notas, revisar vibe. Layout StyleSheet nativo.
 
 ## Home
 
-Ticket ≤7d · AiCommandBar · Invite swipe-delete · Destinos+❤️ · Em Alta → `/trending`
+Dados reais no `useFocusEffect`:
+
+- **Avatar** — `getUserProfile()` + `profilePhotoUri()` (Firestore `photoBase64` ou Auth `photoURL`); tap → aba Perfil.
+- **Último roteiro** — `getLatestTrip()` (`updated_at` desc); foto via `getPlaceDetails`; skeleton `h-[88]`; empty → CTA `CreateTripSheet`. Sem countdown de datas (YAGNI).
+- **Match pendente** — `GET /api/v1/matches/pending` (owner + `waiting`); banner swipe-dismiss → `/match/{id}`.
+- **Destinos da vibe** — `getRecommendedDestinations(travel_preferences)` catálogo estático ranqueado por `interests` ([[Preferências Sua Vibe]]).
+- **AiCommandBar / FAB** — `createTripSheetStore.open()`.
+- **Em Alta** — catálogo local → `/trending`.
+
+Ver [[Match de Viajantes RF11 RF12]].
 
 ## Aba Viagens
 

@@ -14,3 +14,4 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.
+- [[Build iOS EAS iPhone]] — development build no iPhone 13 via EAS (Windows, sem Xcode); Kaspersky + hotspot; certificados na Expo.

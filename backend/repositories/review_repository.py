@@ -31,6 +31,7 @@ def _snapshot_to_review(doc_id: str, data: dict[str, Any]) -> PlaceReviewRespons
         user_uid=str(data["user_uid"]),
         rating=int(data["rating"]),
         comment=str(data["comment"]),
+        place_name=str(data.get("place_name") or ""),
         created_at=data["created_at"],
         updated_at=data.get("updated_at"),
     )
@@ -113,6 +114,7 @@ async def upsert(
     uid: str,
     rating: int,
     comment: str,
+    place_name: str = "",
 ) -> PlaceReviewResponse:
     """Cria ou atualiza o review do uid neste place_id."""
     doc_id = review_doc_id(place_id, uid)
@@ -122,13 +124,15 @@ async def upsert(
         existing = ref.get()
         now = firestore.SERVER_TIMESTAMP
         if existing.exists:
-            ref.update(
-                {
-                    "rating": rating,
-                    "comment": comment,
-                    "updated_at": now,
-                }
-            )
+            patch: dict[str, Any] = {
+                "rating": rating,
+                "comment": comment,
+                "updated_at": now,
+            }
+            # Só grava nome se veio preenchido (não apaga o antigo sem querer).
+            if place_name:
+                patch["place_name"] = place_name
+            ref.update(patch)
             logger.info(
                 "Review atualizado: place_id={} uid={}",
                 place_id[:40],
@@ -141,6 +145,7 @@ async def upsert(
                     "user_uid": uid,
                     "rating": rating,
                     "comment": comment,
+                    "place_name": place_name,
                     "created_at": now,
                     "updated_at": None,
                 }

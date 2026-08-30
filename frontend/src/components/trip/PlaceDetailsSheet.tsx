@@ -49,6 +49,10 @@ import {
   formatShortDate,
   isReviewEdited,
 } from "@/lib/formatRelativeTime";
+import {
+  type PlaceFallback,
+  resolvePlaceTitle,
+} from "@/lib/placeDisplay";
 
 const ENTER = { duration: 240, easing: Easing.out(Easing.cubic) };
 const DISMISS_MS = 180;
@@ -59,21 +63,30 @@ type Tab = "about" | "community";
 
 type Props = {
   placeId: string | null;
+  /** Dados da parada no roteiro — usados quando Places falha ou devolve endereço como nome. */
+  fallback?: PlaceFallback | null;
+  /** Aba inicial ao abrir (ex.: Comunidade em Minhas avaliações). */
+  initialTab?: Tab;
   onClose: () => void;
 };
 
-export function PlaceDetailsSheet({ placeId, onClose }: Props) {
+export function PlaceDetailsSheet({
+  placeId,
+  fallback = null,
+  initialTab = "about",
+  onClose,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
-  const open = placeId != null;
+  const open = placeId != null || Boolean(fallback?.title?.trim());
 
   const translateY = useSharedValue(400);
   const backdrop = useSharedValue(0);
   const shimmer = useSharedValue(0.45);
 
-  const [tab, setTab] = useState<Tab>("about");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [details, setDetails] = useState<PlaceFullDetailsResponse | null>(null);
   const [reviews, setReviews] = useState<PlaceReviewResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +99,7 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
   const sheetWidth = Dimensions.get("window").width;
 
   useEffect(() => {
-    if (!open || !placeId) return;
+    if (!open) return;
 
     translateY.value = 400;
     backdrop.value = 0;
@@ -96,14 +109,21 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
       easing: Easing.out(Easing.quad),
     });
 
-    setTab("about");
+    setTab(initialTab);
     setShowForm(false);
     setComment("");
     setRating(5);
     setError(false);
-    setLoading(true);
     setDetails(null);
+    setReviews([]);
 
+    // Sem place_id: só o fallback do roteiro — não chama Places.
+    if (!placeId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const controller = new AbortController();
     let cancelled = false;
 
@@ -119,7 +139,8 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
         console.warn("[PlaceDetailsSheet] falha ao carregar:", err);
-        setError(true);
+        // Com fallback do roteiro, não tratamos como tela quebrada.
+        setError(!fallback?.title?.trim());
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -129,7 +150,7 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
       cancelled = true;
       controller.abort();
     };
-  }, [open, placeId, translateY, backdrop]);
+  }, [open, placeId, fallback?.title, initialTab, translateY, backdrop]);
 
   useEffect(() => {
     if (!loading || reduceMotion) {
@@ -190,9 +211,19 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
     const trimmed = comment.trim();
     if (!trimmed) return;
 
+    const placeName = resolvePlaceTitle({
+      placesName: details?.name,
+      formattedAddress: details?.formatted_address,
+      fallbackTitle: fallback?.title,
+    });
+
     setSaving(true);
     try {
-      await upsertPlaceReview(placeId, { rating, comment: trimmed });
+      await upsertPlaceReview(placeId, {
+        rating,
+        comment: trimmed,
+        place_name: placeName || undefined,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const list = await getPlaceReviews(placeId, 20);
       setReviews(list);
@@ -204,7 +235,15 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [placeId, rating, comment, saving]);
+  }, [
+    placeId,
+    rating,
+    comment,
+    saving,
+    details?.name,
+    details?.formatted_address,
+    fallback?.title,
+  ]);
 
   const ownUid = auth.currentUser?.uid ?? null;
   const ownReview =
@@ -212,7 +251,38 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
       ? (reviews.find((r) => r.user_uid === ownUid) ?? null)
       : null;
 
+  const hasFallback = Boolean(fallback?.title?.trim());
+  const displayTitle =
+    resolvePlaceTitle({
+      placesName: details?.name,
+      formattedAddress: details?.formatted_address,
+      fallbackTitle: fallback?.title,
+    }) || t("tripDetail.placeSheet.unnamed");
+
+  const displayDescription =
+    details?.editorial_summary?.trim() ||
+    fallback?.description?.trim() ||
+    "";
+
+  const displayAddress =
+    details?.formatted_address?.trim() ||
+    fallback?.location?.trim() ||
+    "";
+
+  const photoUrls: (string | null)[] =
+    details && details.photo_urls.length > 0
+      ? details.photo_urls
+      : fallback?.photoUrl
+        ? [fallback.photoUrl]
+        : [null];
+
+  // Erro só se Places falhou E não temos nada do roteiro pra mostrar.
+  const showHardError = error && !hasFallback;
+  const showContent = !loading && !showHardError;
+  const canUseCommunity = Boolean(placeId);
+
   function openReviewForm(existing?: PlaceReviewResponse | null) {
+    if (!canUseCommunity) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const source = existing ?? ownReview;
     if (source) {
@@ -313,10 +383,13 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
               <RNView style={styles.tabRow}>
                 {(["about", "community"] as const).map((key) => {
                   const active = tab === key;
+                  const disabled = key === "community" && !canUseCommunity;
                   return (
                     <RNPressable
                       key={key}
+                      disabled={disabled}
                       onPress={() => {
+                        if (disabled) return;
                         Haptics.selectionAsync();
                         setTab(key);
                       }}
@@ -327,6 +400,7 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
                             ? theme.accent
                             : theme.surface,
                           borderColor: active ? theme.accent : theme.border,
+                          opacity: disabled ? 0.45 : 1,
                         },
                       ]}
                     >
@@ -360,7 +434,7 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
                       shimmerStyle,
                     ]}
                   />
-                ) : error || !details ? (
+                ) : showHardError ? (
                   <RNView style={styles.errorBox}>
                     <AppText className="text-[15px] font-semibold text-center">
                       {t("tripDetail.placeSheet.loadError")}
@@ -380,14 +454,18 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
                       </AppText>
                     </RNPressable>
                   </RNView>
-                ) : tab === "about" ? (
+                ) : showContent && tab === "about" ? (
                   <AboutTab
+                    title={displayTitle}
+                    description={displayDescription}
+                    address={displayAddress}
+                    photoUrls={photoUrls}
                     details={details}
                     sheetWidth={sheetWidth}
                     theme={theme}
                     t={t}
                   />
-                ) : (
+                ) : showContent && tab === "community" && canUseCommunity ? (
                   <CommunityTab
                     reviews={reviews}
                     ownUid={ownUid}
@@ -405,7 +483,14 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
                     onComment={setComment}
                     onSave={onSaveReview}
                   />
-                )}
+                ) : showContent ? (
+                  <AppText
+                    tone="secondary"
+                    className="text-[13px] text-center py-6"
+                  >
+                    {t("tripDetail.placeSheet.communityUnavailable")}
+                  </AppText>
+                ) : null}
               </ScrollView>
             </Animated.View>
           </GestureDetector>
@@ -416,54 +501,129 @@ export function PlaceDetailsSheet({ placeId, onClose }: Props) {
 }
 
 function AboutTab({
+  title,
+  description,
+  address,
+  photoUrls,
   details,
   sheetWidth,
   theme,
   t,
 }: {
-  details: PlaceFullDetailsResponse;
+  title: string;
+  description: string;
+  address: string;
+  photoUrls: (string | null)[];
+  details: PlaceFullDetailsResponse | null;
   sheetWidth: number;
   theme: ReturnType<typeof useTheme>;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
-  const photos =
-    details.photo_urls.length > 0 ? details.photo_urls : [null];
+  const photos = photoUrls.length > 0 ? photoUrls : [null];
+  const multiPhoto = photos.length > 1 && photos.some(Boolean);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   return (
     <RNView style={styles.gap}>
-      <FlatList
-        data={photos}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, i) => `photo-${i}`}
-        style={{ marginHorizontal: -20 }}
-        renderItem={({ item }) => (
-          <RNView style={{ width: sheetWidth, height: PHOTO_H }}>
-            {item ? (
-              <Image
-                source={{ uri: item }}
-                style={styles.photo}
-                contentFit="cover"
-              />
-            ) : (
-              <RNView
-                style={[styles.photo, { backgroundColor: theme.surface }]}
-              />
-            )}
-          </RNView>
-        )}
-      />
+      <RNView style={[styles.photoCarousel, { marginHorizontal: -20 }]}>
+        <FlatList
+          data={photos}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, i) => `photo-${i}`}
+          onMomentumScrollEnd={(e) => {
+            const i = Math.round(
+              e.nativeEvent.contentOffset.x / Math.max(sheetWidth, 1),
+            );
+            setPhotoIndex(Math.max(0, Math.min(i, photos.length - 1)));
+          }}
+          renderItem={({ item }) => (
+            <RNView style={{ width: sheetWidth, height: PHOTO_H }}>
+              {item ? (
+                <Image
+                  source={{ uri: item }}
+                  style={styles.photo}
+                  contentFit="cover"
+                />
+              ) : (
+                <RNView
+                  style={[
+                    styles.photo,
+                    styles.photoPlaceholder,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Ionicons
+                    name="image-outline"
+                    size={40}
+                    color={theme.textMuted}
+                  />
+                </RNView>
+              )}
+            </RNView>
+          )}
+        />
+
+        {multiPhoto ? (
+          <>
+            {/* Contador discreto — deixa claro que há mais fotos. */}
+            <RNView
+              style={styles.photoBadge}
+              accessibilityLabel={t("tripDetail.placeSheet.photosHintA11y", {
+                current: photoIndex + 1,
+                total: photos.length,
+              })}
+            >
+              <Ionicons name="images-outline" size={12} color="#FFFFFF" />
+              <AppText
+                className="text-[11px] font-semibold"
+                style={{ color: "#FFFFFF" }}
+              >
+                {photoIndex + 1}/{photos.length}
+              </AppText>
+            </RNView>
+
+            {/* Seta à direita — desligada por enquanto; badge + bolinhas bastam.
+            {photoIndex < photos.length - 1 ? (
+              <RNView style={styles.photoSwipeHint} pointerEvents="none">
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color="rgba(255,255,255,0.85)"
+                />
+              </RNView>
+            ) : null}
+            */}
+
+            <RNView style={styles.photoDots} pointerEvents="none">
+              {photos.map((_, i) => (
+                <RNView
+                  key={`dot-${i}`}
+                  style={[
+                    styles.photoDot,
+                    {
+                      opacity: i === photoIndex ? 1 : 0.4,
+                      width: i === photoIndex ? 14 : 6,
+                      backgroundColor: "#FFFFFF",
+                    },
+                  ]}
+                />
+              ))}
+            </RNView>
+          </>
+        ) : null}
+      </RNView>
 
       <AppText
         className="text-[22px] font-bold"
         style={{ letterSpacing: -0.4 }}
       >
-        {details.name ?? t("tripDetail.placeSheet.unnamed")}
+        {title}
       </AppText>
 
       <RNView style={styles.metaRow}>
-        {details.rating != null ? (
+        {details?.rating != null ? (
           <RNView style={styles.metaChip}>
             <Ionicons name="star" size={14} color="#F5C518" />
             <AppText className="text-[13px] font-semibold">
@@ -476,7 +636,7 @@ function AboutTab({
             ) : null}
           </RNView>
         ) : null}
-        {details.price_level ? (
+        {details?.price_level ? (
           <RNView style={styles.metaChip}>
             <AppText className="text-[13px] font-semibold">
               {details.price_level}
@@ -486,33 +646,33 @@ function AboutTab({
             </AppText>
           </RNView>
         ) : null}
-        {details.open_now === true ? (
+        {details?.open_now === true ? (
           <AppText tone="success" className="text-[12px] font-semibold">
             {t("tripDetail.openNow")}
           </AppText>
-        ) : details.open_now === false ? (
+        ) : details?.open_now === false ? (
           <AppText tone="secondary" className="text-[12px]">
             {t("tripDetail.closedNow")}
           </AppText>
         ) : null}
       </RNView>
 
-      {details.editorial_summary ? (
+      {description ? (
         <AppText tone="secondary" className="text-[14px] leading-5">
-          {details.editorial_summary}
+          {description}
         </AppText>
       ) : null}
 
-      {details.formatted_address ? (
+      {address ? (
         <RNView style={styles.rowIcon}>
           <Ionicons name="location-outline" size={16} color={theme.textMuted} />
           <AppText tone="secondary" className="text-[13px] flex-1">
-            {details.formatted_address}
+            {address}
           </AppText>
         </RNView>
       ) : null}
 
-      {details.phone ? (
+      {details?.phone ? (
         <RNView style={styles.rowIcon}>
           <Ionicons name="call-outline" size={16} color={theme.textMuted} />
           <AppText tone="secondary" className="text-[13px]">
@@ -521,7 +681,7 @@ function AboutTab({
         </RNView>
       ) : null}
 
-      {details.website ? (
+      {details?.website ? (
         <RNView style={styles.rowIcon}>
           <Ionicons name="globe-outline" size={16} color={theme.textMuted} />
           <AppText tone="accent" className="text-[13px]" numberOfLines={1}>
@@ -530,7 +690,7 @@ function AboutTab({
         </RNView>
       ) : null}
 
-      {details.menu_uri ? (
+      {details?.menu_uri ? (
         <RNPressable
           onPress={() => {
             void Linking.openURL(details.menu_uri!);
@@ -550,7 +710,7 @@ function AboutTab({
         </RNPressable>
       ) : null}
 
-      {details.weekday_text.length > 0 ? (
+      {details && details.weekday_text.length > 0 ? (
         <RNView style={styles.hoursBox}>
           <AppText className="text-[14px] font-semibold mb-1">
             {t("tripDetail.placeSheet.hours")}
@@ -826,6 +986,52 @@ const styles = StyleSheet.create({
   },
   errorBox: { gap: 12, alignItems: "center", paddingVertical: 24 },
   photo: { width: "100%", height: "100%" },
+  photoPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoCarousel: {
+    height: PHOTO_H,
+    overflow: "hidden",
+  },
+  photoBadge: {
+    position: "absolute",
+    top: 12,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  // photoSwipeHint — reservado se reativar a seta do carrossel.
+  // photoSwipeHint: {
+  //   position: "absolute",
+  //   right: 8,
+  //   top: PHOTO_H / 2 - 14,
+  //   width: 28,
+  //   height: 28,
+  //   borderRadius: 14,
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  //   backgroundColor: "rgba(0,0,0,0.28)",
+  // },
+  photoDots: {
+    position: "absolute",
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 5,
+  },
+  photoDot: {
+    height: 6,
+    borderRadius: 3,
+  },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",

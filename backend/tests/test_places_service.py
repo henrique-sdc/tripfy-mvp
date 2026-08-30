@@ -138,6 +138,14 @@ class PlaceReviewModelTest(unittest.TestCase):
     def test_create_trims_comment(self) -> None:
         body = PlaceReviewCreate(rating=5, comment="  Ótimo lugar  ")
         self.assertEqual(body.comment, "Ótimo lugar")
+        self.assertEqual(body.place_name, "")
+
+        named = PlaceReviewCreate(
+            rating=4,
+            comment="Bom",
+            place_name="  Café Central  ",
+        )
+        self.assertEqual(named.place_name, "Café Central")
 
     def test_create_rejects_blank_comment(self) -> None:
         with self.assertRaises(ValidationError):

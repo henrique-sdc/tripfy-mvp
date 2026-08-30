@@ -38,7 +38,9 @@ Missão 6: endpoint de geração com LLM trocável, Structured Output, streaming
 | Campo | Tipo | Origem |
 |-------|------|--------|
 | `destination` | string (2–120) | Frontend |
-| `days` | int (1–30) | Frontend |
+| `days` | int (1–15) | Frontend (derivado do calendário) |
+| `start_date` | date ISO | Frontend (ida) |
+| `end_date` | date ISO | Frontend (volta) |
 | `budget` | `economy` \| `moderate` \| `premium` | Frontend |
 | `notes` | string (≤1000) | Frontend |
 

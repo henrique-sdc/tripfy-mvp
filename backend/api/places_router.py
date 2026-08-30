@@ -129,6 +129,7 @@ async def upsert_place_review(
         current_user.uid,
         body.rating,
         body.comment,
+        place_name=body.place_name,
     )
 
 

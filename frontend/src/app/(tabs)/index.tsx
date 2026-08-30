@@ -3,11 +3,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useColorScheme, useWindowDimensions } from "react-native";
+import { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,7 +19,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AiCommandBar } from "@/components/home/AiCommandBar";
 import { InviteBanner } from "@/components/home/InviteBanner";
 import { TrendingItineraryCard } from "@/components/home/TrendingItineraryCard";
-import { UpcomingTicket } from "@/components/home/UpcomingTicket";
+import {
+  LatestTripEmpty,
+  UpcomingTicket,
+} from "@/components/home/UpcomingTicket";
 import {
   VibeDestinationCard,
   type VibeDestination,
@@ -27,49 +31,24 @@ import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { AppText } from "@/components/ui/AppText";
 import { TRENDING_ITINERARIES } from "@/constants/trending";
 import { useTheme } from "@/hooks/use-theme";
+import {
+  getMyPendingMatches,
+  getPlaceDetails,
+  type MatchPendingSummary,
+} from "@/lib/api";
+import {
+  getUserProfile,
+  profilePhotoUri,
+  type UserProfile,
+} from "@/lib/profile";
+import { getLatestTrip, type SavedTrip } from "@/lib/trips";
+import { getRecommendedDestinations } from "@/lib/vibeDestinations";
 import { useAuthStore } from "@/stores/authStore";
+import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { Pressable, ScrollView, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SPRING = { damping: 20, stiffness: 300 };
-
-const NEAR_TRIP = {
-  destinationKey: "home.trips.cancun.destination",
-  daysLeft: 5,
-  image:
-    "https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=1200&auto=format&fit=crop",
-} as const;
-
-const VIBE_DESTINATIONS: VibeDestination[] = [
-  {
-    id: "dest-bali",
-    image:
-      "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=1000&auto=format&fit=crop",
-    nameKey: "home.destinations.bali",
-    vibeKey: "home.vibe.match.bali",
-  },
-  {
-    id: "dest-lisbon",
-    image:
-      "https://images.unsplash.com/photo-1588535684923-900727736ac0?q=80&w=1000&auto=format&fit=crop",
-    nameKey: "home.destinations.lisbon",
-    vibeKey: "home.vibe.match.lisbon",
-  },
-  {
-    id: "dest-tokyo",
-    image:
-      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1000&auto=format&fit=crop",
-    nameKey: "home.destinations.tokyo",
-    vibeKey: "home.vibe.match.tokyo",
-  },
-  {
-    id: "dest-rio",
-    image:
-      "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=1000&auto=format&fit=crop",
-    nameKey: "home.destinations.rio",
-    vibeKey: "home.vibe.match.rio",
-  },
-];
 
 function greetingKey(): "morning" | "afternoon" | "evening" {
   const h = new Date().getHours();
@@ -94,13 +73,86 @@ export default function HomeScreen() {
   const tabPad = useTabBarPadding();
   const { width: screenWidth } = useWindowDimensions();
   const user = useAuthStore((s) => s.user);
-  const [showInvite, setShowInvite] = useState(true);
+  const openSheet = useCreateTripSheetStore((s) => s.open);
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [latestTrip, setLatestTrip] = useState<SavedTrip | null>(null);
+  const [tripPhoto, setTripPhoto] = useState<string | null>(null);
+  const [tripLoading, setTripLoading] = useState(true);
+  const [pendingMatch, setPendingMatch] = useState<MatchPendingSummary | null>(
+    null,
+  );
+  const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
+
+  const loadHome = useCallback(async (signal: AbortSignal) => {
+    setTripLoading(true);
+    try {
+      const [nextProfile, trip, pending] = await Promise.all([
+        getUserProfile().catch((err) => {
+          console.warn("[Home] Perfil indisponível:", err);
+          return null;
+        }),
+        getLatestTrip().catch((err) => {
+          console.warn("[Home] Viagens indisponíveis:", err);
+          return null;
+        }),
+        getMyPendingMatches(signal).catch((err) => {
+          console.warn("[Home] Matches pendentes indisponíveis:", err);
+          return [] as MatchPendingSummary[];
+        }),
+      ]);
+      if (signal.aborted) return;
+
+      setProfile(nextProfile);
+      setLatestTrip(trip);
+
+      const firstPending = pending[0] ?? null;
+      setPendingMatch(firstPending);
+
+      if (!trip?.destination?.trim()) {
+        setTripPhoto(null);
+        return;
+      }
+
+      try {
+        const place = await getPlaceDetails(
+          trip.destination.trim(),
+          undefined,
+          undefined,
+          signal,
+        );
+        if (!signal.aborted) setTripPhoto(place.photo_url);
+      } catch (err) {
+        if (signal.aborted) return;
+        console.warn("[Home] Foto do destino falhou:", err);
+        setTripPhoto(null);
+      }
+    } finally {
+      if (!signal.aborted) setTripLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      void loadHome(controller.signal);
+      return () => controller.abort();
+    }, [loadHome]),
+  );
 
   const firstName = useMemo(() => {
-    const raw = user?.displayName?.trim();
+    const fromProfile = profile?.name?.trim();
+    const raw = fromProfile || user?.displayName?.trim();
     if (!raw) return null;
     return raw.split(/\s+/)[0] ?? null;
-  }, [user?.displayName]);
+  }, [profile?.name, user?.displayName]);
+
+  const avatarUri = useMemo(
+    () => profilePhotoUri(profile, user?.photoURL),
+    [profile, user?.photoURL],
+  );
+
+  const displayName = profile?.name || user?.displayName;
 
   const greet = t(`home.greeting.${greetingKey()}`);
   const headline = firstName
@@ -109,14 +161,34 @@ export default function HomeScreen() {
 
   const vibeCardWidth = screenWidth * 0.72;
   const trendCardWidth = screenWidth * 0.68;
-  const showTicket = NEAR_TRIP.daysLeft <= 7;
-  // Home mostra só os 3 primeiros; o resto na tela Em Alta.
   const homeTrending = TRENDING_ITINERARIES.slice(0, 3);
+
+  const vibeDestinations: VibeDestination[] = useMemo(
+    () => getRecommendedDestinations(profile?.travel_preferences),
+    [profile?.travel_preferences],
+  );
+
+  const showPending =
+    pendingMatch != null && pendingMatch.id !== dismissedMatchId;
 
   const avatarScale = useSharedValue(1);
   const avatarStyle = useAnimatedStyle(() => ({
     transform: [{ scale: avatarScale.value }],
   }));
+
+  function openLatestTrip() {
+    if (!latestTrip) return;
+    const href = {
+      pathname: "/trip-detail",
+      params: { tripId: latestTrip.id },
+    } as unknown as Href;
+    router.push(href);
+  }
+
+  function openPendingLobby() {
+    if (!pendingMatch) return;
+    router.push(`/match/${pendingMatch.id}` as Href);
+  }
 
   const Header = (
     <View
@@ -141,8 +213,11 @@ export default function HomeScreen() {
 
       <AnimatedPressable
         accessibilityLabel={t("home.avatarA11y")}
-        onPressIn={() => {
+        onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push("/(tabs)/profile" as Href);
+        }}
+        onPressIn={() => {
           avatarScale.value = withSpring(0.92, SPRING);
         }}
         onPressOut={() => {
@@ -163,15 +238,15 @@ export default function HomeScreen() {
           },
         ]}
       >
-        {user?.photoURL ? (
+        {avatarUri ? (
           <Image
-            source={{ uri: user.photoURL }}
+            source={{ uri: avatarUri }}
             style={{ width: 44, height: 44 }}
             contentFit="cover"
           />
         ) : (
           <AppText className="text-[15px] font-bold" tone="secondary">
-            {initialsFromName(user?.displayName)}
+            {initialsFromName(displayName)}
           </AppText>
         )}
       </AnimatedPressable>
@@ -193,46 +268,58 @@ export default function HomeScreen() {
 
         <View className="gap-6 pt-2">
           <View className="px-6 gap-4">
-            {showTicket && (
+            {tripLoading ? (
               <UpcomingTicket
-                destination={t(NEAR_TRIP.destinationKey)}
-                daysLeft={NEAR_TRIP.daysLeft}
-                image={NEAR_TRIP.image}
+                destination=""
+                days={0}
+                image={null}
+                loading
               />
+            ) : latestTrip ? (
+              <UpcomingTicket
+                destination={
+                  latestTrip.title?.trim() || latestTrip.destination
+                }
+                days={latestTrip.days?.length ?? 0}
+                image={tripPhoto}
+                onPress={openLatestTrip}
+              />
+            ) : (
+              <LatestTripEmpty onPress={openSheet} />
             )}
 
             <AiCommandBar />
 
-            {showInvite && (
+            {showPending && pendingMatch ? (
               <InviteBanner
-                inviterName={t("home.invite.mockName")}
-                destination={t("home.invite.mockDestination")}
-                onDismiss={() => setShowInvite(false)}
+                destination={pendingMatch.destination}
+                onAccept={openPendingLobby}
+                onDismiss={() => setDismissedMatchId(pendingMatch.id)}
               />
-            )}
+            ) : null}
           </View>
 
           <View className="gap-3">
             <AppText className="text-[18px] font-bold px-6">
               {t("home.vibe.title")}
             </AppText>
-            <ScrollView
+            <GHScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={vibeCardWidth + 12}
-              snapToAlignment="start"
-              disableIntervalMomentum
+              // Scroll livre — sem snap. GHScrollView não disputa gesto com o pai.
+              decelerationRate="normal"
+              bounces
+              overScrollMode="never"
               contentContainerStyle={{ paddingHorizontal: 24 }}
             >
-              {VIBE_DESTINATIONS.map((dest) => (
+              {vibeDestinations.map((dest) => (
                 <VibeDestinationCard
                   key={dest.id}
                   dest={dest}
                   width={vibeCardWidth}
                 />
               ))}
-            </ScrollView>
+            </GHScrollView>
           </View>
 
           <View className="gap-3">
@@ -253,13 +340,12 @@ export default function HomeScreen() {
                 color={theme.textSecondary}
               />
             </Pressable>
-            <ScrollView
+            <GHScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={trendCardWidth + 12}
-              snapToAlignment="start"
-              disableIntervalMomentum
+              decelerationRate="normal"
+              bounces
+              overScrollMode="never"
               contentContainerStyle={{ paddingHorizontal: 24 }}
             >
               {homeTrending.map((item) => (
@@ -269,7 +355,7 @@ export default function HomeScreen() {
                   width={trendCardWidth}
                 />
               ))}
-            </ScrollView>
+            </GHScrollView>
           </View>
         </View>
       </ScrollView>

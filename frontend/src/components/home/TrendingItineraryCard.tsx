@@ -1,81 +1,75 @@
-// Carrossel "Em Alta na Tripfy" — roteiros da comunidade (RF08).
+// Card de roteiro Em Alta — carrossel (Home) ou lista (/trending).
 
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { Href, router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
 
 import { AppText } from "@/components/ui/AppText";
+import {
+  type TrendingItinerary,
+  trendingWizardHref,
+} from "@/constants/trending";
 import { useTheme } from "@/hooks/use-theme";
 import { useWishlistStore } from "@/stores/wishlistStore";
 import { Pressable, View } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 20, stiffness: 300 };
-
-export type TrendingItinerary = {
-  id: string;
-  image: string;
-  titleKey: string;
-  authorKey: string;
-};
-
 type Props = {
   item: TrendingItinerary;
-  width: number;
+  /** Largura do card no carrossel da Home. */
+  width?: number;
+  /** `carousel` = Home; `list` = tela Em Alta. */
+  variant?: "carousel" | "list";
 };
 
-export function TrendingItineraryCard({ item, width }: Props) {
+export function TrendingItineraryCard({
+  item,
+  width = 260,
+  variant = "carousel",
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const toggle = useWishlistStore((s) => s.toggle);
   const saved = useWishlistStore((s) => s.has(item.id));
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   const title = t(item.titleKey);
   const author = t(item.authorKey);
+  const isList = variant === "list";
+  const imageH = isList ? width * 0.42 : width * 0.48;
 
-  function copyItinerary() {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // ponytail: clonar no backend ainda não existe — salva na wishlist.
-    if (!saved) {
-      toggle({
-        id: item.id,
-        kind: "itinerary",
-        title,
-        image: item.image,
-        subtitle: author,
-      });
-    }
+  function saveToWishlist() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggle({
+      id: item.id,
+      kind: "itinerary",
+      title,
+      image: item.image,
+      subtitle: author,
+    });
   }
 
+  function createTrip() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push(trendingWizardHref(item) as Href);
+  }
+
+  // View puro: Pressable no wrapper roubava o scroll do carrossel.
   return (
-    <AnimatedPressable
-      onPressIn={() => {
-        scale.value = withSpring(0.97, SPRING);
+    <View
+      style={{
+        width: isList ? "100%" : width,
+        backgroundColor: theme.surface,
+        borderColor: theme.border,
       }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
-      }}
-      style={[
-        style,
-        {
-          width,
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
-        },
-      ]}
-      className="rounded-3xl overflow-hidden border mr-3"
+      className={
+        isList
+          ? "rounded-3xl overflow-hidden border"
+          : "rounded-3xl overflow-hidden border mr-3"
+      }
     >
-      <View style={{ height: width * 0.48 }}>
+      <View style={{ height: imageH }}>
         <Image
           source={{ uri: item.image }}
           style={{ width: "100%", height: "100%" }}
@@ -83,26 +77,66 @@ export function TrendingItineraryCard({ item, width }: Props) {
         />
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.4)"]}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "50%",
+          }}
         />
       </View>
-      <View className="p-3.5 gap-2">
-        <AppText className="text-[15px] font-bold" numberOfLines={2}>
+      <View className={isList ? "p-4 gap-2" : "p-3.5 gap-2"}>
+        <AppText
+          className={isList ? "text-[16px] font-bold" : "text-[15px] font-bold"}
+          numberOfLines={2}
+        >
           {title}
         </AppText>
         <AppText tone="secondary" className="text-[12px]">
           {author}
         </AppText>
-        <Pressable
-          onPress={copyItinerary}
-          className="mt-1 rounded-full py-2.5 items-center"
-          style={{ backgroundColor: `${theme.accent}18` }}
-        >
-          <AppText tone="accent" className="text-[13px] font-bold">
-            {saved ? t("home.trending.saved") : t("home.trending.copy")}
+        {item.daysHint != null ? (
+          <AppText tone="muted" className="text-[11px]">
+            {t("trending.daysHint", { count: item.daysHint })}
           </AppText>
-        </Pressable>
+        ) : null}
+
+        <View className="flex-row gap-2 mt-1">
+          <Pressable
+            onPress={saveToWishlist}
+            accessibilityRole="button"
+            accessibilityLabel={
+              saved ? t("home.trending.saved") : t("trending.saveA11y")
+            }
+            className="h-11 rounded-full items-center justify-center px-3 border"
+            style={{
+              borderColor: theme.border,
+              backgroundColor: theme.background,
+            }}
+          >
+            <Ionicons
+              name={saved ? "heart" : "heart-outline"}
+              size={20}
+              color={saved ? theme.accent : theme.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            onPress={createTrip}
+            accessibilityRole="button"
+            accessibilityLabel={t("trending.createA11y")}
+            className="flex-1 h-11 rounded-full items-center justify-center"
+            style={{ backgroundColor: theme.buttonPrimary }}
+          >
+            <AppText
+              className="text-[13px] font-bold"
+              style={{ color: theme.buttonText }}
+            >
+              {t("trending.createTrip")}
+            </AppText>
+          </Pressable>
+        </View>
       </View>
-    </AnimatedPressable>
+    </View>
   );
 }

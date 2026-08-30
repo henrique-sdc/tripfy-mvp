@@ -1,4 +1,62 @@
 # Changelog — Tripfy Docs
+## 2026-08-30 — Wiki: build iOS no iPhone
+
+- Página [[Build iOS EAS iPhone]]: EAS Ad Hoc no Windows, Apple ID vs Team ID, `app.config.js` sem wrapper, Kaspersky (não inspecionar TLS) e hotspot.
+- Primeiro IPA Ad Hoc (`development` / `internal`) instalado no iPhone.
+
+## 2026-08-30 — EAS + app.config.js
+
+- `app.config.js` passa a exportar o objeto Expo na raiz (sem `{ expo }`). O eas-cli quebrava em `projectId` e `ITSAppUsesNonExemptEncryption`.
+- `ios.infoPlist.ITSAppUsesNonExemptEncryption: false` (criptografia só HTTPS — você já respondeu yes no CLI).
+
+## 2026-08-30 — Bundle ID iOS para EAS
+
+- `app.json` `ios.bundleIdentifier` alinhado ao `android.package`. `buildNumber` inicia em `1`.
+- Sem isso o `eas build --platform ios` não assina. Certificados ficam com a EAS, não no repo.
+
+## 2026-08-30 — Nome do app no launcher
+
+- `app.json` `expo.name`: `frontend` → `Tripfy` (rótulo no emulador/ícone). `slug` segue `frontend`.
+
+## 2026-08-15 — Auth: web/SSR sem getReactNativePersistence
+
+- `firebase.ts`: no bundle web/SSR a função não existe (Metro `is not a function`); nativo segue com AsyncStorage.
+- Ver [[Autenticação Full Stack]].
+
+## 2026-07-24 — Home com dados reais (RF04)
+
+- Avatar via `getUserProfile` + `profilePhotoUri` (não só Auth `photoURL`).
+- Card **Último roteiro planejado** (`getLatestTrip` + Places); empty/skeleton fixos.
+- Banner Match: `GET /api/v1/matches/pending` (Admin SDK, owner + waiting) → lobby.
+- Destinos da vibe: catálogo estático ranqueado por `interests` (`vibeDestinations.ts`).
+- Ver [[Home e Bottom Tabs]] e [[Match de Viajantes RF11 RF12]].
+
+## 2026-07-23 — Em Alta funcional (RF08)
+
+- Busca + chips de categoria; catálogo curado enriquecido (~14 destinos).
+- CTA **Criar roteiro** abre wizard com destino (e dias) pré-preenchidos; coração salva nos desejos.
+- Ver [[Home e Bottom Tabs]].
+
+## 2026-07-23 — Calendário no wizard (máx. 15 dias)
+
+- Solo/Match: stepper de dias → data ida + volta (`DateTimePicker`); `days` derivado (1–15 inclusivos).
+- API/prompt: `start_date`/`end_date`; IA considera clima, temporada e atrações sazonais.
+- Ver [[Geração de Roteiro RF06]] e [[Match de Viajantes RF11 RF12]].
+
+## 2026-07-21 — Minhas avaliações → Place Details
+
+- Toque na avaliação abre o sheet Sobre/Comunidade do lugar (aba Comunidade). Editar/Excluir seguem nos botões.
+
+## 2026-07-21 — Place Details: fallback do roteiro
+
+- Places às vezes devolve endereço como nome (ex. `Cl. 82 #12 -21`); sheet usa título/descrição/endereço da parada.
+- Lookup: `título, endereço` (não só endereço). Reviews e Minhas Avaliações ignoram nome-rua.
+- Ver [[Detalhe da Viagem RF07]].
+
+## 2026-07-21 — Minhas avaliações: nome do lugar
+
+- Reviews gravam `place_name`; lista mostra o lugar avaliado (legado sem nome → "Lugar no roteiro").
+
 ## 2026-07-21 — Fix deep link Match → profile
 
 - Links via `Linking.createURL` (path `/match/…`); `tripfy://match/id` virava hostname e abria `profile/[id]` com o ID da sala.

@@ -24,10 +24,19 @@ import {
   getPlaceDetails,
   type PlaceDetailsResponse,
 } from "@/lib/api";
+import { buildPlacesLookupQuery } from "@/lib/placeDisplay";
 
 const IMAGE_H = 168;
 const RADIUS = 24;
 const OVERLAY_TEXT = "#FFFFFF";
+
+export type OpenPlaceDetailsPayload = {
+  placeId: string | null;
+  title: string;
+  description: string;
+  location: string;
+  photoUrl: string | null;
+};
 
 type Props = {
   activity: ActivityResponse;
@@ -37,8 +46,8 @@ type Props = {
   onRemove?: () => void;
   /** Opacidade quando o item está sendo arrastado (ScaleDecorator). */
   dimmed?: boolean;
-  /** Abre o Knowledge Panel quando o lookup devolveu place_id. */
-  onOpenDetails?: (placeId: string) => void;
+  /** Abre o Knowledge Panel (com fallback do roteiro se Places falhar). */
+  onOpenDetails?: (payload: OpenPlaceDetailsPayload) => void;
   /** Abre modal de edição (time + title + description). */
   onEdit?: () => void;
   /** Inicia o drag no handle (mais confiável que long-press no card inteiro). */
@@ -69,9 +78,16 @@ export function ActivityCard({
   const placeId = details?.place_id ?? null;
 
   function openDetails() {
-    if (!placeId || !onOpenDetails) return;
+    if (!onOpenDetails) return;
+    // Sempre abre — mesmo sem place_id o sheet mostra título/descrição do roteiro.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onOpenDetails(placeId);
+    onOpenDetails({
+      placeId,
+      title: activity.title,
+      description: activity.description,
+      location: activity.location,
+      photoUrl: details?.photo_url ?? null,
+    });
   }
 
   useEffect(() => {
@@ -99,10 +115,8 @@ export function ActivityCard({
   }));
 
   useEffect(() => {
-    // Endereço do LLM bate melhor no Places do que título tipo "Café da Manhã no X".
-    const query =
-      activity.location.trim() ||
-      activity.title.trim();
+    // Título + endereço: endereço sozinho (ex. "Cl. 82 #12 -21") casa pin genérico.
+    const query = buildPlacesLookupQuery(activity.title, activity.location);
     if (query.length < 2) {
       setLoading(false);
       return;
@@ -188,8 +202,8 @@ export function ActivityCard({
     >
       {showHero ? (
         <Pressable
-          onPress={placeId ? openDetails : undefined}
-          disabled={!placeId}
+          onPress={onOpenDetails ? openDetails : undefined}
+          disabled={!onOpenDetails}
           style={styles.hero}
         >
           {loading || !imageReady ? (
@@ -323,8 +337,8 @@ export function ActivityCard({
       ) : null}
 
       <Pressable
-        onPress={!showPhoto && placeId ? openDetails : undefined}
-        disabled={showPhoto || !placeId}
+        onPress={!showPhoto && onOpenDetails ? openDetails : undefined}
+        disabled={showPhoto || !onOpenDetails}
         style={styles.body}
       >
         {!showPhoto ? (

@@ -4,12 +4,16 @@ Schemas Pydantic da sessão de Match de Viajantes (RF11/RF12).
 O frontend envia apenas parâmetros da viagem. Identidade, participantes e
 estado da sessão são definidos pelo backend.
 """
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from models.trip import ItineraryResponse
+from models.trip import (
+    MAX_TRIP_DAYS,
+    ItineraryResponse,
+    validate_inclusive_trip_dates,
+)
 from models.user import BudgetRange, UserPublicProfile
 
 
@@ -27,10 +31,21 @@ class CreateMatchRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     destination: str = Field(..., min_length=2, max_length=120)
-    days: int = Field(..., ge=1, le=30)
+    days: int = Field(..., ge=1, le=MAX_TRIP_DAYS)
+    start_date: date
+    end_date: date
     budget: BudgetRange
     # Pedido especial do dono da sessão — mesmo teto do Solo (RF05).
     notes: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def check_date_span(self) -> "CreateMatchRequest":
+        validate_inclusive_trip_dates(
+            start_date=self.start_date,
+            end_date=self.end_date,
+            days=self.days,
+        )
+        return self
 
 
 class JoinMatchRequest(BaseModel):
@@ -56,6 +71,9 @@ class MatchInDB(BaseModel):
     id: str
     destination: str
     days: int
+    # Opcionais p/ matches antigos sem calendário; novos sempre gravam.
+    start_date: date | None = None
+    end_date: date | None = None
     budget: BudgetRange
     notes: str = ""
     guest_notes: str = ""
@@ -83,6 +101,18 @@ class MatchInviteSummary(BaseModel):
     id: str
     destination: str
     days: int
+    start_date: date | None = None
+    end_date: date | None = None
     budget: BudgetRange
     status: MatchStatus
     owner: UserPublicProfile
+
+
+class MatchPendingSummary(BaseModel):
+    """Resumo leve p/ banner da Home — lobbies waiting do dono."""
+
+    id: str
+    destination: str
+    days: int
+    status: MatchStatus
+    created_at: datetime

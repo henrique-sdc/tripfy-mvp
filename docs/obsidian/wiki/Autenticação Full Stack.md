@@ -56,7 +56,7 @@ Respeita a separação obrigatória `Routers -> Services -> Repositories` (Seç�
 
 ## Frontend
 
-- `frontend/src/lib/firebase.ts` — `initializeAuth` + `getReactNativePersistence(AsyncStorage)` (obrigatório para persistir sessão no React Native).
+- `frontend/src/lib/firebase.ts` — nativo: `initializeAuth` + `getReactNativePersistence(AsyncStorage)` (persiste sessão). Web/SSR: `getAuth` — a função RN não existe nesse bundle.
 - `frontend/src/lib/api.ts` — cliente HTTP que injeta o Bearer token via `getIdToken()`.
 - `frontend/src/lib/auth-errors.ts` — mapeia `error.code` do Firebase para chaves de i18n.
 - `frontend/src/lib/i18n.ts` + `frontend/src/locales/pt-BR.json` — [[i18n]] desde a primeira tela.

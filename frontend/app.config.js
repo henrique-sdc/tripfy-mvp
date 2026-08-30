@@ -71,5 +71,7 @@ module.exports = () => {
     );
   }
 
-  return { expo };
+  // Sem o wrapper `{ expo }`: o eas-cli compara ios/extra na raiz.
+  // Com wrapper, `ios.infoPlist` é undefined e o build explode (projectId, ITSApp…).
+  return expo;
 };

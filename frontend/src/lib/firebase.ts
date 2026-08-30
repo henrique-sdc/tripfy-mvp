@@ -2,10 +2,10 @@
 // Usa apenas variáveis EXPO_PUBLIC_* — nunca chaves privadas no frontend.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initializeApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "firebase/app";
 // @ts-ignore: getReactNativePersistence existe no bundle React Native do
 // Firebase v12, mas está ausente das definições de tipo públicas (web).
-import { getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -18,14 +18,26 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// initializeAuth com AsyncStorage é obrigatório no React Native: sem isso, o
-// Firebase usa persistência em memória e a sessão é perdida a cada reabertura
-// do app. É o que garante "app reaberto com sessão ativa → home direto".
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+function createAuth() {
+  // No bundle web/SSR essa função não existe — chamar explode o Metro
+  // (`getReactNativePersistence is not a function`). No nativo é o que
+  // persiste a sessão no AsyncStorage (sem isso, relogin a cada abertura).
+  if (typeof getReactNativePersistence !== "function") {
+    return getAuth(app);
+  }
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch {
+    // Fast Refresh reexecuta o módulo; initializeAuth só roda uma vez por app.
+    return getAuth(app);
+  }
+}
+
+export const auth = createAuth();
 
 // Exporta cada serviço — importe onde precisar, não o `app` em si.
 export const db = getFirestore(app);

@@ -1,5 +1,5 @@
-// Sheet Premium — Solo vs Match.
-// Animação de subida limpa e sólida (sem staggers que bugam a sombra no Android).
+// Sheet Premium — Solo vs Match (Modo Menu Flutuante).
+// Animação suave e sem "quiques" (Cubic Bezier), com backdrop clicável.
 
 import * as Haptics from "expo-haptics";
 import { Href, router } from "expo-router";
@@ -11,17 +11,15 @@ import {
   Pressable as RNPressable,
   StyleSheet,
 } from "react-native";
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from "react-native-gesture-handler";
 import Animated, {
   Easing,
-  FadeInDown,
+  Extrapolation,
+  interpolate,
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,37 +30,60 @@ import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { Pressable, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const TIMING = { duration: 240, easing: Easing.out(Easing.cubic) };
-const DISMISS_Y = 100;
+
+// Usamos Easing.out(Easing.cubic) para garantir que NÃO VAI QUICAR (Zero Bounce)
+const ENTER_TIMING = { duration: 240, easing: Easing.out(Easing.cubic) };
+const EXIT_TIMING = { duration: 180, easing: Easing.in(Easing.cubic) };
 
 function RichChoiceCard({
   emoji,
   title,
   subtitle,
+  animValue,
   delay,
   onPress,
 }: {
   emoji: string;
   title: string;
   subtitle: string;
+  animValue: SharedValue<number>;
   delay: number;
   onPress: () => void;
 }) {
   const theme = useTheme();
   const scale = useSharedValue(1);
+
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  // Animação de entrada mágica (Efeito Cascata / Stagger)
+  const entranceStyle = useAnimatedStyle(() => {
+    return {
+      opacity: animValue.value,
+      transform: [
+        {
+          translateY: interpolate(
+            animValue.value,
+            [0, 1],
+            [30, 0],
+            Extrapolation.CLAMP,
+          ),
+        },
+        {
+          scale: interpolate(
+            animValue.value,
+            [0, 1],
+            [0.9, 1],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
   return (
-    // WRAPPER EXTERNO: Cuida apenas da animação de entrada mágica (Cascata)
-    <Animated.View
-      entering={FadeInDown.delay(delay)
-        .duration(300)
-        .easing(Easing.out(Easing.cubic))}
-      style={{ marginBottom: 12 }} // Margem blindada nativamente
-    >
-      {/* BOTÃO INTERNO: Cuida apenas da animação de clique (Escala) */}
+    <Animated.View style={[{ marginBottom: 12 }, entranceStyle]}>
       <AnimatedPressable
         onPress={onPress}
         onPressIn={() => {
@@ -77,14 +98,16 @@ function RichChoiceCard({
           {
             backgroundColor: theme.surface,
             borderColor: theme.border,
-            // Removemos o 'elevation' (sombra do Android) para não gerar o borrão cinza.
-            // O visual Monochrome Premium se sustenta pela borda nítida!
+            // Sombra sutil para destacar do fundo escurecido
             ...Platform.select({
               ios: {
                 shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
-                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.12,
+                shadowRadius: 14,
+              },
+              android: {
+                elevation: 6,
               },
             }),
           },
@@ -97,7 +120,6 @@ function RichChoiceCard({
         >
           <AppText className="text-[26px]">{emoji}</AppText>
         </View>
-
         <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-2">
             <AppText className="text-[17px] font-bold">{title}</AppText>
@@ -113,74 +135,75 @@ function RichChoiceCard({
 
 export function CreateTripSheet() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const isOpen = useCreateTripSheetStore((s) => s.isOpen);
   const close = useCreateTripSheetStore((s) => s.close);
 
-  const translateY = useSharedValue(400);
-  const backdrop = useSharedValue(0);
+  // Valores de animação
+  const backdropOpacity = useSharedValue(0);
+  const titleAnim = useSharedValue(0);
+  const groupAnim = useSharedValue(0);
+  const soloAnim = useSharedValue(0);
 
   useEffect(() => {
     if (isOpen) {
-      translateY.value = 400;
-      backdrop.value = 0;
-      translateY.value = withTiming(0, TIMING);
-      backdrop.value = withTiming(1, {
-        duration: 200,
-        easing: Easing.out(Easing.quad),
-      });
+      // Abre: Backdrop primeiro, depois o título, depois os cards de baixo pra cima
+      backdropOpacity.value = withTiming(1, ENTER_TIMING);
+      titleAnim.value = withDelay(50, withTiming(1, ENTER_TIMING));
+      groupAnim.value = withDelay(100, withTiming(1, ENTER_TIMING));
+      soloAnim.value = withDelay(150, withTiming(1, ENTER_TIMING));
+    } else {
+      // Reseta os valores imediatamente quando o modal é desmontado
+      backdropOpacity.value = 0;
+      titleAnim.value = 0;
+      groupAnim.value = 0;
+      soloAnim.value = 0;
     }
-  }, [isOpen, translateY, backdrop]);
+  }, [isOpen, backdropOpacity, titleAnim, groupAnim, soloAnim]);
 
   function finishClose() {
     close();
   }
 
   function dismiss() {
-    translateY.value = withTiming(500, { duration: 200 }, (finished) => {
+    // Fecha tudo ao mesmo tempo rapidamente
+    titleAnim.value = withTiming(0, EXIT_TIMING);
+    soloAnim.value = withTiming(0, EXIT_TIMING);
+    groupAnim.value = withTiming(0, EXIT_TIMING);
+    backdropOpacity.value = withTiming(0, EXIT_TIMING, (finished) => {
       if (finished) runOnJS(finishClose)();
     });
-    backdrop.value = withTiming(0, { duration: 180 });
   }
 
   function goSolo() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     dismiss();
-    setTimeout(() => router.push("/wizard/solo"), 240);
+    setTimeout(() => router.push("/wizard/solo"), 200);
   }
 
   function goMatch() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     dismiss();
-    setTimeout(
-      () => router.push("/wizard/solo?mode=match" as Href),
-      240,
-    );
+    setTimeout(() => router.push("/wizard/solo?mode=match" as Href), 200);
   }
 
-  const pan = Gesture.Pan()
-    .activeOffsetY(12)
-    .failOffsetX([-20, 20])
-    .onUpdate((e) => {
-      if (e.translationY > 0) {
-        translateY.value = e.translationY;
-      }
-    })
-    .onEnd((e) => {
-      if (e.translationY > DISMISS_Y || e.velocityY > 800) {
-        runOnJS(dismiss)();
-      } else {
-        translateY.value = withTiming(0, TIMING);
-      }
-    });
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+  const backdropStyle = useAnimatedStyle(() => ({
+    // Opacidade para 65% para escurecer bem e dar contraste ao texto
+    opacity: backdropOpacity.value * 0.65,
   }));
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: backdrop.value * 0.5,
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleAnim.value,
+    transform: [
+      {
+        translateY: interpolate(
+          titleAnim.value,
+          [0, 1],
+          [10, 0],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
   }));
 
   return (
@@ -192,83 +215,93 @@ export function CreateTripSheet() {
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <GestureHandlerRootView style={styles.fill}>
-        <View style={[styles.fill, styles.end]}>
-          <Animated.View style={[styles.backdrop, backdropStyle]}>
-            <RNPressable style={styles.fill} onPress={dismiss} />
+      <View style={styles.fill}>
+        {/* Backdrop escurecido */}
+        <Animated.View style={[styles.backdrop, backdropStyle]} />
+
+        {/* Camada invisível que pega o clique na tela toda para fechar */}
+        <RNPressable style={styles.pressableArea} onPress={dismiss} />
+
+        {/* Menu Flutuante posicionado acima da TabBar */}
+        <View
+          style={[
+            styles.optionsWrap,
+            // Aumentamos para +130 para ficar um pouco mais para cima
+            { paddingBottom: insets.bottom + 130 },
+          ]}
+          pointerEvents="box-none"
+        >
+          {/* Título do Menu (Agora legível pelo fundo mais escuro) */}
+          <Animated.View style={[styles.titleContainer, titleStyle]}>
+            <AppText
+              className="text-[24px] font-bold"
+              style={{
+                color: "#FFFFFF",
+                letterSpacing: -0.5,
+                textShadowColor: "rgba(0,0,0,0.3)", // Sombra sutil para garantia
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 4,
+              }}
+            >
+              {t("createTrip.title")}
+            </AppText>
+            <AppText
+              className="text-[14px] mt-1"
+              style={{ color: "rgba(255,255,255,0.85)" }}
+            >
+              {t("createTrip.subtitle")}
+            </AppText>
           </Animated.View>
 
-          <GestureDetector gesture={pan}>
-            <Animated.View
-              style={[
-                sheetStyle,
-                {
-                  backgroundColor: theme.background,
-                  borderTopLeftRadius: 32,
-                  borderTopRightRadius: 32,
-                  paddingBottom: Math.max(insets.bottom, 16) + 8,
-                },
-              ]}
-            >
-              <View style={styles.handleHit}>
-                <View
-                  style={[styles.handle, { backgroundColor: theme.textMuted }]}
-                />
-              </View>
+          {/* Opções em Leque */}
+          <RichChoiceCard
+            emoji="🤝"
+            title={t("createTrip.match")}
+            subtitle={t("createTrip.matchSubtitle")}
+            animValue={groupAnim} // Anima primeiro (fica embaixo)
+            delay={0}
+            onPress={goMatch}
+          />
 
-              <View className="px-6 pt-2 pb-2">
-                <View className="mb-6">
-                  <AppText
-                    className="text-[26px] font-bold"
-                    style={{ letterSpacing: -0.5 }}
-                  >
-                    {t("createTrip.title")}
-                  </AppText>
-                  <AppText tone="secondary" className="text-[15px] mt-1">
-                    {t("createTrip.subtitle")}
-                  </AppText>
-                </View>
-
-                {/* Delay 100ms e 200ms para o efeito cascata mágico */}
-                <RichChoiceCard
-                  emoji="👤"
-                  title={t("createTrip.solo")}
-                  subtitle={t("createTrip.soloSubtitle")}
-                  delay={100}
-                  onPress={goSolo}
-                />
-
-                <RichChoiceCard
-                  emoji="🤝"
-                  title={t("createTrip.match")}
-                  subtitle={t("createTrip.matchSubtitle")}
-                  delay={200}
-                  onPress={goMatch}
-                />
-              </View>
-            </Animated.View>
-          </GestureDetector>
+          <RichChoiceCard
+            emoji="👤"
+            title={t("createTrip.solo")}
+            subtitle={t("createTrip.soloSubtitle")}
+            animValue={soloAnim} // Anima depois (fica em cima)
+            delay={0}
+            onPress={goSolo}
+          />
         </View>
-      </GestureHandlerRootView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  end: { justifyContent: "flex-end" },
   backdrop: {
-    ...StyleSheet.absoluteFill,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "#000",
   },
-  handleHit: {
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 16,
+  pressableArea: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  handle: {
-    width: 40,
-    height: 5,
-    borderRadius: 3,
+  optionsWrap: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 0,
+  },
+  titleContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 8,
   },
 });

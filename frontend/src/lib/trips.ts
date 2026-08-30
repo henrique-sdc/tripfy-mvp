@@ -176,6 +176,12 @@ export async function listTrips(): Promise<SavedTrip[]> {
     .filter((t) => t.deleted_at == null);
 }
 
+/** Último roteiro por updated_at — Home (card em destaque). */
+export async function getLatestTrip(): Promise<SavedTrip | null> {
+  const trips = await listTrips();
+  return trips[0] ?? null;
+}
+
 export async function getTrip(tripId: string): Promise<SavedTrip | null> {
   const uid = auth.currentUser?.uid;
   if (!uid) return null;

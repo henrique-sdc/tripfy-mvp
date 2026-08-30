@@ -1,4 +1,25 @@
 # Log — Tripfy Wiki
+
+## [2026-08-30] ingest | Build iOS EAS iPhone
+
+Criada [[Build iOS EAS iPhone]] a partir do terminal (Kaspersky TLS + hotspot ASUS + EAS Ad Hoc). Atualizados [[index]] e [[changelog]].
+
+## [2026-08-30] update | EAS app.config.js
+
+Export do config na raiz; EAS não crasha mais no infoPlist. Ver [[changelog]].
+
+## [2026-08-30] update | Bundle ID iOS
+
+`ios.bundleIdentifier` no `app.json` para EAS. Ver [[changelog]].
+
+## [2026-08-30] update | Nome do app Tripfy e Imagem
+
+`expo.name` em `app.json` passou a Tripfy e imagens alteradas em assets. Ver [[changelog]].
+
+## [2026-08-15] update | Auth web/SSR persistence
+
+`getReactNativePersistence` só no nativo. Atualizados [[Autenticação Full Stack]] e [[changelog]].
+
 ## [2026-07-21] update | Rede de Companheiros Passo 2
 
 Front: Share, `profile/[id]`, lista hidratada. Atualizados [[Rede de Companheiros]], [[Gerenciamento de Perfil RF03]], [[changelog]].

@@ -194,9 +194,17 @@
       "placeholder": "Para onde você quer ir?"
     },
     "ticket": {
-      "badge": "Em {{count}} dias",
-      "message": "Sua viagem para {{destination}} está chegando",
-      "cta": "Ver"
+      "badge": "Último roteiro planejado",
+      "days": "{{count}} dias",
+      "cta": "Ver",
+      "loadingA11y": "Carregando seu último roteiro",
+      "emptyTitle": "Você ainda não tem viagens marcadas",
+      "emptyBody": "Que tal planejar uma agora?"
+    },
+    "pending": {
+      "message": "Seu Match para {{destination}} está esperando um companheiro.",
+      "cta": "Abrir lobby",
+      "dismissA11y": "Dispensar aviso de Match"
     },
     "invite": {
       "message": "{{name}} te convidou para explorar {{destination}}. Aceitar Match?",
@@ -216,7 +224,10 @@
         "bali": "Praia, temples e comida de rua",
         "lisbon": "Mirantes, pastéis e calçada",
         "tokyo": "Neon, ramen e trilhos",
-        "rio": "Mar, samba e mirantes"
+        "rio": "Mar, samba e mirantes",
+        "rome": "História, gelato e praças",
+        "nyc": "Neon, museus e food halls",
+        "patagonia": "Picos, trilhas e silêncio"
       }
     },
     "trending": {
@@ -247,6 +258,38 @@
         "bali": {
           "title": "Bali: praia e temples",
           "author": "por Pedro"
+        },
+        "rio": {
+          "title": "Rio: mar, mirantes e samba",
+          "author": "por Camila"
+        },
+        "lisbon": {
+          "title": "Lisboa a pé e de elétrico",
+          "author": "por João"
+        },
+        "tokyo": {
+          "title": "Tóquio neon e ramen",
+          "author": "por Yuki"
+        },
+        "floripa": {
+          "title": "Floripa: praias e natureza",
+          "author": "por Bia"
+        },
+        "barcelona": {
+          "title": "Barcelona Gaudí e tapas",
+          "author": "por Elena"
+        },
+        "cancun": {
+          "title": "Cancún all-inclusive light",
+          "author": "por Diego"
+        },
+        "chapada": {
+          "title": "Chapada Diamantina em 5 dias",
+          "author": "por Theo"
+        },
+        "seoul": {
+          "title": "Seul: street food e palácios",
+          "author": "por Min"
         }
       }
     },
@@ -273,7 +316,8 @@
       "tokyo": "Tóquio",
       "nyc": "Nova York",
       "rio": "Rio",
-      "rome": "Roma"
+      "rome": "Roma",
+      "patagonia": "Patagônia"
     }
   },
   "saved": {
@@ -289,7 +333,27 @@
   },
   "trending": {
     "screenTitle": "Em alta",
-    "screenSubtitle": "Roteiros da comunidade pra copiar e adaptar."
+    "screenSubtitle": "Roteiros curados pra inspirar — filtre, busque e gere o seu.",
+    "searchPlaceholder": "Buscar destino ou roteiro…",
+    "clearSearchA11y": "Limpar busca",
+    "clearFilters": "Limpar filtros",
+    "emptyTitle": "Nada por aqui",
+    "emptyBody": "Tente outro destino ou categoria.",
+    "createTrip": "Usar este roteiro",
+    "createA11y": "Usar este roteiro no wizard",
+    "saveA11y": "Salvar ou remover dos desejos",
+    "daysHint": "{{count}} dias sugeridos",
+    "categories": {
+      "all": "Todos",
+      "brasil": "Brasil",
+      "europa": "Europa",
+      "asia": "Ásia",
+      "americas": "Américas",
+      "praia": "Praia",
+      "cidade": "Cidade",
+      "cultura": "Cultura",
+      "natureza": "Natureza"
+    }
   },
   "wizard": {
     "title": "Nova Viagem",
@@ -298,8 +362,13 @@
     "destinationLabel": "Destino",
     "destinationPlaceholder": "Ex: Paris, França",
     "destinationHint": "Cidade, país ou região.",
-    "durationLabel": "Quantos dias?",
+    "durationLabel": "Quando você viaja?",
+    "startDateLabel": "Ida",
+    "endDateLabel": "Volta",
     "daysLabel": "{{count}} dias",
+    "daysComputed": "{{count}} dias de viagem",
+    "maxDaysHint": "No máximo {{max}} dias por viagem.",
+    "dateRangeError": "Escolha um período de 1 a {{max}} dias.",
     "budgetLabel": "Orçamento da viagem",
     "notesLabel": "Algum pedido especial? (Opcional)",
     "notesPlaceholder": "Ex: É meu aniversário de casamento, capricha nos jantares românticos e evita acordar muito cedo.",
@@ -345,9 +414,10 @@
     },
     "summary": {
       "destination": "Destino",
-      "duration": "Duração",
+      "duration": "Datas",
       "budget": "Orçamento"
     },
+    "dateRange": "{{range}} · {{count}} dias",
     "share": {
       "title": "Convite Tripfy",
       "message": "Bora planejar {{destination}} comigo? Abre este convite no Tripfy: {{link}}",
@@ -435,7 +505,9 @@
       "hours": "Horários",
       "priceLevel": "preço médio",
       "menu": "Ver cardápio",
+      "photosHintA11y": "Foto {{current}} de {{total}}. Deslize para o lado para ver mais.",
       "loadError": "Não deu pra carregar este lugar.",
+      "communityUnavailable": "Avaliações ficam disponíveis quando encontramos este local no mapa.",
       "writeReview": "Deixar minha avaliação",
       "editReview": "Editar minha avaliação",
       "cancelReview": "Cancelar",
@@ -682,7 +754,7 @@
   },
   "myReviews": {
     "title": "Minhas avaliações",
-    "subtitle": "Tudo que você comentou nos lugares da Tripfy.",
+    "subtitle": "Toque numa avaliação pra ver o lugar e o que a comunidade comentou.",
     "emptyTitle": "Nenhuma avaliação ainda",
     "emptyBody": "Abra o detalhe de um lugar no roteiro e deixe sua nota.",
     "edit": "Editar",
@@ -691,6 +763,9 @@
     "save": "Salvar",
     "cancel": "Cancelar",
     "edited": "Editada",
+    "resolvingPlace": "Buscando nome do lugar…",
+    "unknownPlace": "Lugar no roteiro",
+    "openPlaceA11y": "Abrir detalhes de {{place}}",
     "deleteTitle": "Excluir avaliação?",
     "deleteBody": "Isso remove seu comentário deste lugar.",
     "deleteConfirm": "Excluir",

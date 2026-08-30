@@ -13,8 +13,11 @@ essa conciliação para Engenharia de Prompt.
 
 ## Fluxo HTTP
 
-- `POST /api/v1/matches`: recebe `destination`, `days` e `budget`; cria a sessão
+- `POST /api/v1/matches`: recebe `destination`, `days`, `start_date`, `end_date` e `budget`; cria a sessão
   com o UID autenticado em `participants` e status `waiting`.
+- `GET /api/v1/matches/pending`: lista resumos (`id`, `destination`, `days`, `status`, `created_at`)
+  das sessões `waiting` onde o UID autenticado é `owner_uid` (Admin SDK; Home banner).
+  Rota estática registrada **antes** de `/{match_id}`.
 - `POST /api/v1/matches/{match_id}/join`: usa o UID autenticado como convidado,
   adiciona o segundo participante e muda o status para `generating`.
 - `GET /api/v1/matches/{match_id}`: antes do join devolve apenas o resumo da
@@ -24,6 +27,7 @@ essa conciliação para Engenharia de Prompt.
 - Todas as rotas exigem Firebase ID Token. Criação/ingresso aceitam 10
   requisições por minuto por IP; geração aceita 5.
 - Criador e convidado precisam ter `travel_preferences` preenchido.
+- Client Firestore **não** pode `list` em `matches` (rules); listagens passam pelo backend.
 
 ## Motor RF12
 
@@ -52,7 +56,7 @@ o roteiro e muda o status para `completed`. Falhas liberam o lock e mantêm
 
 ## Frontend e realtime
 
-O `CreateTripSheet` abre o Wizard existente em modo Match. Após destino, dias e
+O `CreateTripSheet` abre o Wizard existente em modo Match. Após destino, datas (ida/volta, máx. 15 dias) e
 orçamento, `createMatch` cria a sala e navega para `/match/[id]`.
 
 No lobby:
@@ -73,7 +77,8 @@ Coleção: `matches/{match_id}`.
 Campos persistidos:
 
 - `destination`: destino validado, de 2 a 120 caracteres.
-- `days`: inteiro entre 1 e 30.
+- `days`: inteiro entre 1 e 15 (contagem inclusiva de `start_date`…`end_date`).
+- `start_date` / `end_date`: datas ISO obrigatórias na criação; o prompt usa época/clima.
 - `budget`: `economy`, `moderate` ou `premium`.
 - `owner_uid`: UID obtido do token, nunca do payload.
 - `participants`: UIDs únicos, com o proprietário e no máximo um convidado.
