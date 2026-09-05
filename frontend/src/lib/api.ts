@@ -121,6 +121,16 @@ export type PlaceFullDetailsResponse = {
   menu_uri: string | null;
 };
 
+/** Espelho de PlaceAutocompleteItem — destino do wizard (RF05). */
+export type PlaceAutocompleteItem = {
+  description: string;
+  place_id: string;
+};
+
+export type PlaceAutocompleteResponse = {
+  predictions: PlaceAutocompleteItem[];
+};
+
 export type PlaceReviewCreate = {
   rating: number;
   comment: string;
@@ -143,6 +153,8 @@ export type PlaceReviewResponse = {
 const placeDetailsCache = new Map<string, PlaceDetailsResponse>();
 // Full details por place_id — reabrir o sheet na mesma sessão não refaz o Google.
 const placeFullDetailsCache = new Map<string, PlaceFullDetailsResponse>();
+// Autocomplete: apagar e redigitar a mesma query não cobra de novo.
+const placeAutocompleteCache = new Map<string, PlaceAutocompleteItem[]>();
 
 function placeCacheKey(
   query: string,
@@ -212,6 +224,38 @@ export async function getPlaceDetails(
     }
     throw err;
   }
+}
+
+/**
+ * GET /places/autocomplete — sugestões de destino (chave só no backend).
+ * Cacheia acertos e lista vazia; não cacheia falha de rede.
+ */
+export async function autocompletePlaces(
+  input: string,
+  signal?: AbortSignal,
+): Promise<PlaceAutocompleteItem[]> {
+  const trimmed = input.trim();
+  const key = trimmed.toLowerCase();
+  const cached = placeAutocompleteCache.get(key);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({ input: trimmed });
+  const response = await authFetch(`/places/autocomplete?${params.toString()}`, {
+    method: "GET",
+    signal,
+  });
+  const data = (await response.json()) as PlaceAutocompleteResponse;
+  const predictions = Array.isArray(data.predictions)
+    ? data.predictions.filter(
+        (item) =>
+          typeof item?.description === "string" &&
+          item.description.trim().length > 0 &&
+          typeof item?.place_id === "string" &&
+          item.place_id.trim().length >= 10,
+      )
+    : [];
+  placeAutocompleteCache.set(key, predictions);
+  return predictions;
 }
 
 /** GET /places/{place_id}/details — painel rico (cache de sessão). */

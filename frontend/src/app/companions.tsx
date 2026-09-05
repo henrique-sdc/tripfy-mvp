@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";

@@ -4,13 +4,12 @@
 // numa área própria de Configurações.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { signOut } from "firebase/auth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, useColorScheme } from "react-native";
+import { Alert, Switch, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/ui/AppText";
@@ -18,8 +17,10 @@ import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/use-theme";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 import { auth } from "@/lib/firebase";
+import * as Haptics from "@/lib/haptics";
 import { deleteUserAccount } from "@/lib/profile";
 import { useAuthStore } from "@/stores/authStore";
+import { usePreferencesStore } from "@/stores/preferencesStore";
 import { Pressable, ScrollView, View } from "@/tw";
 
 function SettingsRow({
@@ -84,6 +85,8 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const setUser = useAuthStore((s) => s.setUser);
   const setHasPreferences = useAuthStore((s) => s.setHasPreferences);
+  const haptics = usePreferencesStore((s) => s.haptics);
+  const setHaptics = usePreferencesStore((s) => s.setHaptics);
 
   const [signingOut, setSigningOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -226,6 +229,40 @@ export default function SettingsScreen() {
             disabled
             badge={t("settings.comingSoon")}
           />
+          <View
+            className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: `${theme.accent}18` }}
+            >
+              <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <AppText className="text-[15px] font-medium">
+                {t("settings.haptics")}
+              </AppText>
+              <AppText tone="secondary" className="text-[12px] leading-4">
+                {t("settings.hapticsHint")}
+              </AppText>
+            </View>
+            <Switch
+              value={haptics}
+              onValueChange={(value) => {
+                setHaptics(value);
+                if (value) {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light, {
+                    required: true,
+                  });
+                }
+              }}
+              trackColor={{ false: theme.border, true: theme.accent }}
+              thumbColor={theme.surface}
+              ios_backgroundColor={theme.border}
+              accessibilityLabel={t("settings.haptics")}
+            />
+          </View>
         </View>
 
         <View className="gap-3">

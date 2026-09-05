@@ -2,7 +2,7 @@
 // Swipe/DnD ficam no trip-detail; este componente só renderiza o miolo visual.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
@@ -270,7 +270,7 @@ export function ActivityCard({
                   {showDragHandle ? (
                     <Pressable
                       onPressIn={onDragHandlePressIn}
-                      hitSlop={8}
+                      hitSlop={12}
                       accessibilityLabel={t("tripDetail.dragHandle")}
                     >
                       <Ionicons
@@ -357,7 +357,7 @@ export function ActivityCard({
               {showDragHandle ? (
                 <Pressable
                   onPressIn={onDragHandlePressIn}
-                  hitSlop={8}
+                  hitSlop={12}
                   accessibilityLabel={t("tripDetail.dragHandle")}
                 >
                   <Ionicons name="menu" size={16} color={theme.textMuted} />

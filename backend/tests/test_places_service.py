@@ -8,8 +8,10 @@ from models.review import PlaceReviewCreate
 from services.places_service import (
     _is_places_new_blocked,
     extract_place_id_new,
+    map_legacy_autocomplete,
     map_legacy_details_to_full,
     map_legacy_result_to_details,
+    map_new_autocomplete,
     map_new_details_to_full,
     map_place_to_details,
     validate_place_id,
@@ -132,6 +134,79 @@ class PlacesMappingTest(unittest.TestCase):
         self.assertEqual(full.longitude, 13.2)
         self.assertEqual(full.price_level, "$$")
         self.assertIsNone(full.menu_uri)
+
+    def test_maps_new_autocomplete(self) -> None:
+        payload = {
+            "suggestions": [
+                {
+                    "placePrediction": {
+                        "placeId": "ChIJtest1234567890",
+                        "text": {"text": "Paris, França"},
+                    }
+                },
+                {
+                    "placePrediction": {
+                        "place": "places/ChIJlyon1234567890",
+                        "text": {"text": "Lyon, França"},
+                    }
+                },
+                {"queryPrediction": {"text": {"text": "paris hotel"}}},
+            ]
+        }
+        items = map_new_autocomplete(payload)
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0].description, "Paris, França")
+        self.assertEqual(items[0].place_id, "ChIJtest1234567890")
+        self.assertEqual(items[1].place_id, "ChIJlyon1234567890")
+
+    def test_maps_legacy_autocomplete(self) -> None:
+        payload = {
+            "predictions": [
+                {
+                    "description": "Lisboa, Portugal",
+                    "place_id": "ChIJlisboa12345678",
+                }
+            ]
+        }
+        items = map_legacy_autocomplete(payload)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].description, "Lisboa, Portugal")
+        self.assertEqual(items[0].place_id, "ChIJlisboa12345678")
+
+    def test_autocomplete_skips_invalid_and_empty(self) -> None:
+        new_empty = map_new_autocomplete({"suggestions": []})
+        self.assertEqual(new_empty, [])
+
+        skipped = map_new_autocomplete(
+            {
+                "suggestions": [
+                    {"placePrediction": {"placeId": "../evil", "text": {"text": "X"}}},
+                    {
+                        "placePrediction": {
+                            "placeId": "ChIJok1234567890ab",
+                            "text": {"text": "   "},
+                        }
+                    },
+                ]
+            }
+        )
+        self.assertEqual(skipped, [])
+
+        self.assertEqual(map_legacy_autocomplete({}), [])
+
+    def test_autocomplete_truncates_long_description(self) -> None:
+        long_name = "A" * 200
+        items = map_legacy_autocomplete(
+            {
+                "predictions": [
+                    {
+                        "description": long_name,
+                        "place_id": "ChIJlong1234567890",
+                    }
+                ]
+            }
+        )
+        self.assertEqual(len(items[0].description), 120)
 
 
 class PlaceReviewModelTest(unittest.TestCase):

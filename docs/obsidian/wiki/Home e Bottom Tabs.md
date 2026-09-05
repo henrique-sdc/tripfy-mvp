@@ -32,7 +32,7 @@ Modal + GestureHandlerRootView interno. Dismiss tap/pan. RichChoiceCard (FadeInD
 
 ## Wizard Solo
 
-Destino, calendário ida/volta (máx. 15 dias), CapsuleSelector, notas, revisar vibe. Layout StyleSheet nativo.
+Destino via Place Autocomplete (proxy FastAPI, debounce 400ms, lista flutuante). CTA só habilita depois do toque numa sugestão (ou destino da Em Alta). Calendário ida/volta (máx. 15 dias), CapsuleSelector, notas, revisar vibe. Layout StyleSheet nativo. Ver [[Detalhe da Viagem RF07]].
 
 ## Home
 

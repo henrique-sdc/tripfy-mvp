@@ -3,8 +3,7 @@
 // Android: overlay cinematográfico (LinearGradient) — sem blur leitoso.
 
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -28,10 +27,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { GlassSurface } from "@/components/ui/GlassSurface";
 import { useOnboardingStore } from "@/stores/onboardingStore";
-import { Pressable, Text, View } from "@/tw";
+import { AnimatedPressable, AnimatedView, Text, View } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const isIOS = Platform.OS === "ios";
 
 type SlideKey = "slide1" | "slide2" | "slide3";
@@ -117,10 +116,7 @@ function PaginationDot({
   });
 
   return (
-    <Animated.View
-      style={animatedStyle}
-      className="h-2 rounded-full bg-white"
-    />
+    <AnimatedView style={animatedStyle} className="h-2 rounded-full bg-white" />
   );
 }
 
@@ -143,7 +139,7 @@ function ArrowFab({ onPress, label }: { onPress: () => void; label: string }) {
       style={style}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="w-[54px] h-[54px] rounded-full bg-white items-center justify-center shadow-md"
+      className="w-13.5 h-13.5 rounded-full bg-white items-center justify-center shadow-md"
     >
       <Ionicons name="arrow-forward" size={24} color="#111111" />
     </AnimatedPressable>
@@ -184,7 +180,7 @@ export default function OnboardingSlidesScreen() {
   // Miolo compartilhado — invólucro muda por plataforma (BlurView vs View).
   const BottomContent = (
     <>
-      <View className="min-h-[110px]" pointerEvents="none">
+      <View className="min-h-27.5" pointerEvents="none">
         <Text className="text-white text-[32px] font-bold mb-3">
           {t(`onboardingSlides.${activeSlideKey}.title`)}
         </Text>
@@ -215,7 +211,7 @@ export default function OnboardingSlidesScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
             entering={FadeInRight.duration(220)}
-            className="bg-white rounded-full px-8 py-[14px] shadow-md"
+            className="bg-white rounded-full px-8 py-3.5 shadow-md"
           >
             <Text className="text-[#111111] font-bold text-[16px]">
               {t("onboardingSlides.start")}
@@ -297,19 +293,23 @@ export default function OnboardingSlidesScreen() {
       </RNScrollView>
 
       <View
-        className="absolute bottom-0 w-full z-30 rounded-t-[32px] overflow-hidden"
+        className="absolute bottom-0 w-full z-30 rounded-t-4xl overflow-hidden"
         style={{ paddingBottom: isIOS ? 0 : insets.bottom + 32 }}
         pointerEvents="box-none"
       >
         {isIOS ? (
-          <BlurView
-            intensity={80}
-            tint="dark"
-            className="pt-8 px-8 pb-10"
-            style={{ paddingBottom: insets.bottom + 32 }}
+          // Paddings por `style`: o GlassSurface vira GlassView/BlurView nativo,
+          // que ignora className. Era isso que cortava o texto nas laterais.
+          <GlassSurface
+            scheme="dark"
+            style={{
+              paddingTop: 32,
+              paddingHorizontal: 32,
+              paddingBottom: insets.bottom + 32,
+            }}
           >
             {BottomContent}
-          </BlurView>
+          </GlassSurface>
         ) : (
           <View className="pt-8 px-8 pb-4">{BottomContent}</View>
         )}

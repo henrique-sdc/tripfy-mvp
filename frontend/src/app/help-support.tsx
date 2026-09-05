@@ -2,7 +2,7 @@
 // Sem Política de Privacidade/Termos completos ainda — só o aviso "em breve".
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";

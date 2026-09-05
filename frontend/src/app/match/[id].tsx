@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { doc, onSnapshot } from "firebase/firestore";

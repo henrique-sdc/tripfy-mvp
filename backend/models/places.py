@@ -37,6 +37,19 @@ class PlaceDetailsResponse(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
+class PlaceAutocompleteItem(BaseModel):
+    """Uma sugestão de Place Autocomplete (destino do wizard RF05)."""
+
+    description: str = Field(..., min_length=1, max_length=120)
+    place_id: str = Field(..., min_length=10, max_length=256)
+
+
+class PlaceAutocompleteResponse(BaseModel):
+    """Lista de sugestões — vazia é 200, não 404 (typeahead)."""
+
+    predictions: list[PlaceAutocompleteItem] = Field(default_factory=list)
+
+
 class PlaceFullDetailsResponse(BaseModel):
     """Painel rico do local (Knowledge Panel) — Place Details proxy."""
 

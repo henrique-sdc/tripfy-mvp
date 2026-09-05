@@ -1,7 +1,7 @@
 // Card do último roteiro planejado — foto Places + destino + dias.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect } from "react";

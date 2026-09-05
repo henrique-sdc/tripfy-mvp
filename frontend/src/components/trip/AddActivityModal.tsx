@@ -1,7 +1,7 @@
 // Modal pra adicionar parada manual no dia atual (RF07).
 // Endereço opcional → lookup Places → lat/lng pro mapa.
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

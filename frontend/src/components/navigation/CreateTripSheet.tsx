@@ -1,7 +1,7 @@
 // Sheet Premium — Solo vs Match (Modo Menu Flutuante).
 // Animação suave e sem "quiques" (Cubic Bezier), com backdrop clicável.
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Href, router } from "expo-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";

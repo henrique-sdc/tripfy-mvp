@@ -2,7 +2,7 @@
 // Física: sobe suave (240ms), fecha mais rápido (gravidade) — padrão CreateTripSheet.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,7 @@ import {
   Alert,
   Pressable as RNPressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View as RNView,
@@ -58,6 +59,19 @@ const ENTER = { duration: 240, easing: Easing.out(Easing.cubic) };
 const DISMISS_MS = 180;
 const DISMISS_Y = 100;
 const PHOTO_H = 200;
+
+/** Só http(s) — website do Places às vezes vem sem esquema. */
+function toHttpUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(href);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 
 type Tab = "about" | "community";
 
@@ -532,12 +546,14 @@ function AboutTab({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           keyExtractor={(_, i) => `photo-${i}`}
-          onMomentumScrollEnd={(e) => {
+          onScroll={(e) => {
             const i = Math.round(
               e.nativeEvent.contentOffset.x / Math.max(sheetWidth, 1),
             );
-            setPhotoIndex(Math.max(0, Math.min(i, photos.length - 1)));
+            const next = Math.max(0, Math.min(i, photos.length - 1));
+            if (next !== photoIndex) setPhotoIndex(next);
           }}
+          scrollEventThrottle={16}
           renderItem={({ item }) => (
             <RNView style={{ width: sheetWidth, height: PHOTO_H }}>
               {item ? (
@@ -682,12 +698,27 @@ function AboutTab({
       ) : null}
 
       {details?.website ? (
-        <RNView style={styles.rowIcon}>
+        <RNPressable
+          onPress={() => {
+            const href = toHttpUrl(details.website!);
+            if (!href) return;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            void Linking.openURL(href);
+          }}
+          onLongPress={() => {
+            const href = toHttpUrl(details.website!) ?? details.website!;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            void Share.share({ message: href, url: href });
+          }}
+          style={styles.rowIcon}
+          accessibilityRole="link"
+          accessibilityLabel={t("tripDetail.placeSheet.websiteA11y")}
+        >
           <Ionicons name="globe-outline" size={16} color={theme.textMuted} />
           <AppText tone="accent" className="text-[13px]" numberOfLines={1}>
             {details.website}
           </AppText>
-        </RNView>
+        </RNPressable>
       ) : null}
 
       {details?.menu_uri ? (

@@ -1,7 +1,7 @@
 // Pílula de interesse — feedback tátil (haptics + spring bounce).
 // Desselecionada: transparente + borda fina. Selecionada: accent + texto branco.
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

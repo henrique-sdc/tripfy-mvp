@@ -1,7 +1,7 @@
 // Card de roteiro Em Alta — carrossel (Home) ou lista (/trending).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Href, router } from "expo-router";

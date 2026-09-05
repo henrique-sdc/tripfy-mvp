@@ -1,7 +1,7 @@
 // Home — AI Command Center + destinos personalizados + Em Alta (RF04/RF08).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";

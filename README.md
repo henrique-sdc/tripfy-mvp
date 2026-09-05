@@ -2,6 +2,8 @@
 
 App mobile de planejamento de viagens com IA. Frontend em React Native (Expo) e backend em Python (FastAPI).
 
+**Máquina nova (Windows/Mac):** [docs/SETUP.md](docs/SETUP.md).
+
 ## Pré-requisitos
 
 - **Node.js** 20+ (recomendado: LTS atual)
@@ -40,6 +42,7 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 EXPO_PUBLIC_FIREBASE_APP_ID=
 EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=
+EXPO_PUBLIC_CARTO_API_KEY=
 EXPO_PUBLIC_API_URL=http://SEU_IP_LOCAL:8000
 ```
 

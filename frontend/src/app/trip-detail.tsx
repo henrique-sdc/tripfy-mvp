@@ -3,7 +3,7 @@
 // Persistência: auto-save no Firestore (sem coração manual).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,14 +16,18 @@ import {
   Share,
   StyleSheet,
   useColorScheme,
-  useWindowDimensions,
 } from "react-native";
 import DraggableFlatList, {
   RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
+import {
+  Gesture,
+  GestureDetector,
+} from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -31,6 +35,7 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -58,6 +63,9 @@ import { getTrip, saveTrip } from "@/lib/trips";
 const DELETE_ACTION_W = 76;
 /** progress > 1 = overshoot; acima disso apaga como o Mail da Apple. */
 const OVERSWIPE_DELETE_AT = 1.45;
+/** Fração da área do mapa visível com o sheet recolhido. */
+const MAP_PEEK_RATIO = 0.42;
+const SHEET_SNAP = { duration: 240, easing: Easing.out(Easing.cubic) };
 /** Debounce do auto-save — evita gravar a cada pixel do drag. */
 const AUTOSAVE_MS = 700;
 
@@ -298,7 +306,6 @@ export default function TripDetailScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const { height: winH } = useWindowDimensions();
   const params = useLocalSearchParams<{
     itinerary?: string;
     tripId?: string;
@@ -346,6 +353,10 @@ export default function TripDetailScreen() {
 
   const tripIdRef = useRef(tripId);
   const savingLock = useRef(false);
+  const sheetPlaced = useRef(false);
+  const peekH = useSharedValue(0);
+  const mapH = useSharedValue(0);
+  const mapStartH = useSharedValue(0);
 
   // Mantém o id atual pra auto-save sem recriar o effect a cada mudança.
   useEffect(() => {
@@ -453,7 +464,43 @@ export default function TripDetailScreen() {
     [activities],
   );
 
-  const mapHeight = Math.max(200, Math.min(300, Math.round(winH * 0.34)));
+  function sheetHaptic() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  const sheetPan = Gesture.Pan()
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-24, 24])
+    .onBegin(() => {
+      mapStartH.value = mapH.value;
+    })
+    .onUpdate((e) => {
+      const max = peekH.value;
+      // Puxar o grip pra cima (translationY < 0) encolhe o mapa.
+      const next = mapStartH.value + e.translationY;
+      mapH.value = Math.min(max, Math.max(0, next));
+    })
+    .onEnd((e) => {
+      const max = peekH.value;
+      let target = mapH.value < max / 2 ? 0 : max;
+      if (e.velocityY < -900) target = 0;
+      if (e.velocityY > 900) target = max;
+      mapH.value = withTiming(target, SHEET_SNAP);
+      runOnJS(sheetHaptic)();
+    });
+
+  const sheetTap = Gesture.Tap().onEnd(() => {
+    const max = peekH.value;
+    const next = mapH.value < max / 2 ? max : 0;
+    mapH.value = withTiming(next, SHEET_SNAP);
+    runOnJS(sheetHaptic)();
+  });
+
+  const sheetGesture = Gesture.Exclusive(sheetPan, sheetTap);
+
+  const mapStyle = useAnimatedStyle(() => ({
+    height: mapH.value,
+  }));
 
   const patchItinerary = useCallback(
     (next: LocalItinerary) => {
@@ -795,7 +842,6 @@ export default function TripDetailScreen() {
               rightThreshold={40}
               overshootRight
               overshootFriction={8}
-              // Swipe só a partir da borda direita — vertical fica pro DnD.
               dragOffsetFromRightEdge={28}
               enabled={!isActive && canDelete}
               containerStyle={isActive ? undefined : styles.swipeClip}
@@ -979,18 +1025,49 @@ export default function TripDetailScreen() {
         </RNView>
       ) : (
         <>
-          {/* Mapa FORA da FlatList — senão o gesto de drag morre. */}
-          <TripOsmMap
-            points={mapped}
-            accentColor={theme.accent}
-            height={mapHeight}
-            dark={scheme === "dark"}
-            emptyLabel={t("tripDetail.mapEmptyTitle")}
-            emptyHint={t("tripDetail.mapEmptyBody")}
-            emptyBg={theme.surface}
-            mutedColor={theme.textMuted}
-            textColor={theme.textPrimary}
-          />
+          <RNView
+            style={styles.body}
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              const peek = h * MAP_PEEK_RATIO;
+              peekH.value = peek;
+              if (!sheetPlaced.current) {
+                sheetPlaced.current = true;
+                mapH.value = peek;
+              }
+            }}
+          >
+            <Animated.View style={[styles.mapWrap, mapStyle]}>
+              <TripOsmMap
+                points={mapped}
+                accentColor={theme.accent}
+                fill
+                dark={scheme === "dark"}
+                emptyLabel={t("tripDetail.mapEmptyTitle")}
+                emptyHint={t("tripDetail.mapEmptyBody")}
+                emptyBg={theme.surface}
+                mutedColor={theme.textMuted}
+                textColor={theme.textPrimary}
+              />
+            </Animated.View>
+
+            <RNView
+              style={[styles.sheet, { backgroundColor: theme.background }]}
+            >
+              <GestureDetector gesture={sheetGesture}>
+                <RNView
+                  style={styles.grabberHit}
+                  accessibilityRole="adjustable"
+                  accessibilityLabel={t("tripDetail.sheetHandle")}
+                >
+                  <RNView
+                    style={[
+                      styles.grabber,
+                      { backgroundColor: theme.textMuted },
+                    ]}
+                  />
+                </RNView>
+              </GestureDetector>
 
           <RNScrollView
             horizontal
@@ -1189,6 +1266,8 @@ export default function TripDetailScreen() {
               <TripTipsFooter tips={itinerary.tips} theme={theme} t={t} />
             }
           />
+            </RNView>
+          </RNView>
 
           {!readOnly ? (
             <RNPressable
@@ -1287,6 +1366,27 @@ export default function TripDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
+  body: { flex: 1, overflow: "hidden" },
+  mapWrap: {
+    width: "100%",
+    overflow: "hidden",
+  },
+  sheet: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  grabberHit: {
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  grabber: {
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

@@ -3,6 +3,8 @@
 
 export type WizardSoloDraft = {
   destination: string;
+  /** place_id do Google, ou sentinela `curated` da Em Alta. */
+  place_id: string | null;
   /** ISO YYYY-MM-DD */
   start_date: string;
   /** ISO YYYY-MM-DD */

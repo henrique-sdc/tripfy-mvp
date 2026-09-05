@@ -21,9 +21,9 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 
 | Feature                  | Como                                                                                                                                   |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Layout                   | Mapa em cima (~34%) + lista embaixo (sem toggle)                                                                                       |
+| Layout                   | iOS e Android: mapa em cima (altura animada) + sheet embaixo. Puxa o grip pra cima e o mapa some; toque no grip volta. A lista **não** usa `translateY` — isso quebrava o DnD. |
 | Chip **Todos**           | Primeiro botão; lista + mapa agregam todas as paradas (DnD desligado)                                                                  |
-| Drag & drop (RF07.1)     | `react-native-draggable-flatlist` no dia; **sem** `GestureHandlerRootView` aninhado (já no `_layout`); handle ≡ com `onPressIn={drag}` |
+| Drag & drop (RF07.1)     | Handle ≡ original (`menu` 16px) com `TouchableOpacity` do gesture-handler + long-press no card. Só no dia (não em Todos). |
 | Remover parada           | Swipe esquerda (Mail) — `dragOffsetFromRightEdge` pra não matar o DnD; mín. 1 atividade/dia                                            |
 | Reordenar horários       | `reassignTimes` redistribui slots do dia após drag                                                                                     |
 | Mapa                     | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go)                                                                                    |
@@ -40,6 +40,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim”                                                                  |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
+| Autocomplete destino     | `GET /places/autocomplete` — typeahead do wizard (RF05); `description` + `place_id`                                                    |
 | Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
 | Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`                                                             |
 
@@ -66,6 +67,26 @@ Authorization: Bearer <Firebase ID Token>
 - `lat`/`lng` opcionais **juntos** → `locationBias` 5 km
 - Erros: `404` sem resultado · `502`/`504` falha Google · `503` key ausente/negada
 - **Fallback:** se Places API (New) der 403, usa Text Search clássico (`maps.googleapis.com`) e resolve foto via redirect Location (sem key na URL)
+
+## Autocomplete de destino (wizard RF05)
+
+Sugestões reais do Google no assistente — o usuário **clica** numa opção; texto livre não gera roteiro.
+
+```
+GET /api/v1/places/autocomplete?input={prefixo}
+Authorization: Bearer <Firebase ID Token>
+```
+
+| Campo          | Origem                                                                 |
+| -------------- | ---------------------------------------------------------------------- |
+| `description`  | New `placePrediction.text.text` / legacy `predictions[].description`   |
+| `place_id`     | New `placeId` / legacy `place_id` (id inválido é descartado)           |
+
+- Place Autocomplete (não Query Autocomplete). Tipos: cidade / estado / país.
+- New → fallback legacy no 403, igual ao lookup. Lista vazia = `200`, não `404`.
+- Rate limit: `60/minute` por IP. `input` 2–120 chars.
+- Declarado **antes** de `/{place_id}/…` senão FastAPI captura `"autocomplete"` como path.
+- Frontend: debounce 400ms + `AbortController`; dropdown `position: absolute` (sem layout shift). Trava do CTA: `selectedPlaceId`. Em Alta usa sentinela `curated`. Ver [[Home e Bottom Tabs]].
 
 ## Place Details + Reviews (backend Knowledge Panel)
 
@@ -132,8 +153,8 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 ## Mapa (`TripOsmMap`)
 
 - **Por quê WebView:** `react-native-maps` (Google) fica bege no Expo Go Android — Expo removeu a API key compartilhada. `expo-maps` exige Dev Build.
-- **Tiles:** CARTO Voyager (claro) / dark_all (escuro) — sem API key.
-- **Init:** `window.load` + `invalidateSize` em timers; `baseUrl` https no Android.
+- **Tiles:** CARTO Voyager (claro) / dark_all (escuro). Raster exige `EXPO_PUBLIC_CARTO_API_KEY` (`?key=`). Sem ela o tile vem com watermark "API KEY REQUIRED".
+- **Init:** `window.load` + `invalidateSize` em timers; `baseUrl` `https://tripfy.app/` (iOS e Android).
 - **Enquadramento:** após cada `invalidateSize`, reaplica `fitBounds` (2+ pontos, `maxZoom: 15`) ou `setView` zoom 13 (1 ponto). Evita zoom máximo quando o container ainda media 0.
 - **DnD:** mapa **fora** da FlatList — senão o gesto de drag morre.
 

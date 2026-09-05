@@ -25,7 +25,9 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 | `frontend/src/app/(tabs)/profile.tsx` | Lê Firestore no `useFocusEffect`; stats; chips da vibe |
 | `frontend/src/app/edit-profile.tsx` | Form RHF+Zod (nome/bio), ImagePicker, remover foto |
 | `frontend/src/app/edit-vibe.tsx` | Reedita `travel_preferences` (reusa componentes do onboarding) + campo livre |
-| `frontend/src/app/settings.tsx` | Conta, notificações (placeholder), suporte, sair, zona de perigo |
+| `frontend/src/app/settings.tsx` | Conta, vibração, notificações (placeholder), suporte, sair, zona de perigo |
+| `frontend/src/lib/haptics.ts` | Wrapper de `expo-haptics` que respeita o toggle; `{ required: true }` fura |
+| `frontend/src/stores/preferencesStore.ts` | Preferências do aparelho (AsyncStorage `tripfy-preferences-v2`) |
 | `frontend/src/app/help-support.tsx` | FAQ curto, contato, atalho LGPD |
 | `frontend/src/app/companions.tsx` | Lista completa de companheiros (empty até front consumir API) |
 
@@ -44,6 +46,7 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
  ├─ Editar perfil  → /edit-profile
  ├─ Editar vibe    → /edit-vibe
  ├─ Notificações   (desabilitado, badge "Em breve" — sem infra de push ainda)
+ ├─ Vibração       (Switch; default off. Lixeira continua vibrando)
  ├─ Ajuda & Suporte → /help-support
  ├─ Sair da conta  (confirmação → signOut + limpa store)
  └─ Zona de perigo → excluir conta (LGPD)
@@ -54,6 +57,14 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 > (sair, excluir) ficam concentradas em `/settings`, seguindo o padrão de
 > Settings como área própria (iOS/Android). Evita misturar "editar" com
 > "destruir".
+
+### Vibração
+- Switch em Preferências do app. Desligado por padrão.
+- Mora no aparelho (`preferencesStore` / AsyncStorage), não na conta — sobrevive a logout.
+- Quase todo `Haptics.*` passa por `@/lib/haptics` e cala se o toggle está off.
+- Exceção: `SwipeToDelete` (Viagens, Lixeira, convite) usa `{ required: true }` — o
+  arrastar pra lixeira continua vibrando. Ligar o toggle devolve um háptico de
+  confirmação (`required`).
 
 ### Avatar e CTAs
 - Foto ~96pt (próximo do tamanho do perfil do Instagram).

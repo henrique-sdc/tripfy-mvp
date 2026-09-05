@@ -1,6 +1,6 @@
 // Modal mínimo para editar horário, título, descrição e dia da parada (RF07).
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

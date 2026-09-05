@@ -1,7 +1,7 @@
 // Viagens — lista premium (cards Places + swipe Soft Delete + pull-to-refresh).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
@@ -10,82 +10,19 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Pressable as RNPressable,
   RefreshControl,
-  StyleSheet,
   useColorScheme,
 } from "react-native";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import Animated, {
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  type SharedValue,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { TripHistoryCard } from "@/components/trip/TripHistoryCard";
 import { AppText } from "@/components/ui/AppText";
+import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
 import { useTheme } from "@/hooks/use-theme";
 import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { Pressable, View } from "@/tw";
-
-const DELETE_ACTION_W = 76;
-const OVERSWIPE_DELETE_AT = 1.45;
-
-/** Ação vermelha estilo Mail — overswipe ou tap na lixeira. */
-function SwipeDeleteAction({
-  progress,
-  onDelete,
-  accessibilityLabel,
-}: {
-  progress: SharedValue<number>;
-  onDelete: () => void;
-  accessibilityLabel: string;
-}) {
-  const fired = useSharedValue(false);
-
-  useAnimatedReaction(
-    () => progress.value,
-    (current) => {
-      if (current >= OVERSWIPE_DELETE_AT && !fired.value) {
-        fired.value = true;
-        runOnJS(onDelete)();
-      }
-      if (current < 0.2) {
-        fired.value = false;
-      }
-    },
-  );
-
-  const iconStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      progress.value,
-      [0, 1, OVERSWIPE_DELETE_AT],
-      [0.9, 1, 1.2],
-      Extrapolation.CLAMP,
-    );
-    return { opacity: 1, transform: [{ scale }] };
-  });
-
-  return (
-    <RNPressable
-      onPress={onDelete}
-      style={styles.deleteAction}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-    >
-      <Animated.View style={[styles.deleteIconWrap, iconStyle]}>
-        <Ionicons name="trash" size={22} color="#FFFFFF" />
-      </Animated.View>
-    </RNPressable>
-  );
-}
 
 export default function TripsScreen() {
   const { t } = useTranslation();
@@ -216,7 +153,10 @@ export default function TripsScreen() {
           accessibilityRole="button"
           accessibilityLabel={t("trips.createCta")}
         >
-          <AppText style={{ color: "#fff" }} className="font-semibold text-[15px]">
+          <AppText
+            style={{ color: "#fff" }}
+            className="font-semibold text-[15px]"
+          >
             {t("trips.createCta")}
           </AppText>
         </Pressable>
@@ -248,51 +188,14 @@ export default function TripsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <View style={styles.swipeClip}>
-            <Swipeable
-              friction={2}
-              rightThreshold={40}
-              overshootRight
-              overshootFriction={8}
-              dragOffsetFromRightEdge={28}
-              renderRightActions={(progress, _translation, methods) => (
-                <SwipeDeleteAction
-                  progress={progress}
-                  accessibilityLabel={t("trips.swipeDeleteA11y")}
-                  onDelete={() => {
-                    methods.close();
-                    trashTrip(item);
-                  }}
-                />
-              )}
-            >
-              <TripHistoryCard
-                trip={item}
-                onPress={() => openTrip(item)}
-              />
-            </Swipeable>
-          </View>
+          <SwipeToDelete
+            accessibilityLabel={t("trips.swipeDeleteA11y")}
+            onDelete={() => trashTrip(item)}
+          >
+            <TripHistoryCard trip={item} onPress={() => openTrip(item)} />
+          </SwipeToDelete>
         )}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  swipeClip: {
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  deleteAction: {
-    flex: 1,
-    backgroundColor: "#FF3B30",
-    justifyContent: "center",
-    alignItems: "flex-end",
-    paddingRight: 0,
-  },
-  deleteIconWrap: {
-    width: DELETE_ACTION_W,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

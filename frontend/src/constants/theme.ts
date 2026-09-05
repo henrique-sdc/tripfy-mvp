@@ -27,7 +27,7 @@ const light = {
 } as const;
 
 const dark = {
-  background: "#000000",
+  background: "#0B1014",
   surface: "#1c1c1e",
   border: "#333336",
   textPrimary: "#ffffff",

@@ -25,6 +25,18 @@ import { View, Text, Pressable } from "@/tw";
 // NUNCA: import { View } from "react-native" com className
 ```
 
+Para animar mantendo `className`, use `AnimatedView` / `AnimatedText` /
+`AnimatedPressable`, também de `@/tw`. `Animated.View` cru não repassa a prop.
+
+> [!warning] className morto
+> Com `globalClassNamePolyfill: false`, `className` em componente não
+> instrumentado é **aceito e descartado em silêncio** — sem erro, sem warning.
+> `BlurView`, `GlassView`, `LinearGradient` e `Animated.View` caem nisso; ali o
+> layout vai por `style={{...}}`. Já quebrou a UI inteira no iOS 26: ver
+> [[Liquid Glass e Vidro Nativo]].
+>
+> Guard: `node frontend/scripts/check-dead-classname.mjs` (roda no `npm run lint`).
+
 ## Dependências
 
 - `nativewind@preview` (v5)

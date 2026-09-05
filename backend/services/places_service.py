@@ -14,10 +14,19 @@ from fastapi import HTTPException, status
 from loguru import logger
 
 from core.config import settings
-from models.places import PlaceDetailsResponse, PlaceFullDetailsResponse
+from models.places import (
+    PlaceAutocompleteItem,
+    PlaceAutocompleteResponse,
+    PlaceDetailsResponse,
+    PlaceFullDetailsResponse,
+)
 
 _SEARCH_URL_NEW = "https://places.googleapis.com/v1/places:searchText"
 _SEARCH_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+_AUTOCOMPLETE_URL_NEW = "https://places.googleapis.com/v1/places:autocomplete"
+_AUTOCOMPLETE_URL_LEGACY = (
+    "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+)
 _DETAILS_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/details/json"
 _PHOTO_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/photo"
 
@@ -55,16 +64,34 @@ _PRICE_LEVEL_LEGACY: dict[int, str] = {
 _BIAS_RADIUS_M = 5000.0
 _PHOTO_MAX_PX = 800
 _MAX_DETAIL_PHOTOS = 5
+_MAX_AUTOCOMPLETE = 5
+# Destino de viagem, não POI (restaurante/rua). New: Table A; legacy: (cities).
+_AUTOCOMPLETE_TYPES_NEW = (
+    "locality",
+    "administrative_area_level_1",
+    "country",
+)
+_AUTOCOMPLETE_TYPES_LEGACY = "(cities)"
+# Teto do GenerateTripRequest.destination — description longa estoura o generate.
+_DESTINATION_MAX_LEN = 120
 # Place IDs Google: tipicamente ChIJ… / alfanumérico; evita path injection.
 _PLACE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{10,256}$")
 
 
-def validate_place_id(place_id: str) -> str:
-    """Normaliza e valida place_id; levanta 422 se inválido."""
+def normalize_place_id(place_id: str) -> str | None:
+    """Id curto ou None — mappers de autocomplete não podem 422 a lista inteira."""
     cleaned = place_id.strip()
     if cleaned.startswith("places/"):
         cleaned = cleaned[len("places/") :]
     if not _PLACE_ID_RE.match(cleaned):
+        return None
+    return cleaned
+
+
+def validate_place_id(place_id: str) -> str:
+    """Normaliza e valida place_id; levanta 422 se inválido."""
+    cleaned = normalize_place_id(place_id)
+    if cleaned is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="place_id inválido.",
@@ -81,6 +108,59 @@ def extract_place_id_new(place: dict[str, Any]) -> str | None:
     if isinstance(name, str) and name.startswith("places/"):
         return name[len("places/") :].strip() or None
     return None
+
+
+def _autocomplete_item(description: str, place_id: str) -> PlaceAutocompleteItem | None:
+    """Monta um item se description e place_id forem usáveis; senão descarta."""
+    cleaned_id = normalize_place_id(place_id)
+    text = description.strip()[:_DESTINATION_MAX_LEN]
+    if not cleaned_id or not text:
+        return None
+    return PlaceAutocompleteItem(description=text, place_id=cleaned_id)
+
+
+def map_new_autocomplete(payload: dict[str, Any]) -> list[PlaceAutocompleteItem]:
+    """suggestions[].placePrediction → contrato do app. Ignora queryPrediction."""
+    items: list[PlaceAutocompleteItem] = []
+    for suggestion in payload.get("suggestions") or []:
+        if not isinstance(suggestion, dict):
+            continue
+        pred = suggestion.get("placePrediction")
+        if not isinstance(pred, dict):
+            continue
+        raw_id = pred.get("placeId") or pred.get("place") or ""
+        if not isinstance(raw_id, str):
+            continue
+        text = pred.get("text") if isinstance(pred.get("text"), dict) else {}
+        description = text.get("text") if isinstance(text, dict) else None
+        if not isinstance(description, str):
+            continue
+        item = _autocomplete_item(description, raw_id)
+        if item is None:
+            continue
+        items.append(item)
+        if len(items) >= _MAX_AUTOCOMPLETE:
+            break
+    return items
+
+
+def map_legacy_autocomplete(payload: dict[str, Any]) -> list[PlaceAutocompleteItem]:
+    """predictions[] clássico → mesmo contrato."""
+    items: list[PlaceAutocompleteItem] = []
+    for pred in payload.get("predictions") or []:
+        if not isinstance(pred, dict):
+            continue
+        raw_id = pred.get("place_id")
+        description = pred.get("description")
+        if not isinstance(raw_id, str) or not isinstance(description, str):
+            continue
+        item = _autocomplete_item(description, raw_id)
+        if item is None:
+            continue
+        items.append(item)
+        if len(items) >= _MAX_AUTOCOMPLETE:
+            break
+    return items
 
 
 def map_place_to_details(
@@ -761,3 +841,134 @@ async def get_place_details(place_id: str) -> PlaceFullDetailsResponse:
         len(details.photo_urls),
     )
     return details
+
+
+async def _autocomplete_places_new(
+    client: httpx.AsyncClient,
+    api_key: str,
+    term: str,
+) -> list[PlaceAutocompleteItem]:
+    response = await client.post(
+        _AUTOCOMPLETE_URL_NEW,
+        headers={
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+        },
+        json={
+            "input": term,
+            "languageCode": "pt-BR",
+            "includedPrimaryTypes": list(_AUTOCOMPLETE_TYPES_NEW),
+        },
+    )
+
+    if _is_places_new_blocked(response.status_code, response.text):
+        logger.warning(
+            "Places Autocomplete (New) bloqueada/desabilitada (403) — fallback legacy."
+        )
+        raise RuntimeError("places_new_blocked")
+
+    if response.status_code != 200:
+        logger.error(
+            "Places Autocomplete (New) falhou: status={} body={}",
+            response.status_code,
+            response.text[:300],
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar o Google Places.",
+        )
+
+    return map_new_autocomplete(response.json())
+
+
+async def _autocomplete_places_legacy(
+    client: httpx.AsyncClient,
+    api_key: str,
+    term: str,
+) -> list[PlaceAutocompleteItem]:
+    response = await client.get(
+        _AUTOCOMPLETE_URL_LEGACY,
+        params={
+            "input": term,
+            "language": "pt-BR",
+            "types": _AUTOCOMPLETE_TYPES_LEGACY,
+            "key": api_key,
+        },
+    )
+
+    if response.status_code != 200:
+        logger.error(
+            "Places Autocomplete (legacy) HTTP falhou: status={} body={}",
+            response.status_code,
+            response.text[:300],
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar o Google Places.",
+        )
+
+    payload = response.json()
+    api_status = payload.get("status")
+    if api_status in ("ZERO_RESULTS", "INVALID_REQUEST"):
+        return []
+    if api_status == "REQUEST_DENIED":
+        logger.error(
+            "Places Autocomplete legacy REQUEST_DENIED: {}",
+            str(payload.get("error_message", ""))[:300],
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Google Places negou a chave. No Cloud Console: habilite "
+                "'Places API' (e/ou Places API New) e libere a API na restrição da key."
+            ),
+        )
+    if api_status not in ("OK",):
+        logger.error(
+            "Places Autocomplete legacy status inesperado: {} msg={}",
+            api_status,
+            str(payload.get("error_message", ""))[:200],
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar o Google Places.",
+        )
+
+    return map_legacy_autocomplete(payload)
+
+
+async def autocomplete_places(term: str) -> PlaceAutocompleteResponse:
+    """Place Autocomplete (New → fallback legacy). Lista vazia se nada casar."""
+    api_key = _require_api_key()
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            try:
+                predictions = await _autocomplete_places_new(client, api_key, term)
+            except RuntimeError as exc:
+                if str(exc) != "places_new_blocked":
+                    raise
+                predictions = await _autocomplete_places_legacy(
+                    client, api_key, term
+                )
+    except HTTPException:
+        raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Timeout no Places Autocomplete: input={}", term[:80])
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timeout ao consultar o Google Places.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.error("Erro de rede no Places Autocomplete: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha de rede ao consultar o Google Places.",
+        ) from exc
+
+    logger.info(
+        "Places autocomplete ok: input={!r} n={}",
+        term[:80],
+        len(predictions),
+    )
+    return PlaceAutocompleteResponse(predictions=predictions)

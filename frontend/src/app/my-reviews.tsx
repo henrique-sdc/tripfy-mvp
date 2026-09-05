@@ -1,7 +1,7 @@
 // Minhas Avaliações — lista, edita e apaga reviews do usuário (Fase 3).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";

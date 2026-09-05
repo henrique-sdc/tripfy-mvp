@@ -6,7 +6,7 @@
 @layer theme {
   @theme {
     /* Fundo e Superfícies */
-    --color-background: light-dark(#f7f8fa, #000000);
+    --color-background: light-dark(#f7f8fa, #0B1014);
     --color-surface: light-dark(#ffffff, #1c1c1e);
     --color-border: light-dark(#e5e5ea, #333336);
 

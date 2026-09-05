@@ -1,4 +1,66 @@
 # Changelog — Tripfy Docs
+## 2026-09-05 — Autocomplete de destino (wizard)
+
+- Proxy `GET /api/v1/places/autocomplete` (Places Autocomplete New → legacy).
+  Chave `GOOGLE_MAPS_API_KEY` continua só no backend. Resposta: `description` + `place_id`.
+- Wizard Solo: dropdown absoluto (FadeIn), debounce 400ms, CTA só após selecionar
+  uma sugestão. Em Alta segue com sentinela `curated`.
+- Wiki: [[Detalhe da Viagem RF07]], [[Home e Bottom Tabs]].
+
+## 2026-09-04 — Configurações: desligar vibração
+
+- Toggle em Configurações › Preferências do app. Default desligado. Preferência do
+  aparelho (`tripfy-preferences-v2`), sobrevive a logout.
+- Wrapper `@/lib/haptics` no lugar de `expo-haptics`. Swipe da lixeira usa
+  `{ required: true }` — continua vibrando com o toggle off.
+- Wiki: [[Gerenciamento de Perfil RF03]].
+
+## 2026-09-04 — Roteiro: sheet sobre o mapa + DnD usável no iPhone
+
+- Lista do RF07 vira sheet **nos dois sistemas**: puxa o grip pra cima e o mapa
+  encolhe (altura animada, sem `translateY` — overlay quebrava o drag).
+- Handle de reordenar volta ao ≡ original; long-press no card também inicia o DnD.
+
+## 2026-09-04 — Tab indicator sem quique; swipe-to-delete no padrão Alarmes
+
+- Indicador da tab bar: `withTiming` 240ms `ease-out` no lugar do spring. Tab troca
+  dezenas de vezes por dia — quique era ruído (estilo seletor de Ruído dos AirPods).
+- `SwipeToDelete` sai do `ReanimatedSwipeable` (`flex:1` = faixa vermelha gigante).
+  Pan: metade abre o botão compacto; 55% ou flick apaga; háptico no limiar; lixeira
+  acompanha a borda do card. Classes canônicas no onboarding (`w-13.5`, `py-3.5`, …).
+- Guard: `scripts/check-swipe-release.mjs`. Wiki: [[Liquid Glass e Vidro Nativo]].
+
+## 2026-09-04 — Vidro nativo: Liquid Glass com fallback, e o fim do className morto
+
+- **Causa raiz da UI quebrada no iOS 26:** `className` em `BlurView` e `Animated.View` é
+  descartado em silêncio (metro com `globalClassNamePolyfill: false`). Sem `flex-row`,
+  o botão do Google empilhava o ícone; sem `px-8`, o onboarding cortava o texto; sem
+  `h-2`/`bg-white`, os dots de paginação eram invisíveis.
+- Novo `GlassSurface`: iOS 26+ → `GlassView` (`expo-glass-effect`, já instalado e nunca
+  usado), iOS 16.4–25 → `BlurView`, Android e "Reduzir Transparência" → cor opaca.
+  Guarda contra dev build sem o módulo nativo.
+- `FloatingTabBar` virou pílula flutuante única (caiu o fork iOS/Android) com indicador
+  deslizante (`damping: 20, stiffness: 200`).
+- `SwipeToDelete` unifica Viagens, Lixeira e InviteBanner; ganha háptico ao armar o
+  overswipe. `@/tw` agora exporta `AnimatedView`/`AnimatedText`/`AnimatedPressable`.
+- Guard runnable com autoteste em `frontend/scripts/check-dead-classname.mjs`, no `npm run lint`.
+- Saldo: −543/+278 linhas. Wiki: [[Liquid Glass e Vidro Nativo]].
+
+## 2026-09-04 — Setup de máquina nova
+
+- Guia sequencial em `docs/SETUP.md` (Windows do zero: BIOS, winget, Cursor, MCP Obsidian, AVD, `.env`, FastAPI, Expo, ADB, `firebase deploy --only firestore:rules`).
+- Wiki: [[SETUP]].
+
+## 2026-08-30 — CARTO: API key nos tiles do mapa
+
+- Raster CARTO agora exige `?key=` (watermark no iOS). Chave gratuita em carto.com/basemaps/apikey.
+- App lê `EXPO_PUBLIC_CARTO_API_KEY`. Atribuição OSM+CARTO visível. `baseUrl` também no iOS.
+
+## 2026-08-30 — Dark: fundo #0B1014
+
+- Token `--color-background` (dark) e `Colors.dark.background` saem de `#000000` para `#0B1014`.
+- Telas que usam `theme.background` / `bg-background` herdam. Overlays de foto e sombra `#000` ficam.
+
 ## 2026-08-30 — Wiki: build iOS no iPhone
 
 - Página [[Build iOS EAS iPhone]]: EAS Ad Hoc no Windows, Apple ID vs Team ID, `app.config.js` sem wrapper, Kaspersky (não inspecionar TLS) e hotspot.

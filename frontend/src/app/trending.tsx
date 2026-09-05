@@ -1,7 +1,7 @@
 // Lista completa "Em Alta" — busca + categorias + CTA wizard (RF08).
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";

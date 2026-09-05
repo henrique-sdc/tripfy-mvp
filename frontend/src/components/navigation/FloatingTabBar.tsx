@@ -1,47 +1,59 @@
 // Tab bar RF04 — 4 abas + botão mágico central (não é rota).
-// iOS: Liquid Glass. Android: bloco flutuante. Conteúdo rola por trás.
+// Pílula flutuante em vidro nativo; o conteúdo da tela rola por trás.
+// A escada iOS 26 / iOS 16.4 / Android mora toda no GlassSurface.
 
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform } from "react-native";
+import type { LayoutChangeEvent } from "react-native";
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/ui/AppText";
+import { GlassSurface } from "@/components/ui/GlassSurface";
 import { useTheme } from "@/hooks/use-theme";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
-import { Pressable, View } from "@/tw";
+import { AnimatedPressable, View } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 18, stiffness: 280 };
-const isIOS = Platform.OS === "ios";
+/** Feedback de toque: rápido e seco. */
+const PRESS_SPRING = { damping: 18, stiffness: 280 };
+/** Indicador: anda e para. Spring quica; tab troca dezenas de vezes por dia. */
+const INDICATOR_MOVE = {
+  duration: 240,
+  easing: Easing.out(Easing.cubic),
+};
 
-export const TAB_BAR_CONTENT_HEIGHT = 58;
-export const TAB_BAR_FLOAT_MARGIN = isIOS ? 0 : 12;
-/** Quanto o botão mágico sobe acima da barra. */
-export const MAGIC_BUTTON_OVERHANG = 22;
+const TAB_BAR_CONTENT_HEIGHT = 58;
+const TAB_BAR_FLOAT_MARGIN = 16;
+const TAB_BAR_SIDE_MARGIN = 16;
+const MAGIC_BUTTON_OVERHANG = 22;
 const MAGIC_SIZE = 58;
+/** Vão reservado na linha para o botão mágico não cobrir ícone nenhum. */
+const MAGIC_SLOT = MAGIC_SIZE + 8;
+const TAB_COUNT = 4;
+const INDICATOR_HEIGHT = TAB_BAR_CONTENT_HEIGHT - 12;
 
 const GRADIENT = ["#2e1065", "#7c3aed", "#9d4edd"] as const;
 
-export function useTabBarPadding(extra = 16): number {
+/** Distância entre a base da tela e a base da pílula. */
+function useTabBarBottom(): number {
   const insets = useSafeAreaInsets();
-  // Gesture bar / home indicator: nunca use 0 no Android — senão corta o conteúdo.
-  const bottomInset = Math.max(insets.bottom, isIOS ? 0 : 16);
-  return (
-    TAB_BAR_CONTENT_HEIGHT +
-    MAGIC_BUTTON_OVERHANG +
-    TAB_BAR_FLOAT_MARGIN +
-    bottomInset +
-    extra
-  );
+  // Piso de 8: Android com navegação por gestos reporta inset ~0 e a pílula colaria.
+  return Math.max(insets.bottom, 8) + TAB_BAR_FLOAT_MARGIN;
+}
+
+/** Padding que as telas precisam no fim do scroll para não sumir sob a pílula. */
+export function useTabBarPadding(extra = 16): number {
+  const bottom = useTabBarBottom();
+  return TAB_BAR_CONTENT_HEIGHT + MAGIC_BUTTON_OVERHANG + bottom + extra;
 }
 
 type TabIconName = keyof typeof Ionicons.glyphMap;
@@ -73,6 +85,69 @@ export type FloatingTabBarProps = {
     navigate: (name: string, params?: object) => void;
   };
 };
+
+/** Largura de uma aba, descontado o vão do botão mágico. */
+function tabWidth(rowWidth: number): number {
+  return (rowWidth - MAGIC_SLOT) / TAB_COUNT;
+}
+
+/** Centro do item `index` na linha — as duas últimas abas ficam depois do vão. */
+function tabCenter(index: number, rowWidth: number): number {
+  const width = tabWidth(rowWidth);
+  const offset = index < TAB_COUNT / 2 ? 0 : MAGIC_SLOT;
+  return offset + index * width + width / 2;
+}
+
+/** Bolha que desliza atrás da aba ativa. */
+function ActiveIndicator({
+  index,
+  rowWidth,
+}: {
+  index: number;
+  rowWidth: number;
+}) {
+  const theme = useTheme();
+  const x = useSharedValue(0);
+  const positioned = useRef(false);
+
+  const width = Math.max(tabWidth(rowWidth) - 6, 0);
+  const left = rowWidth > 0 ? tabCenter(index, rowWidth) - width / 2 : 0;
+
+  useEffect(() => {
+    if (rowWidth === 0) return;
+    // No primeiro layout ela já nasce no lugar; deslizar do canto seria ruído.
+    if (positioned.current) {
+      x.value = withTiming(left, INDICATOR_MOVE);
+    } else {
+      positioned.current = true;
+      x.value = left;
+    }
+  }, [left, rowWidth, x]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  if (rowWidth === 0) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        style,
+        {
+          position: "absolute",
+          left: 0,
+          top: 6,
+          width,
+          height: INDICATOR_HEIGHT,
+          borderRadius: INDICATOR_HEIGHT / 2,
+          backgroundColor: `${theme.accent}22`,
+        },
+      ]}
+    />
+  );
+}
 
 function TabItem({
   label,
@@ -109,10 +184,10 @@ function TabItem({
       }}
       onLongPress={onLongPress}
       onPressIn={() => {
-        scale.value = withSpring(0.92, SPRING);
+        scale.value = withSpring(0.92, PRESS_SPRING);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        scale.value = withSpring(1, PRESS_SPRING);
       }}
       style={animatedStyle}
       className="flex-1 items-center justify-center gap-0.5 py-1"
@@ -146,10 +221,10 @@ function MagicButton() {
         open();
       }}
       onPressIn={() => {
-        scale.value = withSpring(0.9, SPRING);
+        scale.value = withSpring(0.9, PRESS_SPRING);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        scale.value = withSpring(1, PRESS_SPRING);
       }}
       style={[
         style,
@@ -167,7 +242,6 @@ function MagicButton() {
           shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.45,
           shadowRadius: 12,
-          zIndex: 20,
         },
       ]}
     >
@@ -175,11 +249,7 @@ function MagicButton() {
         colors={[...GRADIENT]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
       >
         <Ionicons name="sparkles" size={26} color="#fff" />
       </LinearGradient>
@@ -227,80 +297,52 @@ function buildTabItems({
 }
 
 export function FloatingTabBar(props: FloatingTabBarProps) {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const bottomPad = isIOS
-    ? Math.max(insets.bottom, 8)
-    : Math.max(insets.bottom, 16) + TAB_BAR_FLOAT_MARGIN;
+  const bottom = useTabBarBottom();
+  const [rowWidth, setRowWidth] = useState(0);
 
   const items = buildTabItems(props);
   // Ordem das rotas: [Início, Salvos] | ✨ | [Viagens, Perfil]
-  const left = items.slice(0, 2);
-  const right = items.slice(2);
+  const left = items.slice(0, TAB_COUNT / 2);
+  const right = items.slice(TAB_COUNT / 2);
 
-  const row = (
-    <View
-      className="flex-row items-center"
-      style={{ height: TAB_BAR_CONTENT_HEIGHT }}
-    >
-      {left}
-      {/* Espaço reservado sob o botão mágico. */}
-      <View style={{ width: MAGIC_SIZE + 8 }} />
-      {right}
-    </View>
-  );
-
-  if (isIOS) {
-    return (
-      <View
-        pointerEvents="box-none"
-        className="absolute left-0 right-0 bottom-0"
-        style={{ paddingTop: MAGIC_BUTTON_OVERHANG }}
-      >
-        <View pointerEvents="box-none" className="overflow-visible">
-          <MagicButton />
-          <BlurView
-            intensity={80}
-            tint="systemChromeMaterial"
-            style={{
-              paddingBottom: bottomPad,
-              borderTopWidth: 0.5,
-              borderTopColor: theme.borderGlass,
-              overflow: "hidden",
-            }}
-          >
-            {row}
-          </BlurView>
-        </View>
-      </View>
-    );
+  function handleRowLayout(event: LayoutChangeEvent) {
+    setRowWidth(event.nativeEvent.layout.width);
   }
 
   return (
+    // O paddingTop mantém o botão mágico dentro dos limites do container: no
+    // Android, filho que estoura a caixa do pai não recebe toque.
     <View
       pointerEvents="box-none"
-      className="absolute left-0 right-0 bottom-0 px-4"
       style={{
-        paddingBottom: bottomPad,
+        position: "absolute",
+        left: TAB_BAR_SIDE_MARGIN,
+        right: TAB_BAR_SIDE_MARGIN,
+        bottom,
         paddingTop: MAGIC_BUTTON_OVERHANG,
       }}
     >
-      <View pointerEvents="box-none" className="overflow-visible">
-        <MagicButton />
-        <View
-          className="rounded-[28px] border border-border overflow-hidden"
+      <View pointerEvents="box-none">
+        <GlassSurface
           style={{
-            backgroundColor: theme.surface,
-            borderColor: "transparent",
-            elevation: 8,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
-            shadowRadius: 12,
+            borderRadius: TAB_BAR_CONTENT_HEIGHT / 2,
+            overflow: "hidden",
           }}
         >
-          {row}
-        </View>
+          <View
+            className="flex-row items-center"
+            style={{ height: TAB_BAR_CONTENT_HEIGHT }}
+            onLayout={handleRowLayout}
+          >
+            <ActiveIndicator index={props.state.index} rowWidth={rowWidth} />
+            {left}
+            <View style={{ width: MAGIC_SLOT }} />
+            {right}
+          </View>
+        </GlassSurface>
+
+        {/* Depois da pílula na árvore para pintar por cima dela. */}
+        <MagicButton />
       </View>
     </View>
   );

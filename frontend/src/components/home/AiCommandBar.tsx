@@ -1,7 +1,7 @@
 // AI Command Center — input estilo chat na Home. Abre o sheet do Wizard.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { useTranslation } from "react-i18next";
 import Animated, {
   useAnimatedStyle,

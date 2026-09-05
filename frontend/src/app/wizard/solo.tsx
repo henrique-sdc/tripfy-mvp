@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -28,12 +28,17 @@ import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { MagicalGenerating } from "@/components/trip/MagicalGenerating";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
+import {
+  CURATED_PLACE_ID,
+  DestinationAutocomplete,
+} from "@/components/wizard/DestinationAutocomplete";
 import { BUDGET_OPTIONS } from "@/constants/travel-preferences";
 import { useTheme } from "@/hooks/use-theme";
 import {
   createMatch,
   generateTripStream,
   NetworkError,
+  type PlaceAutocompleteItem,
 } from "@/lib/api";
 import { stashPendingItinerary } from "@/lib/pendingItinerary";
 import {
@@ -92,6 +97,7 @@ export default function WizardSoloScreen() {
   const [picker, setPicker] = useState<PickerField>(null);
 
   const [destination, setDestination] = useState("");
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [budget, setBudget] = useState("moderate");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +114,7 @@ export default function WizardSoloScreen() {
   }));
 
   const canSubmit =
-    destination.trim().length >= 2 &&
+    Boolean(selectedPlaceId) &&
     datesValid &&
     !loading &&
     !creatingMatch;
@@ -118,6 +124,7 @@ export default function WizardSoloScreen() {
     const saved = peekWizardSoloDraft();
     if (saved) {
       setDestination(saved.destination);
+      setSelectedPlaceId(saved.place_id);
       setBudget(saved.budget);
       setNotes(saved.notes);
       const s = parseIsoDate(saved.start_date);
@@ -131,6 +138,7 @@ export default function WizardSoloScreen() {
       typeof destParam === "string" ? destParam.trim() : "";
     if (fromQuery.length >= 2) {
       setDestination(fromQuery);
+      setSelectedPlaceId(CURATED_PLACE_ID);
     }
 
     const hintDays = Number(
@@ -167,6 +175,7 @@ export default function WizardSoloScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     stashWizardSoloDraft({
       destination,
+      place_id: selectedPlaceId,
       start_date: toIsoDate(startDate),
       end_date: toIsoDate(endDate),
       days,
@@ -190,6 +199,16 @@ export default function WizardSoloScreen() {
     if (!date) return;
     Haptics.selectionAsync();
     setEndDate(clampEndToMaxSpan(startDate, date));
+  }
+
+  function onDestinationChange(text: string) {
+    setDestination(text);
+    setSelectedPlaceId(null);
+  }
+
+  function onDestinationSelect(item: PlaceAutocompleteItem) {
+    setDestination(item.description);
+    setSelectedPlaceId(item.place_id);
   }
 
   async function onGenerate() {
@@ -318,34 +337,12 @@ export default function WizardSoloScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <RNView style={styles.field}>
-                <AppText className="text-[13px] font-semibold tracking-wide">
-                  {t("wizard.destinationLabel")}
-                </AppText>
-                <RNView
-                  style={[
-                    styles.inputRow,
-                    {
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Ionicons name="location" size={20} color={theme.accent} />
-                  <RNTextInput
-                    value={destination}
-                    onChangeText={setDestination}
-                    placeholder={t("wizard.destinationPlaceholder")}
-                    placeholderTextColor={theme.textMuted}
-                    style={[styles.input, { color: theme.textPrimary }]}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </RNView>
-                <AppText tone="muted" className="text-[11px]">
-                  {t("wizard.destinationHint")}
-                </AppText>
-              </RNView>
+              <DestinationAutocomplete
+                value={destination}
+                selectedPlaceId={selectedPlaceId}
+                onChangeText={onDestinationChange}
+                onSelect={onDestinationSelect}
+              />
 
               <RNView style={styles.field}>
                 <AppText className="text-[13px] font-semibold tracking-wide">
@@ -565,6 +562,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 24,
     gap: 28,
+    overflow: "visible",
   },
   field: { gap: 10 },
   dateRow: {
@@ -579,20 +577,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    padding: 0,
   },
   notes: {
     minHeight: 100,

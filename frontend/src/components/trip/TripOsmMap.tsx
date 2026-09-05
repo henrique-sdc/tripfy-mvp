@@ -11,7 +11,6 @@
 import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -28,13 +27,16 @@ export type MapPoint = {
 type Props = {
   points: MapPoint[];
   accentColor: string;
-  height: number;
   dark: boolean;
   emptyLabel: string;
   emptyHint: string;
   emptyBg: string;
   mutedColor: string;
   textColor: string;
+  /** Altura fixa. Ignorado quando `fill`. */
+  height?: number;
+  /** Preenche o pai (mapa atrás do sheet). */
+  fill?: boolean;
 };
 
 function buildLeafletHtml(
@@ -49,10 +51,15 @@ function buildLeafletHtml(
     lng: p.longitude,
   }));
 
-  // CARTO: tiles gratuitos, sem key, com variante clara/escura e retina ({r}).
-  const tileUrl = dark
+  // CARTO passou a exigir API key nos raster tiles (watermark "API KEY REQUIRED").
+  // Chave pública: EXPO_PUBLIC_CARTO_API_KEY no frontend/.env (fair use gratuito).
+  const cartoKey = process.env.EXPO_PUBLIC_CARTO_API_KEY ?? "";
+  const tileBase = dark
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
     : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  const tileUrl = cartoKey
+    ? `${tileBase}?key=${encodeURIComponent(cartoKey)}`
+    : tileBase;
 
   return `<!DOCTYPE html>
 <html>
@@ -87,11 +94,12 @@ function buildLeafletHtml(
       try {
         if (typeof L === 'undefined') { log('ERR: Leaflet nao carregou'); return; }
         var pts = ${JSON.stringify(payload)};
-        var map = L.map('map', { zoomControl: false, attributionControl: false });
-        L.tileLayer('${tileUrl}', {
+        var map = L.map('map', { zoomControl: false });
+        L.tileLayer(${JSON.stringify(tileUrl)}, {
           maxZoom: 19,
           subdomains: 'abcd',
-          detectRetina: true
+          detectRetina: true,
+          attribution: '&copy; OpenStreetMap, &copy; CARTO'
         }).addTo(map);
 
         var latlngs = [];
@@ -145,6 +153,7 @@ export function TripOsmMap({
   points,
   accentColor,
   height,
+  fill = false,
   dark,
   emptyLabel,
   emptyHint,
@@ -164,6 +173,10 @@ export function TripOsmMap({
     [points, dark],
   );
 
+  const shell = fill
+    ? [StyleSheet.absoluteFill, { backgroundColor: emptyBg }]
+    : [styles.shell, { height, backgroundColor: emptyBg }];
+
   function handleMessage(e: WebViewMessageEvent) {
     const data = e.nativeEvent.data;
     if (data.startsWith("ERR")) {
@@ -176,7 +189,7 @@ export function TripOsmMap({
 
   if (points.length === 0) {
     return (
-      <View style={[styles.shell, styles.centered, { height, backgroundColor: emptyBg }]}>
+      <View style={[shell, styles.centered]}>
         <Text style={[styles.emptyTitle, { color: textColor }]}>
           {emptyLabel}
         </Text>
@@ -187,15 +200,12 @@ export function TripOsmMap({
     );
   }
 
-  // baseUrl no Android: origem "null" (source html cru) faz o WebView bloquear
-  // requests de CDN/tiles em algumas versões. Uma origem https destrava.
-  const source =
-    Platform.OS === "android"
-      ? { html, baseUrl: "https://tripfy.app/" }
-      : { html };
+  // baseUrl: origem "null" (html cru) bloqueia CDN no Android e o CARTO trata
+  // o iOS como sem domínio. Mesma origem nas duas plataformas.
+  const source = { html, baseUrl: "https://tripfy.app/" };
 
   return (
-    <View style={[styles.shell, { height, backgroundColor: emptyBg }]}>
+    <View style={shell}>
       <WebView
         key={webviewKey}
         originWhitelist={["*"]}

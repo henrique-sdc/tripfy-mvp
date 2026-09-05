@@ -1,5 +1,44 @@
 # Log — Tripfy Wiki
 
+## [2026-09-05] update | Autocomplete de destino no wizard
+
+Proxy `GET /places/autocomplete` (New → legacy). Wizard Solo exige toque numa
+sugestão Google (Em Alta = `curated`). [[Detalhe da Viagem RF07]],
+[[Home e Bottom Tabs]] e [[changelog]].
+
+## [2026-09-04] update | Toggle de vibração nas Configurações
+
+Preferência do aparelho em `/settings`. Wrapper `@/lib/haptics`; lixeira ignora o
+toggle. [[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-09-04] update | Sheet do roteiro e DnD no iPhone
+
+Layout RF07: mapa full-bleed + sheet maximizável. Handle de drag 44pt fora do
+Pressable da foto. [[Detalhe da Viagem RF07]] e [[changelog]].
+
+## [2026-09-04] update | Tab indicator e swipe Alarmes
+
+Indicador da tab: timing sem quique. `SwipeToDelete` reescrito em Pan (commit em 55%,
+lixeira acompanha). Atualizados [[Liquid Glass e Vidro Nativo]] e [[changelog]].
+
+## [2026-09-04] ingest | Liquid Glass e vidro nativo
+
+Criada [[Liquid Glass e Vidro Nativo]]: escada iOS 26 / iOS 16.4 / Android no `GlassSurface`, a
+armadilha do `className` morto em componentes nativos e o `SwipeToDelete` unificado. Nota de
+alerta cruzada em [[NativeWind Setup]]. Atualizados [[index]] e [[changelog]].
+
+## [2026-09-04] ingest | SETUP máquina formatada
+
+Criada [[SETUP]] (resumo no vault) e `docs/SETUP.md` (comandos). Atualizados [[index]] e [[changelog]].
+
+## [2026-08-30] update | CARTO API key no mapa
+
+Tiles Leaflet passam `EXPO_PUBLIC_CARTO_API_KEY`. Ver [[Detalhe da Viagem RF07]] e [[changelog]].
+
+## [2026-08-30] update | Fundo dark #0B1014
+
+`--color-background` dark e `Colors.dark.background`: `#000000` → `#0B1014`. Ver [[Design System Auth]] e [[changelog]].
+
 ## [2026-08-30] ingest | Build iOS EAS iPhone
 
 Criada [[Build iOS EAS iPhone]] a partir do terminal (Kaspersky TLS + hotspot ASUS + EAS Ad Hoc). Atualizados [[index]] e [[changelog]].

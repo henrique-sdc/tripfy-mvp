@@ -10,7 +10,7 @@ Relacionado: [[Autenticação Full Stack]], [[NativeWind Setup]]
 
 | Token CSS | Light | Dark | Uso |
 |-----------|-------|------|-----|
-| `background` | `#f7f8fa` | `#000000` | Fundo das telas |
+| `background` | `#f7f8fa` | `#0B1014` | Fundo das telas |
 | `surface` | `#ffffff` | `#1c1c1e` | Cards, inputs em repouso |
 | `text-primary` | `#111111` | `#ffffff` | Títulos, corpo |
 | `text-secondary` | `#8e8e93` | `#a1a1aa` | Subtítulos, hints |

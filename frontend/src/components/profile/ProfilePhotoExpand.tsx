@@ -4,7 +4,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";

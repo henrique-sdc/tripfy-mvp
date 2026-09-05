@@ -3,7 +3,7 @@
 // vão também via `style` nativo porque o TextInput/Text no Android nem sempre
 // resolve tokens `light-dark()` do NativeWind v5.
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import type { ReactNode } from "react";
 import { ActivityIndicator, type GestureResponderEvent } from "react-native";
 import Animated, {

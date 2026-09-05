@@ -14,7 +14,7 @@ import Animated, {
 
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
-import { View } from "@/tw";
+import { AnimatedView, View } from "@/tw";
 
 type PasswordStrengthBarProps = {
   password?: string;
@@ -81,7 +81,7 @@ export function PasswordStrengthBar({ password = "" }: PasswordStrengthBarProps)
   const labelColor = STRENGTH_COLORS[Math.min(score, 4) - 1];
 
   return (
-    <Animated.View
+    <AnimatedView
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(140)}
       className="gap-1.5 px-1 mt-1"
@@ -102,6 +102,6 @@ export function PasswordStrengthBar({ password = "" }: PasswordStrengthBarProps)
       >
         {t(`auth.passwordStrength.${labelKey}`)}
       </AppText>
-    </Animated.View>
+    </AnimatedView>
   );
 }

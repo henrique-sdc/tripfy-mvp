@@ -3,10 +3,10 @@
 // Some automaticamente quando a conexão volta (backendUnreachable === false).
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 
-import { Text, View } from '@/tw';
+import { AnimatedView, Text, View } from '@/tw';
 import { useAuthStore } from '@/stores/authStore';
 
 export function OfflineBanner() {
@@ -17,7 +17,7 @@ export function OfflineBanner() {
   if (!backendUnreachable) return null;
 
   return (
-    <Animated.View
+    <AnimatedView
       entering={FadeInDown.duration(250)}
       exiting={FadeOutUp.duration(200)}
       style={{ paddingTop: insets.top + 8 }}
@@ -28,6 +28,6 @@ export function OfflineBanner() {
           {t('common.offlineBanner')}
         </Text>
       </View>
-    </Animated.View>
+    </AnimatedView>
   );
 }

@@ -1,7 +1,7 @@
 // Card de ritmo (pace) — seleção única. O card ativo fica nítido; os outros
 // afundam (opacity 0.4 + scale 0.96) para guiar o olho sem bloquear toque.
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

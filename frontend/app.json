@@ -13,7 +13,6 @@
       "translucent": true
     },
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.henrique.tripfy",
       "buildNumber": "1",
       "supportsTablet": false,

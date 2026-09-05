@@ -8,7 +8,11 @@ from loguru import logger
 
 from core.auth_middleware import CurrentUser, get_current_user
 from core.rate_limit import limiter
-from models.places import PlaceDetailsResponse, PlaceFullDetailsResponse
+from models.places import (
+    PlaceAutocompleteResponse,
+    PlaceDetailsResponse,
+    PlaceFullDetailsResponse,
+)
 from models.review import PlaceReviewCreate, PlaceReviewResponse
 from repositories import review_repository
 from services import places_service
@@ -17,6 +21,7 @@ from services.places_service import validate_place_id
 router = APIRouter(prefix="/places", tags=["places"])
 
 _LOOKUP_LIMIT = "30/minute"
+_AUTOCOMPLETE_LIMIT = "60/minute"
 _DETAILS_LIMIT = "20/minute"
 _REVIEWS_GET_LIMIT = "30/minute"
 _REVIEWS_WRITE_LIMIT = "10/minute"
@@ -50,6 +55,28 @@ async def lookup_place(
         lat is not None,
     )
     return await places_service.lookup_place(query, lat=lat, lng=lng)
+
+
+@router.get("/autocomplete", response_model=PlaceAutocompleteResponse)
+@limiter.limit(_AUTOCOMPLETE_LIMIT)
+async def autocomplete_places(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    term: str = Query(
+        ...,
+        alias="input",
+        min_length=2,
+        max_length=120,
+        description="Prefixo digitado (ex.: Par)",
+    ),
+) -> PlaceAutocompleteResponse:
+    """Sugestões de destino (Place Autocomplete). Lista vazia = nenhum palpite."""
+    logger.info(
+        "Places autocomplete: uid={} input={!r}",
+        current_user.uid,
+        term[:80],
+    )
+    return await places_service.autocomplete_places(term)
 
 
 @router.get("/reviews/me", response_model=list[PlaceReviewResponse])

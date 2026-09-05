@@ -1,7 +1,8 @@
-// Card premium da aba Viagens — thumb Places + meta + press spring 0.97.
+// Card da aba Viagens — thumb Places + meta. Sem scale no press: o card
+// senta em cima do vermelho do swipe, e encolher revela o delete.
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +13,6 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withRepeat,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
@@ -23,8 +23,6 @@ import { relativeTimeParts } from "@/lib/formatRelativeTime";
 import type { SavedTrip } from "@/lib/trips";
 import { Pressable } from "@/tw";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const SPRING = { damping: 20, stiffness: 300 };
 const THUMB = 80;
 
 type Props = {
@@ -37,7 +35,6 @@ export function TripHistoryCard({ trip, onPress }: Props) {
   const { t } = useTranslation();
   const reduceMotion = useReducedMotion();
 
-  const scale = useSharedValue(1);
   const shimmer = useSharedValue(0.45);
   const photoOpacity = useSharedValue(0);
 
@@ -107,10 +104,6 @@ export function TripHistoryCard({ trip, onPress }: Props) {
     };
   }, [trip.destination, photoOpacity]);
 
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   const shimmerStyle = useAnimatedStyle(() => ({
     opacity: shimmer.value,
   }));
@@ -146,17 +139,12 @@ export function TripHistoryCard({ trip, onPress }: Props) {
     .join(` ${t("trips.metaSeparator")} `);
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.97, SPRING);
+    <Pressable
+      onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        onPress();
       }}
       style={[
-        pressStyle,
         styles.card,
         {
           backgroundColor: theme.surface,
@@ -229,7 +217,7 @@ export function TripHistoryCard({ trip, onPress }: Props) {
           {metaLine}
         </AppText>
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 

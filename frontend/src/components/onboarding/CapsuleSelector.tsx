@@ -3,7 +3,7 @@
 // não via onLayout por item — evita indicador torto quando os rótulos têm
 // tamanhos diferentes (ex.: "Sozinho(a)" vs "Família").
 
-import * as Haptics from "expo-haptics";
+import * as Haptics from "@/lib/haptics";
 import { useEffect, useState } from "react";
 import { LayoutChangeEvent } from "react-native";
 import Animated, {
