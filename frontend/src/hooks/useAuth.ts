@@ -9,10 +9,12 @@ import { useEffect } from "react";
 import { NetworkError, syncUser } from "@/lib/api";
 import { auth } from "@/lib/firebase";
 import { useAuthStore } from "@/stores/authStore";
+import { usePaywallStore } from "@/stores/paywallStore";
 
 export function useAuth(): void {
   const setUser = useAuthStore((s) => s.setUser);
-  const setHasPreferences = useAuthStore((s) => s.setHasPreferences);
+  const applySync = useAuthStore((s) => s.applySync);
+  const clearSessionFlags = useAuthStore((s) => s.clearSessionFlags);
   const setLoading = useAuthStore((s) => s.setLoading);
   const setBackendUnreachable = useAuthStore((s) => s.setBackendUnreachable);
   const markSyncFailedByNetwork = useAuthStore((s) => s.markSyncFailedByNetwork);
@@ -24,15 +26,21 @@ export function useAuth(): void {
       setUser(user);
 
       if (!user) {
-        setHasPreferences(null);
+        clearSessionFlags();
+        usePaywallStore.getState().close();
         setLoading(false);
         return;
       }
 
       try {
-        // Cria o doc no primeiro login e descobre se já tem preferências.
+        // Cria o doc no primeiro login e descobre se já tem preferências + Pro.
         const result = await syncUser();
-        setHasPreferences(result.has_preferences);
+        applySync({
+          has_preferences: result.has_preferences,
+          is_premium: Boolean(result.is_premium),
+          tier: result.tier === "pro" ? "pro" : "free",
+          premium_until: result.premium_until ?? null,
+        });
         setBackendUnreachable(false);
       } catch (error) {
         console.error("[useAuth] Falha ao sincronizar usuário com o backend:", error);
@@ -44,7 +52,12 @@ export function useAuth(): void {
         } else {
           // Erro de aplicação (ex.: token rejeitado). Fallback seguro: leva
           // ao onboarding — salvar preferências de novo é idempotente.
-          setHasPreferences(false);
+          applySync({
+            has_preferences: false,
+            is_premium: false,
+            tier: "free",
+            premium_until: null,
+          });
         }
       } finally {
         setLoading(false);
@@ -52,5 +65,12 @@ export function useAuth(): void {
     });
 
     return unsubscribe;
-  }, [setUser, setHasPreferences, setLoading, setBackendUnreachable, markSyncFailedByNetwork]);
+  }, [
+    setUser,
+    applySync,
+    clearSessionFlags,
+    setLoading,
+    setBackendUnreachable,
+    markSyncFailedByNetwork,
+  ]);
 }

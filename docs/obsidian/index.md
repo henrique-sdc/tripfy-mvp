@@ -12,8 +12,10 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[NativeWind Setup]] — configuração de estilização (NativeWind v5 + Tailwind v4).
 - [[Liquid Glass e Vidro Nativo]] — escada iOS 26 / iOS 16.4 / Android, guardas de runtime, a armadilha do `className` morto e o swipe-to-delete.
 - [[Geração de Roteiro RF06]] — RF06: LLM trocável (`openai`/`gemini`), SSE, prompt anti-injection, prefs do Firestore.
+- [[Afiliados RF10]] — RF10: Smart Deep Links para Booking / Skyscanner / GetYourGuide (sem Amadeus).
 - [[Detalhe da Viagem RF07]] — RF07: Lista/Mapa, drag-and-drop, coração → Firestore, coords opcionais.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
+- [[Tripfy Pro e Paywall]] — mock de assinatura TCC: teto de 2 viagens ativas, 402, checkout simulado, overlay do paywall.
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.
 - [[Build iOS EAS iPhone]] — development build no iPhone 13 via EAS (Windows, sem Xcode); Kaspersky + hotspot; certificados na Expo.

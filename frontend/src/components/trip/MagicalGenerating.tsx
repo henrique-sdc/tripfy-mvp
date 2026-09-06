@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
   FadeOut,
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 
@@ -38,7 +41,7 @@ export function MagicalGenerating({
       pulse.value = 1;
       spin.value = 0;
     } else {
-      // Evento raro: respiração discreta e rotação linear mantêm feedback vivo.
+      // Evento raro: respiração no texto + giro com anticipation (não spinner).
       pulse.value = withRepeat(
         withTiming(1, {
           duration: 900,
@@ -47,15 +50,30 @@ export function MagicalGenerating({
         -1,
         true,
       );
+      // Wind-up lento → volta com ease-in-out (~1.8s) → pausa. Mola era nauseante.
       spin.value = withRepeat(
-        withTiming(1, { duration: 1400, easing: Easing.linear }),
+        withSequence(
+          withTiming(-12, {
+            duration: 320,
+            easing: Easing.bezier(0.77, 0, 0.175, 1),
+          }),
+          withTiming(360, {
+            duration: 1800,
+            easing: Easing.bezier(0.77, 0, 0.175, 1),
+          }),
+          withDelay(1100, withTiming(0, { duration: 1 })),
+        ),
         -1,
         false,
       );
     }
 
     const id = setInterval(() => setPhase((value) => (value + 1) % 2), 2800);
-    return () => clearInterval(id);
+    return () => {
+      cancelAnimation(pulse);
+      cancelAnimation(spin);
+      clearInterval(id);
+    };
   }, [pulse, reduceMotion, spin]);
 
   const pulseStyle = useAnimatedStyle(() => ({
@@ -64,7 +82,7 @@ export function MagicalGenerating({
   }));
 
   const sparkleStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${reduceMotion ? 0 : spin.value * 360}deg` }],
+    transform: [{ rotate: `${reduceMotion ? 0 : spin.value}deg` }],
   }));
 
   const statusText =
@@ -78,15 +96,11 @@ export function MagicalGenerating({
       exiting={FadeOut.duration(140)}
       style={styles.root}
     >
-      <Animated.View
-        style={[
-          styles.orb,
-          { backgroundColor: `${theme.accent}18` },
-          sparkleStyle,
-        ]}
-      >
-        <Ionicons name="sparkles" size={36} color={theme.accent} />
-      </Animated.View>
+      <View style={[styles.orb, { backgroundColor: `${theme.accent}18` }]}>
+        <Animated.View style={sparkleStyle}>
+          <Ionicons name="sparkles" size={36} color={theme.accent} />
+        </Animated.View>
+      </View>
       <Animated.View style={pulseStyle}>
         <AppText
           className="text-center text-[18px] font-semibold"

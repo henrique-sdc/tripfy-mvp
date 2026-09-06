@@ -6,7 +6,7 @@ Soft delete: `deleted_at` (null = ativo). Lixeira = 30 dias.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from firebase_admin import firestore
@@ -28,6 +28,30 @@ def _trips_col(uid: str):
     return db.collection("users").document(uid).collection("trips")
 
 
+def _as_bool(value: Any, *, default: bool = False) -> bool:
+    """Só aceita bool real — string "false" não vira True."""
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _parse_iso_date(value: Any) -> date | None:
+    """ISO YYYY-MM-DD a partir de string, date ou datetime do Firestore."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if type(value) is date:
+        return value
+    if isinstance(value, str):
+        text = value.strip()[:10]
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            return None
+    return None
+
+
 def _parse_activity(raw: dict[str, Any]) -> ActivityResponse:
     return ActivityResponse(
         time=str(raw.get("time") or ""),
@@ -36,6 +60,7 @@ def _parse_activity(raw: dict[str, Any]) -> ActivityResponse:
         location=str(raw.get("location") or ""),
         latitude=raw.get("latitude"),
         longitude=raw.get("longitude"),
+        requires_ticket=_as_bool(raw.get("requires_ticket")),
     )
 
 
@@ -94,6 +119,14 @@ def _doc_to_saved(
         ],
         notes=str(data.get("notes") or ""),
         days=_parse_days(data.get("days")),
+        start_date=_parse_iso_date(data.get("start_date")),
+        end_date=_parse_iso_date(data.get("end_date")),
+        match_id=(
+            str(data["match_id"]).strip()
+            if isinstance(data.get("match_id"), str)
+            and str(data["match_id"]).strip()
+            else None
+        ),
         deleted_at=deleted_at,
         cloned_from=(
             str(data["cloned_from"])
@@ -126,6 +159,7 @@ def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
                     "location": a.get("location"),
                     "latitude": a.get("latitude"),
                     "longitude": a.get("longitude"),
+                    "requires_ticket": _as_bool(a.get("requires_ticket")),
                 }
             )
         days_out.append(
@@ -135,6 +169,8 @@ def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
                 "activities": acts,
             }
         )
+    start = _parse_iso_date(data.get("start_date"))
+    end = _parse_iso_date(data.get("end_date"))
     return {
         "destination": data.get("destination") or "",
         "title": str(data.get("title") or "").strip(),
@@ -146,6 +182,8 @@ def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
             if isinstance(t, str) and str(t).strip()
         ],
         "days": days_out,
+        "start_date": start.isoformat() if start else None,
+        "end_date": end.isoformat() if end else None,
     }
 
 
@@ -217,6 +255,20 @@ async def list_trash(uid: str) -> list[SavedTripResponse]:
         return items
 
     return await run_in_threadpool(_fetch)
+
+
+async def count_active(uid: str) -> int:
+    """Conta ativas. ponytail: scan O(n); upgrade = active_trip_count no user."""
+
+    def _count() -> int:
+        n = 0
+        for snap in _trips_col(uid).stream():
+            data = snap.to_dict() or {}
+            if data.get("deleted_at") is None:
+                n += 1
+        return n
+
+    return await run_in_threadpool(_count)
 
 
 async def get_trip(trip_id: str, viewer_uid: str) -> SavedTripResponse | None:
@@ -332,6 +384,35 @@ async def clone_trip(source_trip_id: str, new_owner_uid: str) -> str | None:
             new_owner_uid,
             new_ref.id,
         )
+        return new_ref.id
+
+    return await run_in_threadpool(_write)
+
+
+async def create_trip(
+    uid: str,
+    itinerary: dict[str, Any],
+    *,
+    match_id: str | None = None,
+) -> str:
+    """Cria viagem ativa + índice trip_shares. Caller já passou no entitlement."""
+
+    def _write() -> str:
+        payload = _itinerary_payload(itinerary)
+        new_ref = _trips_col(uid).document()
+        body: dict[str, Any] = {
+            **payload,
+            "owner_uid": uid,
+            "trip_id": new_ref.id,
+            "deleted_at": None,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+        if match_id:
+            body["match_id"] = match_id
+        new_ref.set(body)
+        _write_share_index(new_ref.id, uid)
+        logger.info("Trip criada: uid={} trip_id={}", uid, new_ref.id)
         return new_ref.id
 
     return await run_in_threadpool(_write)

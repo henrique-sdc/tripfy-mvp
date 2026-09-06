@@ -3,9 +3,10 @@
 
 import * as Haptics from "@/lib/haptics";
 import { Href, router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   Modal,
   Platform,
   Pressable as RNPressable,
@@ -26,7 +27,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
+import { FREE_ACTIVE_TRIP_LIMIT } from "@/lib/entitlements";
+import { listTrips } from "@/lib/trips";
+import { useAuthStore } from "@/stores/authStore";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
+import { usePaywallStore } from "@/stores/paywallStore";
 import { Pressable, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -145,6 +150,8 @@ export function CreateTripSheet() {
   const groupAnim = useSharedValue(0);
   const soloAnim = useSharedValue(0);
 
+  const pendingPaywall = useRef(false);
+
   useEffect(() => {
     if (isOpen) {
       // Abre: Backdrop primeiro, depois o título, depois os cards de baixo pra cima
@@ -162,7 +169,29 @@ export function CreateTripSheet() {
   }, [isOpen, backdropOpacity, titleAnim, groupAnim, soloAnim]);
 
   function finishClose() {
+    const showPaywall = pendingPaywall.current;
+    pendingPaywall.current = false;
     close();
+    // Android/iOS só apresentam um Modal por vez. Abrir o paywall enquanto
+    // este sheet ainda está visível faz o segundo Modal sumir.
+    if (showPaywall) {
+      setTimeout(() => {
+        usePaywallStore.getState().open("active_trip_limit");
+      }, 80);
+    }
+  }
+
+  async function ensureCanCreate(): Promise<"ok" | "paywall" | "error"> {
+    if (useAuthStore.getState().isPremium) return "ok";
+    try {
+      const trips = await listTrips();
+      if (trips.length >= FREE_ACTIVE_TRIP_LIMIT) return "paywall";
+      return "ok";
+    } catch (err) {
+      // Sem contagem não dá pra saber o teto — não abre o wizard (nem o paywall).
+      console.warn("[CreateTripSheet] Falha ao contar viagens:", err);
+      return "error";
+    }
   }
 
   function dismiss() {
@@ -175,16 +204,20 @@ export function CreateTripSheet() {
     });
   }
 
-  function goSolo() {
+  async function go(href: Href) {
+    const gate = await ensureCanCreate();
+    if (gate === "error") {
+      Alert.alert(t("createTrip.countErrorTitle"), t("createTrip.countErrorBody"));
+      return;
+    }
+    if (gate === "paywall") {
+      pendingPaywall.current = true;
+      dismiss();
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     dismiss();
-    setTimeout(() => router.push("/wizard/solo"), 200);
-  }
-
-  function goMatch() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    dismiss();
-    setTimeout(() => router.push("/wizard/solo?mode=match" as Href), 200);
+    setTimeout(() => router.push(href), 200);
   }
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -260,7 +293,9 @@ export function CreateTripSheet() {
             subtitle={t("createTrip.matchSubtitle")}
             animValue={groupAnim} // Anima primeiro (fica embaixo)
             delay={0}
-            onPress={goMatch}
+            onPress={() => {
+              void go("/wizard/solo?mode=match" as Href);
+            }}
           />
 
           <RichChoiceCard
@@ -269,7 +304,9 @@ export function CreateTripSheet() {
             subtitle={t("createTrip.soloSubtitle")}
             animValue={soloAnim} // Anima depois (fica em cima)
             delay={0}
-            onPress={goSolo}
+            onPress={() => {
+              void go("/wizard/solo");
+            }}
           />
         </View>
       </View>

@@ -28,7 +28,7 @@ iOS: BlurView Liquid Glass. Android: pill surface. `useTabBarPadding()` no scrol
 
 ## CreateTripSheet
 
-Modal + GestureHandlerRootView interno. Dismiss tap/pan. RichChoiceCard (FadeInDown no wrapper). i18n `createTrip.*`.
+Modal + GestureHandlerRootView interno. Dismiss tap/pan. RichChoiceCard (FadeInDown no wrapper). i18n `createTrip.*`. Free no teto de 2 viagens ativas abre o paywall em vez do wizard — [[Tripfy Pro e Paywall]].
 
 ## Wizard Solo
 
@@ -52,6 +52,7 @@ Ver [[Match de Viajantes RF11 RF12]].
 Lista premium em `(tabs)/trips.tsx`:
 
 - `TripHistoryCard` — foto do destino via `getPlaceDetails(destination)`, meta (dias · relativo), press 0.97.
+- Filtro em pílulas (`CapsuleSelector`): **Todos** / **Matches**. Match = doc com `match_id` (gravado no auto-save pós-lobby). Roteiros antigos sem o campo só aparecem em Todos.
 - Swipe-to-delete (mesmo padrão Mail do [[Detalhe da Viagem RF07]]) → soft delete otimista; restore em `/trash`.
 - Em `/trash`, swipe apaga de vez (`purgeTrip`).
 - Pull-to-refresh; empty state com CTA → `createTripSheetStore.open()`.

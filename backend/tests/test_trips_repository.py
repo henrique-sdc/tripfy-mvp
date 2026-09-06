@@ -25,6 +25,7 @@ class TripsRepositoryHelpersTest(unittest.TestCase):
                 "destination": "Lisboa",
                 "summary": "Sol",
                 "owner_uid": "abc",
+                "match_id": "match-xyz",
                 "deleted_at": "x",
                 "days": [
                     {
@@ -46,7 +47,40 @@ class TripsRepositoryHelpersTest(unittest.TestCase):
         )
         self.assertEqual(payload["destination"], "Lisboa")
         self.assertNotIn("owner_uid", payload)
+        self.assertNotIn("match_id", payload)
         self.assertEqual(len(payload["days"][0]["activities"]), 1)
+        self.assertFalse(payload["days"][0]["activities"][0]["requires_ticket"])
+        self.assertIsNone(payload["start_date"])
+        self.assertIsNone(payload["end_date"])
+
+    def test_itinerary_payload_copies_dates_and_ticket(self) -> None:
+        payload = _itinerary_payload(
+            {
+                "destination": "Lisboa",
+                "summary": "Sol",
+                "owner_uid": "abc",
+                "start_date": "2026-07-10",
+                "end_date": "2026-07-15",
+                "days": [
+                    {
+                        "day": 1,
+                        "title": "Belém",
+                        "activities": [
+                            {
+                                "time": "10:00",
+                                "title": "Jerónimos",
+                                "description": "x",
+                                "location": "Belém",
+                                "requires_ticket": True,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        self.assertEqual(payload["start_date"], "2026-07-10")
+        self.assertEqual(payload["end_date"], "2026-07-15")
+        self.assertTrue(payload["days"][0]["activities"][0]["requires_ticket"])
 
 
 if __name__ == "__main__":

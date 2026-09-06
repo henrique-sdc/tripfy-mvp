@@ -8,13 +8,34 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Cada usuário só pode ler/escrever o seu próprio perfil e subcoleções.
+    // Cada usuário só lê/edita o próprio perfil. Billing (tier / premium_until)
+    // e create de viagem nova passam só pelo Admin SDK (FastAPI).
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      function isSelf() {
+        return request.auth != null && request.auth.uid == uid;
+      }
 
-      // Roteiros salvos (RF06/RF07) — users/{uid}/trips/{tripId}
+      allow read: if isSelf();
+      // Create pelo client não pode plantiar Pro no doc.
+      allow create: if isSelf()
+        && !request.resource.data.keys().hasAny(['tier', 'premium_until']);
+      allow update: if isSelf()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['tier', 'premium_until']);
+      allow delete: if isSelf();
+
+      // Roteiros — create só via API (limite Free). Restore também: o client
+      // não pode zerar deleted_at (senão fura o teto de 2 ativas).
       match /trips/{tripId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if isSelf();
+        allow create: if false;
+        allow delete: if isSelf();
+        allow update: if isSelf()
+          && (
+            !('deleted_at' in resource.data)
+            || resource.data.deleted_at == null
+            || request.resource.data.deleted_at != null
+          );
       }
     }
 

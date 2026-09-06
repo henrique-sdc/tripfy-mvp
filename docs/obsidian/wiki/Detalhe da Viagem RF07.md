@@ -28,7 +28,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Reordenar horários       | `reassignTimes` redistribui slots do dia após drag                                                                                     |
 | Mapa                     | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go)                                                                                    |
 | Entrada                  | Stash `pendingItinerary` (pós-geração) ou `tripId` (aba Viagens)                                                                       |
-| **Auto-save**            | Debounce 700ms → Firestore; `<SyncIndicator>` (salvando / salvo / erro). Sem coração.                                                  |
+| **Auto-save**            | Debounce 700ms → `POST /trips` se for novo (teto Free), senão merge no Firestore. 402 abre o paywall e não entra em loop. Ver [[Tripfy Pro e Paywall]]. |
 | Editar meta              | Toque no destino → destino + resumo + **notas pessoais** (`EditTripMetaModal`)                                                         |
 | Editar título do dia     | Toque no título do dia → `EditDayTitleModal` (auto-save)                                                                               |
 | Notas pessoais           | Campo `notes` no doc Firestore / `SavedTripResponse`; linha sob o título do dia                                                        |
@@ -37,8 +37,9 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Dias                     | Chip `+ Dia`; lixeira no título do dia (reindex 1..N); mín. 1 dia                                                                      |
 | **Lixeira**              | Soft delete 30d (`deleted_at`); Configurações → `/trash`; swipe em Viagens; swipe na lixeira = purge definitivo                         |
 | **Minhas avaliações**    | `GET /places/reviews/me` → `/my-reviews` (editar/excluir)                                                                              |
-| **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim”                                                                  |
+| **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim” (clone também passa no teto Free)                                |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
+| **Parceiros (RF10)**     | `PartnerReserveRow` (hotéis Booking / voos Skyscanner) + CTA GetYourGuide se `requires_ticket`. Ver [[Afiliados RF10]]                 |
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
 | Autocomplete destino     | `GET /places/autocomplete` — typeahead do wizard (RF05); `description` + `place_id`                                                    |
 | Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
@@ -177,4 +178,5 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 ## Relacionados
 
 - [[Geração de Roteiro RF06]] — schema + SSE + lat/lng no prompt
+- [[Afiliados RF10]] — PartnerReserveRow + requires_ticket
 - [[Home e Bottom Tabs]] — entrada pelo Wizard Solo / aba Viagens

@@ -8,12 +8,14 @@ import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
+import { PaywallScreen } from "@/components/paywall/PaywallScreen";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { AppStatusBar, useSystemBars } from "@/hooks/use-system-bars";
 import { useTheme } from "@/hooks/use-theme";
 import { selectIsAuthenticated, useAuthStore } from "@/stores/authStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+import { usePreferencesStore } from "@/stores/preferencesStore";
 
 // Mantém a splash nativa visível até resolvermos o estado inicial de auth.
 SplashScreen.preventAutoHideAsync();
@@ -46,6 +48,7 @@ export default function RootLayout() {
 
   const hasSeenSlides = useOnboardingStore((s) => s.hasSeenSlides);
   const hasSlidesHydrated = useOnboardingStore((s) => s.hasHydrated);
+  const hasPrefsHydrated = usePreferencesStore((s) => s.hasHydrated);
 
   const navTheme = useMemo(() => {
     const base = colorScheme === "dark" ? DarkTheme : DefaultTheme;
@@ -59,10 +62,10 @@ export default function RootLayout() {
     };
   }, [colorScheme, theme.background]);
 
-  // Enquanto checamos a sessão (Firebase) e reidratamos o carrossel de
-  // apresentação (AsyncStorage), não renderizamos nada — a splash nativa
+  // Enquanto checamos a sessão (Firebase) e reidratamos carrossel + prefs
+  // (tema/idioma no AsyncStorage), não renderizamos — a splash nativa
   // segue na tela (só é escondida pelo AnimatedSplashOverlay depois disso).
-  if (isLoading || !hasSlidesHydrated) {
+  if (isLoading || !hasSlidesHydrated || !hasPrefsHydrated) {
     return null;
   }
 
@@ -75,10 +78,6 @@ export default function RootLayout() {
         <AppStatusBar />
         <AnimatedSplashOverlay />
         <OfflineBanner />
-        {/* Navegação declarativa: cada grupo é liberado por uma condição (guard).
-            O Expo Router redireciona sozinho para o primeiro grupo acessível.
-            Ordem: slides de apresentação (1x por instalação) → auth → onboarding
-            de preferências → tabs. */}
         <Stack
           screenOptions={{
             headerShown: false,
@@ -136,6 +135,7 @@ export default function RootLayout() {
             <Stack.Screen name="my-reviews" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>
         </Stack>
+        <PaywallScreen />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -80,6 +80,14 @@ class ActivityResponse(BaseModel):
         default=None,
         description="Longitude WGS84 estimada do local (null se incerta)",
     )
+    # RF10: CTA GetYourGuide no card. Default False = roteiros antigos / parada manual.
+    requires_ticket: bool = Field(
+        default=False,
+        description=(
+            "True se a parada costuma exigir ingresso pago "
+            "(museu, parque, show, tour). False na dúvida."
+        ),
+    )
 
 
 class ItineraryDayResponse(BaseModel):
@@ -128,6 +136,11 @@ class SavedTripResponse(BaseModel):
     # Notas pessoais do dono (não geradas pela LLM).
     notes: str = ""
     days: list[PersistedDay] = Field(default_factory=list)
+    # Metadado da viagem (não vem do LLM) — deep links de OTA (RF10).
+    start_date: date | None = None
+    end_date: date | None = None
+    # Metadado — roteiro gerado numa sessão de Match (não vem do LLM).
+    match_id: str | None = None
     deleted_at: datetime | None = None
     cloned_from: str | None = None
     created_at: datetime | None = None
@@ -141,3 +154,17 @@ class CloneTripResponse(BaseModel):
 
     id: str
     destination: str
+
+
+class CreateTripRequest(BaseModel):
+    """Corpo de POST /trips — persiste um roteiro novo (gate Free: 2 ativas)."""
+
+    destination: str = Field(..., min_length=1, max_length=120)
+    title: str = ""
+    summary: str = ""
+    tips: list[str] = Field(default_factory=list)
+    notes: str = ""
+    days: list[PersistedDay] = Field(default_factory=list)
+    start_date: date | None = None
+    end_date: date | None = None
+    match_id: str | None = Field(default=None, max_length=128)

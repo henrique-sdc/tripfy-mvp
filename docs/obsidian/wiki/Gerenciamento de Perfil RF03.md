@@ -15,7 +15,7 @@ aliases:
 
 # Gerenciamento de Perfil (RF03)
 
-Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "Sua vibe" (com campo livre) e uma área de Configurações (conta, suporte, sair, excluir conta — LGPD / RN01).
+Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "Sua vibe" (com campo livre) e uma área de Configurações (conta, Tripfy Pro, suporte, sair, excluir conta — LGPD / RN01). Chip **Pro** no nome se `isPremium`. Ver [[Tripfy Pro e Paywall]].
 
 ## Arquivos
 
@@ -25,8 +25,9 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 | `frontend/src/app/(tabs)/profile.tsx` | Lê Firestore no `useFocusEffect`; stats; chips da vibe |
 | `frontend/src/app/edit-profile.tsx` | Form RHF+Zod (nome/bio), ImagePicker, remover foto |
 | `frontend/src/app/edit-vibe.tsx` | Reedita `travel_preferences` (reusa componentes do onboarding) + campo livre |
-| `frontend/src/app/settings.tsx` | Conta, vibração, notificações (placeholder), suporte, sair, zona de perigo |
+| `frontend/src/app/settings.tsx` | Conta, tema, idioma, vibração, notificações (placeholder), suporte, sair, zona de perigo |
 | `frontend/src/lib/haptics.ts` | Wrapper de `expo-haptics` que respeita o toggle; `{ required: true }` fura |
+| `frontend/src/lib/appearance.ts` | `Appearance.setColorScheme` a partir de `themeMode` |
 | `frontend/src/stores/preferencesStore.ts` | Preferências do aparelho (AsyncStorage `tripfy-preferences-v2`) |
 | `frontend/src/app/help-support.tsx` | FAQ curto, contato, atalho LGPD |
 | `frontend/src/app/companions.tsx` | Lista completa de companheiros (empty até front consumir API) |
@@ -45,7 +46,12 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 /settings
  ├─ Editar perfil  → /edit-profile
  ├─ Editar vibe    → /edit-vibe
+ ├─ Minhas avaliações → /my-reviews
+ ├─ Tripfy Pro       (Free: paywall mock; Pro: cancelar simulação)
+ ├─ Lixeira          → /trash
  ├─ Notificações   (desabilitado, badge "Em breve" — sem infra de push ainda)
+ ├─ Tema           (Sistema / Claro / Escuro; default Sistema)
+ ├─ Idioma         (só pt-BR no MVP; a linha já existe pra i18n)
  ├─ Vibração       (Switch; default off. Lixeira continua vibrando)
  ├─ Ajuda & Suporte → /help-support
  ├─ Sair da conta  (confirmação → signOut + limpa store)
@@ -65,6 +71,17 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
 - Exceção: `SwipeToDelete` (Viagens, Lixeira, convite) usa `{ required: true }` — o
   arrastar pra lixeira continua vibrando. Ligar o toggle devolve um háptico de
   confirmação (`required`).
+
+### Tema e idioma
+- Default de tema: **sistema**. Claro/Escuro chama `Appearance.setColorScheme`
+  (RN 0.86). Sistema = `'unspecified'` (não `null` — o native crasha e o hook
+  volta `null`, aí `Colors[null].background` estoura). `useTheme` só indexa
+  `light`/`dark`. NativeWind `light-dark()` acompanha.
+- Idioma: só `pt-BR` neste MVP (`SUPPORTED_LOCALES` em `lib/i18n.ts`). A linha
+  nas Configurações deixa o gancho visível; `i18n.changeLanguage` já está ligado
+  ao store pra quando entrar en/es.
+- `_layout` espera a reidratação do store pra não pintar o tema do sistema
+  um frame e depois trocar.
 
 ### Avatar e CTAs
 - Foto ~96pt (próximo do tamanho do perfil do Instagram).
@@ -120,9 +137,9 @@ Salva via `PUT /auth/preferences` (endpoint já existente, sem rota nova).
 ### Estatísticas no Perfil
 | Stat | Fonte |
 |------|-------|
-| Roteiros criados | `getCountFromServer(users/{uid}/trips)` — Firestore SDK v12, mais leve que buscar todos os docs |
+| Roteiros criados | `countTripStats().total` — `getCountFromServer(users/{uid}/trips)` |
 | Salvos | `useWishlistStore((s) => s.items.length)` |
-| Matches | Fixo em "Em breve" (card com opacidade reduzida) — RF11/12 ainda não existe; mostrar "0" seria mentir sobre uma feature inexistente |
+| Matches | `countTripStats().matches` — mesmos trips com `match_id` (origem RF11/RF12). Roteiros de Match antigos sem o campo não entram. |
 
 ### Excluir conta (LGPD)
 1. Apaga `users/{uid}/trips/*`

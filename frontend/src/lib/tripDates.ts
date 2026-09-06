@@ -35,6 +35,13 @@ export function parseIsoDate(iso: string): Date | null {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
+/** Aceita unknown do Firestore/API; devolve ISO ou undefined. */
+export function optionalIsoDate(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const iso = value.trim().slice(0, 10);
+  return parseIsoDate(iso) ? iso : undefined;
+}
+
 export function clampEndToMaxSpan(start: Date, end: Date): Date {
   const maxEnd = addLocalDays(start, MAX_TRIP_DAYS - 1);
   const e = startOfLocalDay(end);
@@ -44,7 +51,7 @@ export function clampEndToMaxSpan(start: Date, end: Date): Date {
   return e;
 }
 
-/** Ex.: "1 de jul. – 15 de jul." */
+/** Ex.: "1 de jul. a 15 de jul." */
 export function formatTripDateSpan(
   startIso: string,
   endIso: string,
@@ -57,10 +64,10 @@ export function formatTripDateSpan(
     day: "numeric",
     month: "short",
   });
-  return `${fmt.format(start)} – ${fmt.format(end)}`;
+  return `${fmt.format(start)} a ${fmt.format(end)}`;
 }
 
-/** Ex.: "1 de jul. – 15 de jul. · 15" (lobby / resumos). */
+/** Ex.: "1 de jul. a 15 de jul. · 15" (lobby / resumos). */
 export function formatTripDateRangeLabel(
   startIso: string,
   endIso: string,

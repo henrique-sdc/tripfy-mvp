@@ -309,6 +309,7 @@ if __name__ == "__main__":
     assert "title" in day_props, "campo title do dia sumiu do schema"
     assert "title" in schema["$defs"]["ActivityResponse"]["required"]
     assert "title" in schema["$defs"]["ItineraryDayResponse"]["required"]
+    assert "requires_ticket" in activity_props
     sample = (
         '{"destination":"X","summary":"Y","tips":["a","b","c"],'
         '"day_1":{"day":1,"title":"A","activities":[{"time":"09:00","title":"t",'

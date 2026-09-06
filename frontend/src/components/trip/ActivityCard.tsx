@@ -24,6 +24,8 @@ import {
   getPlaceDetails,
   type PlaceDetailsResponse,
 } from "@/lib/api";
+import { buildGetYourGuideUrl } from "@/lib/affiliates";
+import { openPartnerUrl } from "@/lib/openPartnerUrl";
 import { buildPlacesLookupQuery } from "@/lib/placeDisplay";
 
 const IMAGE_H = 168;
@@ -42,6 +44,8 @@ type Props = {
   activity: ActivityResponse;
   /** Badge: índice do dia ou "Dia N" na vista Todos. */
   badgeLabel: string;
+  /** Destino da viagem — query GetYourGuide (RF10). */
+  destination?: string;
   showDragHandle?: boolean;
   onRemove?: () => void;
   /** Opacidade quando o item está sendo arrastado (ScaleDecorator). */
@@ -56,6 +60,7 @@ type Props = {
 
 export function ActivityCard({
   activity,
+  destination,
   badgeLabel,
   showDragHandle = false,
   onRemove,
@@ -427,6 +432,28 @@ export function ActivityCard({
             </AppText>
           ) : null}
         </View>
+
+        {activity.requires_ticket ? (
+          <Pressable
+            onPress={() => {
+              const q = [activity.title, destination?.trim()]
+                .filter(Boolean)
+                .join(" ");
+              void openPartnerUrl(buildGetYourGuideUrl(q));
+            }}
+            hitSlop={6}
+            accessibilityRole="link"
+            accessibilityLabel={t("tripDetail.partners.ticketsA11y", {
+              title: activity.title,
+            })}
+            style={styles.ticketRow}
+          >
+            <Ionicons name="ticket-outline" size={14} color={theme.accent} />
+            <AppText tone="accent" className="text-[12px] font-semibold">
+              {t("tripDetail.partners.tickets")}
+            </AppText>
+          </Pressable>
+        ) : null}
       </Pressable>
     </View>
   );
@@ -519,5 +546,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     marginTop: 2,
+  },
+  ticketRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+    alignSelf: "flex-start",
   },
 });

@@ -7,6 +7,7 @@
 import EventSource from "react-native-sse";
 
 import { auth } from "@/lib/firebase";
+import { usePaywallStore } from "@/stores/paywallStore";
 
 // Sem fallback para localhost: em device físico (Expo Go) localhost aponta
 // para o próprio celular, não para o PC — mascararia o erro real de rede em
@@ -19,10 +20,15 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export function isPremiumRequired(err: unknown): boolean {
+  return err instanceof ApiError && err.code === "premium_required";
 }
 
 // Backend inalcançável (DNS/conexão recusada/timeout) — distinto de ApiError,
@@ -46,10 +52,15 @@ export type TravelPreferences = {
   other_preferences?: string;
 };
 
+export type SubscriptionTier = "free" | "pro";
+
 export type SyncResponse = {
   uid: string;
   email: string;
   has_preferences: boolean;
+  is_premium: boolean;
+  tier: SubscriptionTier;
+  premium_until: string | null;
 };
 
 export type GenerateTripParams = {
@@ -71,6 +82,8 @@ export type ActivityResponse = {
   location: string;
   latitude?: number | null;
   longitude?: number | null;
+  /** RF10 — CTA GetYourGuide. Ausente = false (roteiros antigos). */
+  requires_ticket?: boolean;
 };
 
 export type ItineraryDayResponse = {
@@ -89,6 +102,9 @@ export type ItineraryResponse = {
   /** Notas pessoais do usuário (não vêm da LLM). */
   notes?: string;
   days: ItineraryDayResponse[];
+  /** Metadado da viagem (não vem do LLM) — deep links RF10. */
+  start_date?: string | null;
+  end_date?: string | null;
 };
 
 /** Espelho de PlaceDetailsResponse do proxy Places (RF07). */
@@ -336,7 +352,10 @@ export type SavedTripApi = {
   tips: string[];
   notes?: string;
   days: ItineraryDayResponse[];
-  deleted_at: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    match_id?: string | null;
+    deleted_at: string | null;
   cloned_from: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -404,6 +423,41 @@ export async function cloneTripApi(
     { method: "POST" },
   );
   return (await response.json()) as CloneTripResponse;
+}
+
+/** POST /trips — cria viagem ativa (gate Free). */
+export async function createTripApi(
+  itinerary: ItineraryResponse,
+  opts?: { matchId?: string },
+): Promise<SavedTripApi> {
+  const matchId = opts?.matchId?.trim();
+  const response = await authFetch("/trips", {
+    method: "POST",
+    body: JSON.stringify({
+      destination: itinerary.destination,
+      title: itinerary.title ?? "",
+      summary: itinerary.summary,
+      tips: itinerary.tips ?? [],
+      notes: itinerary.notes ?? "",
+      days: itinerary.days,
+      start_date: itinerary.start_date ?? null,
+      end_date: itinerary.end_date ?? null,
+      match_id: matchId || null,
+    }),
+  });
+  return (await response.json()) as SavedTripApi;
+}
+
+/** POST /checkout/upgrade — mock TCC, sem cobrança real. */
+export async function upgradeCheckout(): Promise<SyncResponse> {
+  const response = await authFetch("/checkout/upgrade", { method: "POST" });
+  return (await response.json()) as SyncResponse;
+}
+
+/** POST /checkout/cancel — volta pro Free. */
+export async function cancelCheckout(): Promise<SyncResponse> {
+  const response = await authFetch("/checkout/cancel", { method: "POST" });
+  return (await response.json()) as SyncResponse;
 }
 
 export type MatchStatus = "waiting" | "generating" | "completed";
@@ -501,13 +555,37 @@ async function authFetch(
   if (!response.ok) {
     // Não confiamos cegamente no corpo; extraímos detail quando houver.
     let detail = `Erro ${response.status}`;
+    let code: string | undefined;
     try {
-      const body = await response.json();
-      if (body?.detail) detail = String(body.detail);
+      const body: unknown = await response.json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const raw = (body as { detail: unknown }).detail;
+        if (typeof raw === "string") {
+          detail = raw;
+        } else if (raw && typeof raw === "object") {
+          const obj = raw as {
+            code?: unknown;
+            message?: unknown;
+            reason?: unknown;
+          };
+          if (typeof obj.code === "string") code = obj.code;
+          if (typeof obj.message === "string") {
+            detail = obj.message;
+          } else if (typeof obj.reason === "string") {
+            detail = obj.reason;
+          }
+        }
+      }
     } catch {
       // corpo vazio ou não-JSON — mantém a mensagem padrão
     }
-    throw new ApiError(response.status, detail);
+    // 402 = Payment Required. Não interceptar 403: o Match já usa 403
+    // ("só o criador gera") e abriria o paywall no lugar errado.
+    if (response.status === 402 && !code) code = "premium_required";
+    if (code === "premium_required") {
+      usePaywallStore.getState().open("active_trip_limit");
+    }
+    throw new ApiError(response.status, detail, code);
   }
 
   return response;

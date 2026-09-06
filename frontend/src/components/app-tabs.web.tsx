@@ -11,6 +11,8 @@ import {
 import { Pressable, useColorScheme, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { resolvedColorScheme } from "@/lib/appearance";
+
 import { ThemedText } from "./themed-text";
 import { ThemedView } from "./themed-view";
 
@@ -66,7 +68,7 @@ export function TabButton({
 
 export function CustomTabList(props: TabListProps) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === "unspecified" ? "light" : scheme];
+  const colors = Colors[resolvedColorScheme(scheme)];
 
   return (
     <View {...props} style={styles.tabListContainer}>

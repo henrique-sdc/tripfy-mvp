@@ -1,4 +1,59 @@
 # Changelog — Tripfy Docs
+## 2026-09-05 — Paywall segue o tema
+
+- Overlay Tripfy Pro deixa de forçar Dark. Halo `accent → background`, CTA no
+  accent com texto branco. Wiki: [[Tripfy Pro e Paywall]].
+
+## 2026-09-05 — Tripfy Pro (mock TCC)
+
+- Teto Free: 2 viagens ativas. Create/clone/restore no FastAPI (402 `premium_required`).
+- Geração por IA continua livre. Checkout mock 365 dias. Paywall overlay + Settings/Perfil.
+- Rules: billing e create de trip só Admin SDK. Wiki: [[Tripfy Pro e Paywall]].
+
+## 2026-09-05 — Prefs no SSR do Expo web
+
+- `preferencesStore` não lê/grava AsyncStorage no Node (`window` ausente).
+  O `setItem` depois do reidratar derrubava o Metro no `expo start`.
+
+## 2026-09-05 — Contador de Matches no Perfil
+
+- Stat deixa de ser "Em breve": conta docs em `users/{uid}/trips` com `match_id`.
+- Wiki: [[Gerenciamento de Perfil RF03]].
+
+## 2026-09-05 — Filtro Todos / Matches na aba Viagens
+
+- Pílulas na lista: Todos (default) e Matches (`match_id` no doc da viagem).
+- Wiki: [[Home e Bottom Tabs]], [[Match de Viajantes RF11 RF12]].
+
+## 2026-09-05 — Tema e idioma nas Configurações
+
+- Tema: Sistema (default) / Claro / Escuro via `Appearance.setColorScheme`.
+  Idioma: linha pt-BR já no store/`i18n.changeLanguage`.
+- Sistema usa `'unspecified'` (RN 0.86). `null` zerava `useColorScheme` e
+  crashava `useTheme().background`.
+- Wiki: [[Gerenciamento de Perfil RF03]].
+
+## 2026-09-05 — Skyscanner: entity ID + YYMMDD
+
+- URL no formato real do form: `/saoa/{dest}/{yymmdd}/{yymmdd}/` com
+  `adultsv2`, `cabinclass`, `rtn`. Moçambique → `mz`; Lisboa → `lis`.
+- Wiki: [[Afiliados RF10]].
+
+## 2026-09-05 — RF10 Smart Deep Links (OTAs)
+
+- Afiliados sem API de inventário. `requires_ticket` no schema da atividade;
+  `start_date`/`end_date` persistidos no doc da viagem (não no LLM).
+- `lib/affiliates.ts` monta Booking / Skyscanner / GetYourGuide (Hotellook se
+  houver marker Travelpayouts). UI: `PartnerReserveRow` + CTA no ActivityCard.
+- Wiki: [[Afiliados RF10]].
+
+## 2026-09-05 — Giro do sparkle na geração
+
+- `MagicalGenerating`: sai o spinner linear infinito. O ícone faz wind-up
+  lento, uma volta de ~1.8s (ease-in-out) e pausa de 1.1s. Mola em 360°
+  era rápido demais (tontura).
+- Wiki: [[Geração de Roteiro RF06]].
+
 ## 2026-09-05 — Autocomplete de destino (wizard)
 
 - Proxy `GET /api/v1/places/autocomplete` (Places Autocomplete New → legacy).

@@ -51,7 +51,7 @@ Respeita a separação obrigatória `Routers -> Services -> Repositories` (Seç�
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/api/v1/auth/sync` | Cria o doc no primeiro login e retorna `has_preferences`. |
+| POST | `/api/v1/auth/sync` | Cria o doc no primeiro login e retorna `has_preferences` + `is_premium` / `tier` / `premium_until` (derivados). |
 | PUT | `/api/v1/auth/preferences` | Salva as preferências coletadas no onboarding. |
 
 ## Frontend
@@ -60,7 +60,7 @@ Respeita a separação obrigatória `Routers -> Services -> Repositories` (Seç�
 - `frontend/src/lib/api.ts` — cliente HTTP que injeta o Bearer token via `getIdToken()`.
 - `frontend/src/lib/auth-errors.ts` — mapeia `error.code` do Firebase para chaves de i18n.
 - `frontend/src/lib/i18n.ts` + `frontend/src/locales/pt-BR.json` — [[i18n]] desde a primeira tela.
-- `frontend/src/stores/authStore.ts` — estado global em [[Zustand]] (`user`, `hasPreferences`, `isLoading`).
+- `frontend/src/stores/authStore.ts` — estado global em [[Zustand]] (`user`, `hasPreferences`, `isPremium`, `isLoading`).
 - `frontend/src/hooks/useAuth.ts` — liga `onAuthStateChanged` -> store -> `sync`.
 - `frontend/src/app/_layout.tsx` — navegação com `Stack.Protected` (guards declarativos).
 - Telas: `(auth)/login.tsx`, `(auth)/register.tsx`, `(auth)/forgot-password.tsx`, `(onboarding)/preferences.tsx`.
@@ -74,11 +74,13 @@ Ver schema completo e enums em **[[Preferências Sua Vibe]]** (`TravelPreference
   uid: string,
   email: string,
   created_at: timestamp,
-  travel_preferences: TravelPreferences | null
+  travel_preferences: TravelPreferences | null,
+  tier: "free" | "pro",
+  premium_until: timestamp | null
 }
 ```
 
-`has_preferences` é sempre **derivado** (`travel_preferences != null`), nunca um campo salvo — evita inconsistência.
+`has_preferences` é sempre **derivado** (`travel_preferences != null`), nunca um campo salvo — evita inconsistência. `is_premium` também é derivado (`tier` + `premium_until`) — ver [[Tripfy Pro e Paywall]].
 
 ## Decisões e desvios
 
@@ -96,6 +98,6 @@ Ver schema completo e enums em **[[Preferências Sua Vibe]]** (`TravelPreference
 ## Segurança
 
 - Rate limiting de 10/min por IP nas rotas de auth ([[Segurança e Compliance]] — Seção 6.2).
-- Firestore Security Rules: cada usuário só acessa o próprio documento.
+- Firestore Security Rules: cada usuário só acessa o próprio documento; `tier` / `premium_until` e create de viagem são Admin SDK — [[Tripfy Pro e Paywall]].
 - Nenhuma chave privada no frontend (apenas `EXPO_PUBLIC_*`).
 - Recuperação de senha: anti-enumeration via copy — ver [[Recuperação de Senha]].

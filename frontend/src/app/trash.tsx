@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/ui/AppText";
 import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
 import { useTheme } from "@/hooks/use-theme";
-import { listTrashTrips, restoreTripApi, type SavedTripApi } from "@/lib/api";
+import { listTrashTrips, restoreTripApi, isPremiumRequired, type SavedTripApi } from "@/lib/api";
 import { purgeTrip } from "@/lib/trips";
 import { Pressable, ScrollView, View } from "@/tw";
 
@@ -54,6 +54,7 @@ export default function TrashScreen() {
       setItems((prev) => prev.filter((x) => x.id !== trip.id));
     } catch (err) {
       console.error("[trash] Restore falhou:", err);
+      if (isPremiumRequired(err)) return;
       Alert.alert(t("trash.restoreErrorTitle"), t("trash.restoreErrorBody"));
     } finally {
       setRestoringId(null);

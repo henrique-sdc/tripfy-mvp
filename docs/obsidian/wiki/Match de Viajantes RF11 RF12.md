@@ -66,6 +66,9 @@ No lobby:
 - Após o join, ambos observam `matches/{id}` com `onSnapshot`.
 - Owner abre o SSE uma vez. O convidado aguarda o `itinerary` persistido.
 - Ao chegar `completed`, ambos navegam para `/trip-detail` com o mesmo JSON.
+  O auto-save grava `match_id` em `users/{uid}/trips/{tripId}` (metadado, fora
+  do schema da LLM). Clone não copia esse campo. A aba Viagens filtra por ele
+  ([[Home e Bottom Tabs]]).
 
 A tela usa tokens semânticos, `AppText`, Dark/Light Mode, haptics, reduced
 motion e estados inline para convite inválido, sala cheia e falhas de rede.
@@ -127,6 +130,10 @@ Erros esperados:
 - `frontend/src/locales/pt-BR.json`
 - `frontend/app.json`
 - `firestore.rules`
+
+## Relacionados
+
+- [[Afiliados RF10]] — `start_date`/`end_date` da sessão vão no stash do roteiro (deep links de OTA).
 
 ## Próximo passo
 

@@ -47,6 +47,7 @@ import {
   EditTripMetaModal,
 } from "@/components/trip/EditTripMetaModal";
 import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
+import { PartnerReserveRow } from "@/components/trip/PartnerReserveRow";
 import {
   SyncIndicator,
   type SyncStatus,
@@ -55,10 +56,12 @@ import { TripOsmMap } from "@/components/trip/TripOsmMap";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import type { ActivityResponse, ItineraryResponse } from "@/lib/api";
-import { cloneTripApi, getTripApi } from "@/lib/api";
+import { cloneTripApi, getTripApi, isPremiumRequired } from "@/lib/api";
 import { appDeepLink } from "@/lib/deep-links";
-import { peekPendingItinerary } from "@/lib/pendingItinerary";
+import { peekPendingItinerary, peekPendingMatchId } from "@/lib/pendingItinerary";
 import { getTrip, saveTrip } from "@/lib/trips";
+import { optionalIsoDate } from "@/lib/tripDates";
+import { useAuthStore } from "@/stores/authStore";
 
 const DELETE_ACTION_W = 76;
 /** progress > 1 = overshoot; acima disso apaga como o Mail da Apple. */
@@ -83,6 +86,8 @@ type LocalItinerary = {
   tips: string[];
   notes: string;
   days: LocalDay[];
+  start_date?: string;
+  end_date?: string;
 };
 
 /** null = todos os dias; number = índice do dia em `days`. */
@@ -106,6 +111,8 @@ function stampKeys(raw: ItineraryResponse): LocalItinerary {
         key: `${d.day}-${i}-${a.time}-${a.title}`,
       })),
     })),
+    start_date: optionalIsoDate(raw.start_date),
+    end_date: optionalIsoDate(raw.end_date),
   };
 }
 
@@ -152,6 +159,8 @@ function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
       title: d.title,
       activities: d.activities.map(({ key: _k, dayNumber: _d, ...a }) => a),
     })),
+    start_date: itinerary.start_date,
+    end_date: itinerary.end_date,
   };
 }
 
@@ -352,7 +361,12 @@ export default function TripDetailScreen() {
   const [cloning, setCloning] = useState(false);
 
   const tripIdRef = useRef(tripId);
+  const matchIdRef = useRef<string | undefined>(
+    peekPendingItinerary() ? (peekPendingMatchId() ?? undefined) : undefined,
+  );
   const savingLock = useRef(false);
+  const paywallBlocked = useRef(false);
+  const isPremium = useAuthStore((s) => s.isPremium);
   const sheetPlaced = useRef(false);
   const peekH = useSharedValue(0);
   const mapH = useSharedValue(0);
@@ -377,6 +391,7 @@ export default function TripDetailScreen() {
         if (remote) {
           setItinerary(stampKeys(remote));
           setTripId(remote.id);
+          if (remote.match_id) matchIdRef.current = remote.match_id;
           setReadOnly(false);
           setSyncStatus("saved");
           setDirty(false);
@@ -408,9 +423,17 @@ export default function TripDetailScreen() {
     };
   }, [itinerary, params.tripId, t]);
 
-  // Auto-save: dirty → debounce → Firestore (cria ou atualiza).
+  // Auto-save: dirty → debounce → API (create) ou Firestore (update).
+  useEffect(() => {
+    if (isPremium && paywallBlocked.current) {
+      paywallBlocked.current = false;
+      setDirty(true);
+    }
+  }, [isPremium]);
+
   useEffect(() => {
     if (!itinerary || !dirty || loadingRemote || readOnly) return;
+    if (paywallBlocked.current) return;
 
     const timer = setTimeout(async () => {
       if (savingLock.current) return;
@@ -420,6 +443,7 @@ export default function TripDetailScreen() {
         const id = await saveTrip(
           toPersistable(itinerary),
           tripIdRef.current ?? undefined,
+          matchIdRef.current ? { matchId: matchIdRef.current } : undefined,
         );
         setTripId(id);
         setDirty(false);
@@ -428,6 +452,10 @@ export default function TripDetailScreen() {
       } catch (err) {
         console.error("[trip-detail] Auto-save falhou:", err);
         setSyncStatus("error");
+        if (isPremiumRequired(err)) {
+          paywallBlocked.current = true;
+          return;
+        }
         const msg =
           err instanceof Error && /permission|insufficient/i.test(err.message)
             ? t("tripDetail.saveRulesHint")
@@ -549,6 +577,7 @@ export default function TripDetailScreen() {
       } as Href);
     } catch (err) {
       console.error("[trip-detail] Clone falhou:", err);
+      if (isPremiumRequired(err)) return;
       Alert.alert(
         t("tripDetail.cloneErrorTitle"),
         t("tripDetail.cloneErrorBody"),
@@ -725,6 +754,7 @@ export default function TripDetailScreen() {
         location: payload.location,
         latitude: payload.latitude,
         longitude: payload.longitude,
+        requires_ticket: false,
         dayNumber: day.day,
         key: `manual-${Date.now()}-${payload.title.slice(0, 12)}`,
       };
@@ -863,6 +893,7 @@ export default function TripDetailScreen() {
               >
                 <ActivityCard
                   activity={item}
+                  destination={itinerary?.destination}
                   badgeLabel={
                     showingAll
                       ? t("tripDetail.dayChip", { day: item.dayNumber })
@@ -899,7 +930,7 @@ export default function TripDetailScreen() {
         </ScaleDecorator>
       );
     },
-    [onRemove, t, showingAll, canDeleteActivity, readOnly],
+    [onRemove, t, showingAll, canDeleteActivity, readOnly, itinerary?.destination],
   );
 
   // Sem GestureHandlerRootView aqui: o _layout já envolve o app.
@@ -1230,6 +1261,12 @@ export default function TripDetailScreen() {
               </AppText>
             </RNPressable>
           ) : null}
+
+          <PartnerReserveRow
+            destination={itinerary.destination}
+            startDate={itinerary.start_date}
+            endDate={itinerary.end_date}
+          />
 
           {!showingAll ? (
             <AppText

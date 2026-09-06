@@ -10,6 +10,7 @@ from core.rate_limit import limiter
 from core.sse import itinerary_sse_stream
 from models.trip import (
     CloneTripResponse,
+    CreateTripRequest,
     GenerateTripRequest,
     SavedTripResponse,
 )
@@ -32,6 +33,18 @@ async def list_trips(
     """Lista viagens ativas do usuário (deleted_at == null)."""
     logger.info("Listando trips: uid={}", current_user.uid)
     return await trips_repository.list_active(current_user.uid)
+
+
+@router.post("", response_model=SavedTripResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(_CRUD_LIMIT)
+async def create_trip(
+    request: Request,
+    body: CreateTripRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SavedTripResponse:
+    """Cria viagem ativa. Free estoura o teto → 402 premium_required."""
+    logger.info("Criando trip: uid={} destino={}", current_user.uid, body.destination)
+    return await trip_service.create_saved_trip(current_user.uid, body)
 
 
 @router.get("/trash", response_model=list[SavedTripResponse])
@@ -91,20 +104,8 @@ async def restore_trip(
     trip_id: str = Path(..., min_length=8, max_length=128),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> SavedTripResponse:
-    """Tira da lixeira (se ainda dentro dos 30 dias)."""
-    ok = await trips_repository.restore(current_user.uid, trip_id)
-    if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Viagem não está na lixeira ou expirou (>30 dias).",
-        )
-    trip = await trips_repository.get_trip(trip_id, current_user.uid)
-    if trip is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Viagem não encontrada após restaurar.",
-        )
-    return trip
+    """Tira da lixeira (se ainda dentro dos 30 dias). Free no teto → 402."""
+    return await trip_service.restore_saved_trip(trip_id, current_user.uid)
 
 
 @router.post("/{trip_id}/clone", response_model=CloneTripResponse)
@@ -114,22 +115,8 @@ async def clone_trip(
     trip_id: str = Path(..., min_length=8, max_length=128),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CloneTripResponse:
-    """Clona roteiro ativo pra conta do usuário autenticado."""
-    new_id = await trips_repository.clone_trip(trip_id, current_user.uid)
-    if not new_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Não foi possível clonar esta viagem.",
-        )
-    trip = await trips_repository.get_trip(new_id, current_user.uid)
-    destination = trip.destination if trip else ""
-    logger.info(
-        "Clone ok: uid={} from={} new={}",
-        current_user.uid,
-        trip_id,
-        new_id,
-    )
-    return CloneTripResponse(id=new_id, destination=destination)
+    """Clona roteiro ativo pra conta do usuário autenticado. Free no teto → 402."""
+    return await trip_service.clone_saved_trip(trip_id, current_user.uid)
 
 
 @router.post("/generate")

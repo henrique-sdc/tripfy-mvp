@@ -71,6 +71,11 @@ Regras inegociáveis:
     destino, alta/baixa temporada, feriados e atrações sazonais. Nos títulos
     dos dias, alinhe à data civil quando fizer sentido (ex.: "Dia 1 — 12 jul"),
     sem alterar o schema JSON (`day` continua 1..N).
+11. Em cada atividade, preencha `requires_ticket` (boolean). True só quando a
+    parada costuma exigir ingresso pago: museus, parques pagos, mirantes com
+    ticket, shows, tours, parques temáticos. False para restaurantes, cafés,
+    bairros, caminhadas, praias livres, shoppings e viewpoints gratuitos.
+    Na dúvida, False. Nunca invente URL de parceiro — o app monta o link.
 """
 
 
@@ -175,6 +180,7 @@ cada description de ActivityResponse.
 O array `days` deve ter exatamente {trip.days} itens (day=1 até day={trip.days}).
 Inclua `tips` (3–5) específicas deste destino — cultura, segurança, clima
 da época, costumes locais — não genéricas.
+Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 {profile}
 
@@ -215,6 +221,7 @@ divergirem e produza um roteiro amigável e equilibrado, sem calcular scores.
 Use os meios de transporte informados nas estimativas de deslocamento.
 O array `days` deve ter exatamente {match.days} itens (day=1 até day={match.days}).
 Inclua `tips` (3–5) específicas deste destino e da época para o grupo.
+Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 <perfis_viajantes>
 {profiles}
@@ -249,6 +256,8 @@ if __name__ == "__main__":
     assert "Markdown" in SYSTEM_PROMPT
     assert "latitude" in SYSTEM_PROMPT
     assert "data_inicio" in SYSTEM_PROMPT
+    assert "requires_ticket" in SYSTEM_PROMPT
+    assert "Nunca invente URL" in SYSTEM_PROMPT
     prefs = TravelPreferences(
         interests=[Interest.CAFES],
         pace=Pace.RELAXED,

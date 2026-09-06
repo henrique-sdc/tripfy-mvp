@@ -255,6 +255,8 @@ export default function MatchLobbyScreen() {
   const previousStatusRef = useRef<MatchView["status"] | null>(null);
   const generationAttemptedRef = useRef(false);
   const navigatedRef = useRef(false);
+  const matchRef = useRef(match);
+  matchRef.current = match;
   const pulse = useSharedValue(1);
 
   const matchId = Array.isArray(id) ? id[0] : id;
@@ -403,10 +405,18 @@ export default function MatchLobbyScreen() {
         Haptics.NotificationFeedbackType.Success,
       );
       // Stash em memória — JSON multi-dia estoura o limite de params da URL.
-      stashPendingItinerary(itinerary);
+      const session = matchRef.current;
+      stashPendingItinerary(
+        {
+          ...itinerary,
+          start_date: session?.start_date?.trim() || itinerary.start_date,
+          end_date: session?.end_date?.trim() || itinerary.end_date,
+        },
+        { matchId: session?.id || matchId },
+      );
       router.replace("/trip-detail" as Href);
     },
-    [],
+    [matchId],
   );
 
   const startGeneration = useCallback(() => {

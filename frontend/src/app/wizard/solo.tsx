@@ -261,7 +261,11 @@ export default function WizardSoloScreen() {
         closeStreamRef.current = null;
         setLoading(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        stashPendingItinerary(itinerary);
+        stashPendingItinerary({
+          ...itinerary,
+          start_date: payload.start_date,
+          end_date: payload.end_date,
+        });
         clearWizardSoloDraft();
         router.replace("/trip-detail" as Href);
       },

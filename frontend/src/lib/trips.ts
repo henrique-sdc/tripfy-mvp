@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   orderBy,
@@ -12,23 +13,36 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 
 import type { ItineraryResponse } from "@/lib/api";
+import { createTripApi, restoreTripApi } from "@/lib/api";
 import { auth, db } from "@/lib/firebase";
+import { optionalIsoDate } from "@/lib/tripDates";
 
 export type SavedTrip = ItineraryResponse & {
   id: string;
   owner_uid?: string;
+  /** Presente se o roteiro nasceu de uma sessão de Match (RF11/RF12). */
+  match_id?: string;
   deleted_at?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 };
 
+function optionalMatchId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const id = value.trim();
+  return id || undefined;
+}
+
 /** Remove campos só-de-UI antes de gravar no Firestore. */
 export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse {
   const title =
     typeof itinerary.title === "string" ? itinerary.title.trim() : "";
+  const start_date = optionalIsoDate(itinerary.start_date);
+  const end_date = optionalIsoDate(itinerary.end_date);
   return {
     destination: itinerary.destination,
     title,
@@ -47,39 +61,48 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
         location: a.location,
         latitude: a.latitude ?? null,
         longitude: a.longitude ?? null,
+        requires_ticket: Boolean(a.requires_ticket),
       })),
     })),
+    ...(start_date ? { start_date } : {}),
+    ...(end_date ? { end_date } : {}),
   };
 }
 
-/** Cria ou atualiza um roteiro; retorna o tripId. */
+/** Cria (via API, com teto Free) ou atualiza um roteiro; retorna o tripId. */
 export async function saveTrip(
   itinerary: ItineraryResponse,
   tripId?: string,
+  opts?: { matchId?: string },
 ): Promise<string> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Usuário não autenticado.");
 
-  const ref = tripId
-    ? doc(db, "users", uid, "trips", tripId)
-    : doc(collection(db, "users", uid, "trips"));
+  const matchId = optionalMatchId(opts?.matchId);
+  const cleaned = stripClientKeys(itinerary);
 
-  const isNew = !tripId;
+  // Create só no FastAPI — rules bloqueiam create no client (limite Free).
+  if (!tripId) {
+    const created = await createTripApi(
+      cleaned,
+      matchId ? { matchId } : undefined,
+    );
+    return created.id;
+  }
+
+  const ref = doc(db, "users", uid, "trips", tripId);
   await setDoc(
     ref,
     {
-      ...stripClientKeys(itinerary),
+      ...cleaned,
       owner_uid: uid,
       trip_id: ref.id,
       updated_at: serverTimestamp(),
-      ...(isNew
-        ? { created_at: serverTimestamp(), deleted_at: null }
-        : {}),
+      ...(matchId ? { match_id: matchId } : {}),
     },
     { merge: true },
   );
 
-  // Índice pra deep link / clone via Admin SDK (client não lê trip_shares).
   await setDoc(
     doc(db, "trip_shares", ref.id),
     { owner_uid: uid, trip_id: ref.id },
@@ -105,12 +128,8 @@ export async function deleteTrip(tripId: string): Promise<void> {
 }
 
 export async function restoreTripLocal(tripId: string): Promise<void> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error("Usuário não autenticado.");
-  await updateDoc(doc(db, "users", uid, "trips", tripId), {
-    deleted_at: null,
-    updated_at: serverTimestamp(),
-  });
+  // Restore zera deleted_at — tem que passar no teto Free (API, não client).
+  await restoreTripApi(tripId);
 }
 
 /**
@@ -141,6 +160,31 @@ export async function purgeTrip(tripId: string): Promise<void> {
   }
 }
 
+/** Contagens do perfil — aggregation, sem baixar os docs. */
+export async function countTripStats(): Promise<{
+  total: number;
+  matches: number;
+}> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return { total: 0, matches: 0 };
+
+  const col = collection(db, "users", uid, "trips");
+  // `!= ""` ignora docs sem o campo (solo / Match anterior ao metadado).
+  const [allSnap, matchSnap] = await Promise.all([
+    getCountFromServer(col),
+    getCountFromServer(query(col, where("match_id", "!=", ""))).catch(
+      (err) => {
+        console.warn("[trips] Contagem de Matches falhou:", err);
+        return null;
+      },
+    ),
+  ]);
+  return {
+    total: allSnap.data().count,
+    matches: matchSnap ? matchSnap.data().count : 0,
+  };
+}
+
 /** Lista roteiros ativos (sem deleted_at). */
 export async function listTrips(): Promise<SavedTrip[]> {
   const uid = auth.currentUser?.uid;
@@ -168,6 +212,9 @@ export async function listTrips(): Promise<SavedTrip[]> {
           : [],
         notes: typeof data.notes === "string" ? data.notes : "",
         days: Array.isArray(data.days) ? data.days : [],
+        start_date: optionalIsoDate(data.start_date),
+        end_date: optionalIsoDate(data.end_date),
+        match_id: optionalMatchId(data.match_id),
         deleted_at: data.deleted_at,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -203,6 +250,9 @@ export async function getTrip(tripId: string): Promise<SavedTrip | null> {
       : [],
     notes: typeof data.notes === "string" ? data.notes : "",
     days: Array.isArray(data.days) ? data.days : [],
+    start_date: optionalIsoDate(data.start_date),
+    end_date: optionalIsoDate(data.end_date),
+    match_id: optionalMatchId(data.match_id),
     created_at: data.created_at,
     updated_at: data.updated_at,
   };

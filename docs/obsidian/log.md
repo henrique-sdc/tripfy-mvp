@@ -1,5 +1,52 @@
 # Log — Tripfy Wiki
 
+## [2026-09-05] update | Paywall Light/Dark
+
+`PaywallScreen` usa `useTheme()`. Halo e cards no tema; texto no CTA é branco.
+[[Tripfy Pro e Paywall]], [[changelog]].
+
+## [2026-09-05] ingest | Tripfy Pro e Paywall
+
+Mock Freemium do TCC: entitlement no Firestore, `POST /trips`, checkout `/upgrade` `/cancel`, overlay `PaywallScreen`.
+[[Tripfy Pro e Paywall]], [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-09-05] update | Prefs no SSR do Expo web
+
+AsyncStorage no-op quando `Platform.OS === 'web'` e não há `window`.
+[[changelog]].
+
+## [2026-09-05] update | Contador de Matches no Perfil
+
+`countTripStats()` no `lib/trips.ts`. Mesma origem do filtro da aba Viagens.
+[[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-09-05] update | Filtro Todos / Matches na aba Viagens
+
+Pílulas no header. `match_id` no auto-save pós-Match; clone não herda.
+[[Home e Bottom Tabs]], [[Match de Viajantes RF11 RF12]] e [[changelog]].
+
+## [2026-09-05] update | Tema e idioma nas Configurações
+
+`themeMode` + `locale` no `preferencesStore`. Tema default = sistema.
+Sistema → `setColorScheme('unspecified')`; `useTheme` ignora null.
+[[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-09-05] update | Skyscanner deep link
+
+Path deixa de ser `voos-para-{cidade}`. Usa `saoa` + entity ID + datas YYMMDD.
+[[Afiliados RF10]] e [[changelog]].
+
+## [2026-09-05] ingest | Afiliados RF10
+
+Smart Deep Links (Booking / Skyscanner / GetYourGuide). Datas da viagem
+persistidas; `requires_ticket` no prompt. Amadeus fora. [[Afiliados RF10]],
+[[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]] e [[changelog]].
+
+## [2026-09-05] update | Giro do sparkle na geração
+
+`MagicalGenerating` troca o spinner linear por wind-up + volta lenta (~1.8s) + pausa.
+Mola em 360° dava tontura. [[Geração de Roteiro RF06]] e [[changelog]].
+
 ## [2026-09-05] update | Autocomplete de destino no wizard
 
 Proxy `GET /places/autocomplete` (New → legacy). Wizard Solo exige toque numa

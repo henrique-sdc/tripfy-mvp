@@ -5,12 +5,19 @@ O client do firebase-admin é síncrono; para não bloquear o event loop do
 FastAPI (RN04), cada operação de I/O é delegada a um threadpool via
 run_in_threadpool. A camada de Services só enxerga métodos async.
 """
+from datetime import datetime
+
 from firebase_admin import firestore
 from loguru import logger
 from starlette.concurrency import run_in_threadpool
 
 from core.firebase import db
-from models.user import TravelPreferences, UserInDB, UserPublicProfile
+from models.user import (
+    SubscriptionTier,
+    TravelPreferences,
+    UserInDB,
+    UserPublicProfile,
+)
 
 _USERS_COLLECTION = "users"
 
@@ -73,6 +80,8 @@ async def create_user_if_not_exists(uid: str, email: str) -> UserInDB:
                 # SERVER_TIMESTAMP evita depender do relógio do servidor de app.
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "travel_preferences": None,
+                "tier": SubscriptionTier.FREE.value,
+                "premium_until": None,
             }
         )
 
@@ -163,4 +172,34 @@ async def list_companions(my_uid: str) -> list[UserPublicProfile]:
         if profile is not None:
             profiles.append(profile)
     return profiles
+
+
+async def update_subscription(
+    uid: str,
+    tier: SubscriptionTier,
+    premium_until: datetime | None,
+) -> UserInDB:
+    """Grava billing. Só o Admin SDK — o client não escreve estes campos."""
+
+    def _update() -> None:
+        db.collection(_USERS_COLLECTION).document(uid).set(
+            {
+                "tier": tier.value,
+                "premium_until": premium_until,
+            },
+            merge=True,
+        )
+
+    await run_in_threadpool(_update)
+    logger.info(
+        "Assinatura atualizada: uid={} tier={} premium_until={}",
+        uid,
+        tier.value,
+        premium_until,
+    )
+    updated = await get_user(uid)
+    if updated is None:
+        raise RuntimeError(f"Documento do usuário {uid} sumiu após update de assinatura.")
+    return updated
+
 

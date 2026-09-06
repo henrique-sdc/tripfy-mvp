@@ -96,9 +96,9 @@ Router (trip_router)
 
 Schema canônico (após conversão OpenAI / nativo Gemini):
 
-- `ActivityResponse` — `time`, `title`, `description`, `location`, `latitude?`, `longitude?`
+- `ActivityResponse` — `time`, `title`, `description`, `location`, `latitude?`, `longitude?`, `requires_ticket` (RF10, default false)
 - `ItineraryDayResponse` — `day`, `title`, `activities[]`
-- `ItineraryResponse` — `destination`, `summary`, `tips[]` (3–5 dicas específicas do destino), `days[]` (exatamente N dias do pedido)
+- `ItineraryResponse` — `destination`, `summary`, `tips[]` (3–5 dicas específicas do destino), `days[]` (exatamente N dias do pedido). Datas da viagem **não** entram neste schema — ver [[Afiliados RF10]].
 
 ### Prompt Injection (PRD 6.2)
 
@@ -143,6 +143,8 @@ Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSou
 - [[Preferências Sua Vibe]] — modelo de perfil que alimenta o prompt
 - [[Home e Bottom Tabs]] — Wizard Solo (RF05) e navegação
 - [[Match de Viajantes RF11 RF12]] — dois perfis no mesmo Structured Output/SSE
+- [[Afiliados RF10]] — `requires_ticket` no prompt; datas da viagem no Firestore
+
 ## Structured Output
 ### Coordenadas (mapa)
 

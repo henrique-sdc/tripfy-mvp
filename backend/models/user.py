@@ -67,6 +67,13 @@ class TravelerType(str, Enum):
     FAMILY = "family"
 
 
+class SubscriptionTier(str, Enum):
+    """Plano da conta — distinto de BudgetRange.PREMIUM (orçamento da viagem)."""
+
+    FREE = "free"
+    PRO = "pro"
+
+
 class TravelPreferences(BaseModel):
     """Preferências estáveis de viagem salvas em users/{uid}.travel_preferences."""
 
@@ -92,13 +99,17 @@ class UserInDB(BaseModel):
     photoBase64: str | None = None
     # Rede unidirecional de companheiros (UIDs). ArrayUnion no repo evita duplicata.
     companions: list[str] = Field(default_factory=list)
+    # Billing — só o backend (Admin SDK) grava. Default cobre docs anteriores ao Pro.
+    tier: SubscriptionTier = SubscriptionTier.FREE
+    premium_until: datetime | None = None
 
 
 class UserPublicProfile(BaseModel):
     """
     Fatia segura do perfil para terceiros autenticados.
 
-    Nunca inclui email, created_at, companions, budget, dieta ou other_preferences.
+    Nunca inclui email, created_at, companions, budget, dieta, other_preferences
+    nem status de assinatura (tier / premium_until).
     """
 
     uid: str

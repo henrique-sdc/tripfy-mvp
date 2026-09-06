@@ -82,9 +82,9 @@
       "tooManyRequests": "Muitas tentativas. Aguarde um momento e tente de novo.",
       "networkError": "Sem conexão. Verifique sua internet.",
       "unknown": "Não foi possível concluir. Tente novamente.",
-      "nameTooShort": "Digite seu nome completo (mínimo 3 letras).",
+      "nameTooShort": "Digite seu nome completo.",
       "nameInvalidChars": "Use apenas letras no nome.",
-      "birthDateRequired": "Selecione sua data de nascimento.",
+      "birthDateRequired": "Digite sua data de nascimento.",
       "mustBeAdult": "Você precisa ter 18 anos ou mais.",
       "passwordMinLength": "A senha deve ter pelo menos 8 caracteres.",
       "passwordMismatch": "As senhas não coincidem."
@@ -180,7 +180,9 @@
     "matchSubtitle": "Convide alguém e deixe a IA equilibrar a vibe de vocês.",
     "comingSoon": "Em breve",
     "matchSoonTitle": "Match em breve! 🎉",
-    "matchSoonBody": "Estamos preparando a magia para você cruzar seus gostos com a galera."
+    "matchSoonBody": "Estamos preparando a magia para você cruzar seus gostos com a galera.",
+    "countErrorTitle": "Não deu pra checar suas viagens",
+    "countErrorBody": "Sem internet ou o servidor não respondeu. Tenta de novo."
   },
   "home": {
     "greeting": {
@@ -296,17 +298,17 @@
     "trips": {
       "cancun": {
         "destination": "Cancún, México",
-        "dates": "12–19 ago",
+        "dates": "12 a 19 ago",
         "vibe": "Praia & Relax"
       },
       "lisbon": {
         "destination": "Lisboa, Portugal",
-        "dates": "3–10 set",
+        "dates": "3 a 10 set",
         "vibe": "Cultura & Cafés"
       },
       "tokyo": {
         "destination": "Tóquio, Japão",
-        "dates": "20–28 out",
+        "dates": "20 a 28 out",
         "vibe": "Comida & Neon"
       }
     },
@@ -333,7 +335,7 @@
   },
   "trending": {
     "screenTitle": "Em alta",
-    "screenSubtitle": "Roteiros curados pra inspirar — filtre, busque e gere o seu.",
+    "screenSubtitle": "Roteiros curados pra inspirar. Filtre, busque e gere o seu.",
     "searchPlaceholder": "Buscar destino ou roteiro…",
     "clearSearchA11y": "Limpar busca",
     "clearFilters": "Limpar filtros",
@@ -411,7 +413,7 @@
       "inviteFromFriends": "Convidar um companheiro",
       "inviteCompanionA11y": "Convidar {{name}}",
       "reviewVibeTitle": "Revisar minha vibe",
-      "reviewVibeHint": "Ajuste interesses e ritmo antes de entrar — isso entra no Match.",
+      "reviewVibeHint": "Ajuste interesses e ritmo antes de entrar. Isso entra no Match.",
       "guestNotesLabel": "Algum pedido especial? (Opcional)",
       "guestNotesPlaceholder": "Ex: Prefiro jantares cedo, evitar museus lotados, celebrar aniversário…"
     },
@@ -464,7 +466,7 @@
     "fallbackTitle": "Seu roteiro",
     "subtitle": "Detalhes da viagem",
     "daysCount": "{{count}} dias",
-    "dayLabel": "Dia {{day}} — {{title}}",
+    "dayLabel": "Dia {{day}}: {{title}}",
     "dayChip": "Dia {{day}}",
     "allDaysChip": "Todos",
     "allDaysTitle": "Roteiro completo",
@@ -481,7 +483,7 @@
     "cannotRemoveLastBody": "O dia precisa de pelo menos uma atividade.",
     "mapEmptyTitle": "Sem coordenadas neste dia",
     "mapEmptyBody": "A IA não enviou lat/lng pra estas paradas.",
-    "dragHint": "Segure o ≡ e arraste pra reordenar — os horários acompanham.",
+    "dragHint": "Segure o ≡ e arraste pra reordenar. Os horários acompanham.",
     "dragHandle": "Arrastar parada",
     "sheetHandle": "Puxar roteiro",
     "openNow": "Aberto agora",
@@ -577,6 +579,18 @@
       "empty": "Adicionar notas pessoais…",
       "a11y": "Editar notas da viagem"
     },
+    "partners": {
+      "sectionA11y": "Reservar hospedagem e voos",
+      "hotelsTitle": "Hotéis em {{destination}}",
+      "flightsTitle": "Voos para {{destination}}",
+      "hotelsPartner": "Booking.com",
+      "flightsPartner": "Skyscanner",
+      "hotelsA11y": "Ver hotéis em {{destination}} no Booking.com",
+      "flightsA11y": "Buscar voos para {{destination}} no Skyscanner",
+      "tickets": "Ingressos no GetYourGuide",
+      "ticketsA11y": "Buscar ingresso de {{title}} no GetYourGuide",
+      "disclaimer": "Você será redirecionado para o site do parceiro."
+    },
     "share": "Compartilhar",
     "shareMessage": "Olha este roteiro na Tripfy: {{destination}}\n{{link}}",
     "shareNeedSaveTitle": "Ainda salvando",
@@ -606,8 +620,12 @@
     "draftLabel": "Rascunho",
     "noSummary": "Sem resumo",
     "emptySaved": "Nenhum roteiro salvo ainda",
-    "emptySavedHint": "Gere um roteiro — ele salva sozinho na nuvem.",
+    "emptySavedHint": "Gere um roteiro. Ele salva sozinho na nuvem.",
     "createCta": "Criar nova viagem",
+    "filterAll": "Todos",
+    "filterMatches": "Matches",
+    "emptyMatches": "Nenhum Match por aqui",
+    "emptyMatchesHint": "Viagens geradas em dupla aparecem nesta lista.",
     "swipeDeleteA11y": "Mover viagem para a lixeira",
     "metaSeparator": "·",
     "relative": {
@@ -622,20 +640,11 @@
     "trashConfirm": "Mover",
     "trashError": "Não deu pra mover pra lixeira.",
     "loadError": "Não deu pra carregar suas viagens.",
-    "retry": "Tentar de novo",
-    "filters": {
-      "upcoming": "Próximas",
-      "drafts": "Rascunhos",
-      "past": "Passadas"
-    },
-    "empty": {
-      "upcoming": "Nenhuma viagem marcada.",
-      "drafts": "Nenhum rascunho por aqui.",
-      "past": "Ainda sem viagens passadas."
-    }
+    "retry": "Tentar de novo"
   },
   "profile": {
     "fallbackName": "Viajante",
+    "proBadge": "Pro",
     "settings": "Configurações",
     "editPhoto": "Alterar foto de perfil",
     "expandPhoto": "Ampliar foto de perfil",
@@ -650,8 +659,7 @@
     "stats": {
       "trips": "Roteiros criados",
       "saved": "Salvos",
-      "matches": "Matches",
-      "soon": "Em breve"
+      "matches": "Matches"
     },
     "vibe": {
       "title": "Sua vibe",
@@ -713,7 +721,7 @@
   "editVibe": {
     "title": "Editar sua vibe",
     "otherSection": "Outras preferências (opcional)",
-    "otherHint": "Não encontrou algo nas opções acima? Escreva aqui — a IA leva isso em conta.",
+    "otherHint": "Não encontrou algo nas opções acima? Escreva aqui. A IA leva isso em conta.",
     "otherPlaceholder": "Ex: adoro trilhas pouco conhecidas, evito lugares muito cheios...",
     "otherCounter": "{{count}}/280",
     "save": "Salvar preferências",
@@ -722,17 +730,70 @@
       "minimum": "Marque ao menos 1 interesse, escolha o ritmo e o orçamento."
     }
   },
+  "paywall": {
+    "title": "Tripfy Pro",
+    "brand": "Tripfy",
+    "proPill": "Pro",
+    "headline": "Roteiros ilimitados. Sem trava na hora de salvar.",
+    "subtitle": "O plano Grátis cobre 2 viagens. O Pro libera o resto.",
+    "trialBadge": "7 dias grátis",
+    "trialCardTitle": "7 dias grátis no Pro",
+    "trialCardBody": "Testa sem compromisso. Neste TCC não tem cobrança.",
+    "planFreeTitle": "Grátis",
+    "planFreeBody": "2 viagens salvas. Match só em dupla.",
+    "planProTitle": "Pro",
+    "planProBody": "Viagens ilimitadas. Grupos e offline entram depois.",
+    "benefitsTitle": "O que entra no Pro",
+    "moreSoon": "Mais recursos em breve",
+    "mockHint": "Simulação de TCC. Não tem cobrança de verdade.",
+    "cta": "Começar 7 dias grátis",
+    "ctaSub": "Depois, no app publicado, vira assinatura.",
+    "close": "Fechar",
+    "soon": "Em breve",
+    "error": "Não deu pra ativar. Tenta de novo.",
+    "benefit": {
+      "unlimited": {
+        "title": "Roteiros ilimitados",
+        "body": "Salva Lisboa, Tóquio e o fim de semana na praia. Sem apagar um pra caber outro."
+      },
+      "match": {
+        "title": "Match para grupos",
+        "body": "Hoje o Match é em dupla. Grupo de 3 ou mais fica no Pro, numa próxima versão."
+      },
+      "offline": {
+        "title": "Exportação offline",
+        "body": "Leva o roteiro no avião, sem depender de rede. Ainda não está no app."
+      }
+    }
+  },
   "settings": {
     "title": "Configurações",
     "accountSection": "Conta",
     "editProfile": "Editar perfil",
     "editVibe": "Editar sua vibe",
     "myReviews": "Minhas avaliações",
+    "tripfyPro": "Tripfy Pro",
+    "proBadge": "Pro",
+    "proActiveUntil": "Ativo até {{date}}",
+    "proActive": "Ativo",
+    "proCancelTitle": "Cancelar Tripfy Pro?",
+    "proCancelBody": "É só a simulação. Suas viagens continuam salvas.",
+    "proCancelConfirm": "Cancelar Pro",
+    "proCancelKeep": "Manter Pro",
+    "proCancelError": "Não deu pra cancelar. Tenta de novo.",
     "trash": "Lixeira",
     "appSection": "Preferências do app",
     "notifications": "Notificações",
     "haptics": "Vibração",
     "hapticsHint": "Toques e navegação.",
+    "theme": "Tema",
+    "themeHint": "Padrão: igual ao do sistema.",
+    "themeSystem": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "language": "Idioma",
+    "languageHint": "Mais idiomas entram depois.",
+    "localePtBR": "Português (Brasil)",
     "comingSoon": "Em breve",
     "supportSection": "Suporte",
     "helpSupport": "Ajuda & Suporte",
@@ -799,7 +860,7 @@
     "faq": {
       "ai": {
         "q": "Como funciona a geração de roteiro por IA?",
-        "a": "Você conta o destino, os dias e suas preferências, e a IA monta um roteiro dia a dia — sempre gratuito."
+        "a": "Você conta o destino, os dias e suas preferências, e a IA monta um roteiro dia a dia. Sempre gratuito."
       },
       "match": {
         "q": "Como funciona o Match de Viajantes?",
@@ -824,6 +885,6 @@
       "deleteLink": "Ir para Excluir conta"
     },
     "contactSection": "Fale com a gente",
-    "legalComingSoon": "Política de Privacidade e Termos de Uso — em breve."
+    "legalComingSoon": "Política de Privacidade e Termos de Uso. Em breve."
   }
 }

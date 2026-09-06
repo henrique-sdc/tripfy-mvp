@@ -5,7 +5,6 @@ import { Image } from "expo-image";
 import * as Haptics from "@/lib/haptics";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { collection, getCountFromServer } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Share, useColorScheme } from "react-native";
@@ -17,13 +16,14 @@ import { AppText } from "@/components/ui/AppText";
 import { INTERESTS, PACE_OPTIONS } from "@/constants/travel-preferences";
 import { useCompanionsList } from "@/hooks/use-companions-list";
 import { useTheme } from "@/hooks/use-theme";
-import { auth, db } from "@/lib/firebase";
+import { appDeepLink } from "@/lib/deep-links";
+import { auth } from "@/lib/firebase";
 import {
   getUserProfile,
   profilePhotoUri,
   type UserProfile,
 } from "@/lib/profile";
-import { appDeepLink } from "@/lib/deep-links";
+import { countTripStats } from "@/lib/trips";
 import { useAuthStore } from "@/stores/authStore";
 import { useWishlistStore } from "@/stores/wishlistStore";
 import { Pressable, ScrollView, View } from "@/tw";
@@ -42,11 +42,9 @@ function initials(name: string): string {
 function StatCard({
   value,
   label,
-  muted,
 }: {
   value: string;
   label: string;
-  muted?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -55,7 +53,6 @@ function StatCard({
       style={{
         backgroundColor: theme.surface,
         borderColor: theme.border,
-        opacity: muted ? 0.6 : 1,
       }}
     >
       <AppText className="text-[18px] font-bold">{value}</AppText>
@@ -99,10 +96,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const tabPad = useTabBarPadding();
   const user = useAuthStore((s) => s.user);
+  const isPremium = useAuthStore((s) => s.isPremium);
   const savedCount = useWishlistStore((s) => s.items.length);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tripsCount, setTripsCount] = useState<number | null>(null);
+  const [matchesCount, setMatchesCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { companions } = useCompanionsList();
 
@@ -113,16 +112,14 @@ export default function ProfileScreen() {
       let cancelled = false;
       (async () => {
         try {
-          const uid = auth.currentUser?.uid;
-          const [remote, countSnap] = await Promise.all([
+          const [remote, stats] = await Promise.all([
             getUserProfile(),
-            uid
-              ? getCountFromServer(collection(db, "users", uid, "trips"))
-              : null,
+            countTripStats(),
           ]);
           if (cancelled) return;
           setProfile(remote);
-          setTripsCount(countSnap ? countSnap.data().count : 0);
+          setTripsCount(stats.total);
+          setMatchesCount(stats.matches);
         } catch (err) {
           console.error("[profile] load:", err);
         } finally {
@@ -254,12 +251,31 @@ export default function ProfileScreen() {
           />
 
           <View className="items-center">
-            <AppText
-              className="text-[24px] font-bold"
-              style={{ letterSpacing: -0.4 }}
-            >
-              {firstName}
-            </AppText>
+            <View className="flex-row items-center gap-2">
+              <AppText
+                className="text-[24px] font-bold"
+                style={{ letterSpacing: -0.4 }}
+              >
+                {firstName}
+              </AppText>
+              {isPremium ? (
+                <View
+                  className="rounded-full px-2 py-0.5"
+                  style={{
+                    backgroundColor: `${theme.accent}18`,
+                    borderWidth: 1,
+                    borderColor: theme.accent,
+                  }}
+                >
+                  <AppText
+                    className="text-[11px] font-semibold"
+                    style={{ color: theme.accent }}
+                  >
+                    {t("profile.proBadge")}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
             {hasFullName ? (
               <AppText tone="secondary" className="text-[13px]">
                 {displayName}
@@ -292,7 +308,7 @@ export default function ProfileScreen() {
 
         <View className="flex-row gap-2.5 mb-2">
           <StatCard
-            value={tripsCount === null ? "–" : String(tripsCount)}
+            value={tripsCount === null ? "-" : String(tripsCount)}
             label={t("profile.stats.trips")}
           />
           <StatCard
@@ -300,9 +316,8 @@ export default function ProfileScreen() {
             label={t("profile.stats.saved")}
           />
           <StatCard
-            value={t("profile.stats.soon")}
+            value={matchesCount === null ? "-" : String(matchesCount)}
             label={t("profile.stats.matches")}
-            muted
           />
         </View>
         {loading ? (

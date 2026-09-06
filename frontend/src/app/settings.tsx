@@ -12,14 +12,17 @@ import { useTranslation } from "react-i18next";
 import { Alert, Switch, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/use-theme";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 import { auth } from "@/lib/firebase";
 import * as Haptics from "@/lib/haptics";
+import { cancelCheckout } from "@/lib/api";
 import { deleteUserAccount } from "@/lib/profile";
 import { useAuthStore } from "@/stores/authStore";
+import { usePaywallStore } from "@/stores/paywallStore";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { Pressable, ScrollView, View } from "@/tw";
 
@@ -84,9 +87,15 @@ export default function SettingsScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const setUser = useAuthStore((s) => s.setUser);
-  const setHasPreferences = useAuthStore((s) => s.setHasPreferences);
+  const clearSessionFlags = useAuthStore((s) => s.clearSessionFlags);
+  const applySync = useAuthStore((s) => s.applySync);
+  const isPremium = useAuthStore((s) => s.isPremium);
+  const premiumUntil = useAuthStore((s) => s.premiumUntil);
+  const openPaywall = usePaywallStore((s) => s.open);
   const haptics = usePreferencesStore((s) => s.haptics);
   const setHaptics = usePreferencesStore((s) => s.setHaptics);
+  const themeMode = usePreferencesStore((s) => s.themeMode);
+  const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
 
   const [signingOut, setSigningOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -114,7 +123,7 @@ export default function SettingsScreen() {
       // Limpa store na hora — onAuthStateChanged também reage, mas não
       // dependemos só dele pra não piscar estado intermediário.
       setUser(null);
-      setHasPreferences(null);
+      clearSessionFlags();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("[settings] signOut:", err);
@@ -124,6 +133,48 @@ export default function SettingsScreen() {
       setSigningOut(false);
     }
   }
+
+  async function onCancelPro() {
+    setFormError(null);
+    try {
+      const result = await cancelCheckout();
+      applySync({
+        has_preferences: result.has_preferences,
+        is_premium: Boolean(result.is_premium),
+        tier: result.tier === "pro" ? "pro" : "free",
+        premium_until: result.premium_until ?? null,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("[settings] cancel Pro:", err);
+      setFormError("settings.proCancelError");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }
+
+  function onAskCancelPro() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(t("settings.proCancelTitle"), t("settings.proCancelBody"), [
+      { text: t("settings.proCancelKeep"), style: "cancel" },
+      {
+        text: t("settings.proCancelConfirm"),
+        style: "destructive",
+        onPress: () => {
+          void onCancelPro();
+        },
+      },
+    ]);
+  }
+
+  const proUntilLabel = premiumUntil
+    ? t("settings.proActiveUntil", {
+        date: new Date(premiumUntil).toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      })
+    : t("settings.proActive");
 
   function onAskDelete() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -145,7 +196,7 @@ export default function SettingsScreen() {
     try {
       await deleteUserAccount();
       setUser(null);
-      setHasPreferences(null);
+      clearSessionFlags();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("[settings] delete:", err);
@@ -213,6 +264,19 @@ export default function SettingsScreen() {
             onPress={() => router.push("/my-reviews")}
           />
           <SettingsRow
+            icon="diamond-outline"
+            label={t("settings.tripfyPro")}
+            badge={isPremium ? t("settings.proBadge") : undefined}
+            onPress={
+              isPremium ? onAskCancelPro : () => openPaywall("manage")
+            }
+          />
+          {isPremium ? (
+            <AppText tone="secondary" className="text-[12px] px-1 -mt-1">
+              {proUntilLabel}
+            </AppText>
+          ) : null}
+          <SettingsRow
             icon="trash-outline"
             label={t("settings.trash")}
             onPress={() => router.push("/trash")}
@@ -223,6 +287,72 @@ export default function SettingsScreen() {
           <AppText tone="secondary" className="text-[13px] font-semibold uppercase tracking-wide">
             {t("settings.appSection")}
           </AppText>
+          {/* Tema no aparelho (não na conta). Default = sistema; Claro/Escuro
+              forçam Appearance.setColorScheme pra o NativeWind acompanhar. */}
+          <View
+            className="gap-3 rounded-2xl border px-4 py-3.5"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <View className="flex-row items-center gap-3">
+              <View
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{ backgroundColor: `${theme.accent}18` }}
+              >
+                <Ionicons
+                  name="contrast-outline"
+                  size={18}
+                  color={theme.accent}
+                />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <AppText className="text-[15px] font-medium">
+                  {t("settings.theme")}
+                </AppText>
+                <AppText tone="secondary" className="text-[12px] leading-4">
+                  {t("settings.themeHint")}
+                </AppText>
+              </View>
+            </View>
+            <CapsuleSelector
+              options={[
+                { value: "system", label: t("settings.themeSystem") },
+                { value: "light", label: t("settings.themeLight") },
+                { value: "dark", label: t("settings.themeDark") },
+              ]}
+              value={themeMode}
+              onChange={(value) => {
+                if (
+                  value === "system" ||
+                  value === "light" ||
+                  value === "dark"
+                ) {
+                  setThemeMode(value);
+                }
+              }}
+            />
+          </View>
+          <View
+            className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: `${theme.accent}18` }}
+            >
+              <Ionicons name="language-outline" size={18} color={theme.accent} />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <AppText className="text-[15px] font-medium">
+                {t("settings.language")}
+              </AppText>
+              <AppText tone="secondary" className="text-[12px] leading-4">
+                {t("settings.languageHint")}
+              </AppText>
+            </View>
+            <AppText tone="muted" className="text-[13px] font-semibold">
+              {t("settings.localePtBR")}
+            </AppText>
+          </View>
           <SettingsRow
             icon="notifications-outline"
             label={t("settings.notifications")}

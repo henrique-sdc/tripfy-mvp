@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
+import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { TripHistoryCard } from "@/components/trip/TripHistoryCard";
 import { AppText } from "@/components/ui/AppText";
 import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
@@ -33,6 +34,8 @@ export default function TripsScreen() {
   const openCreateSheet = useCreateTripSheetStore((s) => s.open);
 
   const [trips, setTrips] = useState<SavedTrip[]>([]);
+  // Filtro local — Matches = docs com match_id (origem RF11/RF12).
+  const [filter, setFilter] = useState<"all" | "matches">("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,18 +92,37 @@ export default function TripsScreen() {
     })();
   }
 
-  const listHeader = (
-    <View className="mb-5">
-      <AppText
-        className="font-bold mb-1"
-        style={{ fontSize: 28, letterSpacing: -0.5 }}
-      >
-        {t("trips.title")}
-      </AppText>
-      <AppText tone="secondary" className="text-[14px]">
-        {t("trips.subtitle")}
-      </AppText>
-    </View>
+  const visibleTrips = useMemo(
+    () =>
+      filter === "matches" ? trips.filter((trip) => trip.match_id) : trips,
+    [filter, trips],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View className="mb-5">
+        <AppText
+          className="font-bold mb-1"
+          style={{ fontSize: 28, letterSpacing: -0.5 }}
+        >
+          {t("trips.title")}
+        </AppText>
+        <AppText tone="secondary" className="text-[14px] mb-4">
+          {t("trips.subtitle")}
+        </AppText>
+        <CapsuleSelector
+          options={[
+            { value: "all", label: t("trips.filterAll") },
+            { value: "matches", label: t("trips.filterMatches") },
+          ]}
+          value={filter}
+          onChange={(value) => {
+            if (value === "all" || value === "matches") setFilter(value);
+          }}
+        />
+      </View>
+    ),
+    [filter, t],
   );
 
   function renderEmpty() {
@@ -134,14 +156,20 @@ export default function TripsScreen() {
       );
     }
 
+    const matchesEmpty = filter === "matches";
+
     return (
       <View className="items-center justify-center py-20 px-4 gap-3">
-        <Ionicons name="map-outline" size={56} color={theme.textMuted} />
+        <Ionicons
+          name={matchesEmpty ? "people-outline" : "map-outline"}
+          size={56}
+          color={theme.textMuted}
+        />
         <AppText className="text-[17px] font-semibold text-center">
-          {t("trips.emptySaved")}
+          {t(matchesEmpty ? "trips.emptyMatches" : "trips.emptySaved")}
         </AppText>
         <AppText tone="secondary" className="text-[14px] text-center mb-2">
-          {t("trips.emptySavedHint")}
+          {t(matchesEmpty ? "trips.emptyMatchesHint" : "trips.emptySavedHint")}
         </AppText>
         <Pressable
           onPress={() => {
@@ -168,7 +196,7 @@ export default function TripsScreen() {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <FlatList
-        data={error || loading ? [] : trips}
+        data={error || loading ? [] : visibleTrips}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={renderEmpty}
