@@ -484,6 +484,19 @@
     "mapEmptyTitle": "Sem coordenadas neste dia",
     "mapEmptyBody": "A IA não enviou lat/lng pra estas paradas.",
     "dragHint": "Segure o ≡ e arraste pra reordenar. Os horários acompanham.",
+    "travelMode": {
+      "plan": "Planejar",
+      "travel": "Viajar",
+      "selectorA11y": "Modo do roteiro",
+      "doneA11y": "Marcar {{title}} como feita",
+      "undoneA11y": "Desmarcar {{title}}",
+      "navigateA11y": "Como chegar em {{title}}",
+      "navigateErrorTitle": "Mapa",
+      "navigateErrorBody": "Não deu pra abrir o mapa deste aparelho.",
+      "hint": "Marque o que já fez. O ícone de rota abre o mapa do celular.",
+      "reviewLocked": "Marque a parada como feita no roteiro para avaliar.",
+      "reviewNoPlace": "Não identificamos o lugar no mapa; a avaliação fica bloqueada."
+    },
     "dragHandle": "Arrastar parada",
     "sheetHandle": "Puxar roteiro",
     "openNow": "Aberto agora",
@@ -530,7 +543,8 @@
       "deleteReviewBody": "Isso remove seu comentário deste lugar.",
       "deleteReviewConfirm": "Excluir",
       "deleteReviewCancel": "Cancelar",
-      "deleteError": "Não deu pra excluir. Tente de novo."
+      "deleteError": "Não deu pra excluir. Tente de novo.",
+      "saveReviewError": "Não deu pra publicar. Tente de novo."
     },
     "editActivity": {
       "title": "Editar parada",

@@ -1,4 +1,11 @@
 # Changelog — Tripfy Docs
+## 2026-09-06 — Modo Viagem (assistente de campo)
+
+- Toggle Planejar / Viajar no detalhe do roteiro. Default: Viajar se hoje >= `start_date`.
+- `PersistedActivity.completed` + `place_id` (fora do schema LLM). Autosave imediato no checkbox.
+- Trava de review: UI + `403` no POST se a parada não foi marcada feita. Clone zera `completed`.
+- Wiki: [[Modo Viagem]], [[Detalhe da Viagem RF07]].
+
 ## 2026-09-05 — Paywall segue o tema
 
 - Overlay Tripfy Pro deixa de forçar Dark. Halo `accent → background`, CTA no

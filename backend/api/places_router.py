@@ -14,7 +14,8 @@ from models.places import (
     PlaceFullDetailsResponse,
 )
 from models.review import PlaceReviewCreate, PlaceReviewResponse
-from repositories import review_repository
+from models.trip import user_has_completed_place
+from repositories import review_repository, trips_repository
 from services import places_service
 from services.places_service import validate_place_id
 
@@ -151,6 +152,23 @@ async def upsert_place_review(
         cleaned[:40],
         body.rating,
     )
+    existing = await review_repository.get_by_place_and_user(
+        cleaned, current_user.uid
+    )
+    if existing is None:
+        trips = await trips_repository.list_active(current_user.uid)
+        if not user_has_completed_place(trips, cleaned):
+            logger.info(
+                "Review bloqueado (parada não feita): uid={} place_id={}",
+                current_user.uid,
+                cleaned[:40],
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Marque esta parada como feita no roteiro antes de avaliar."
+                ),
+            )
     return await review_repository.upsert(
         cleaned,
         current_user.uid,

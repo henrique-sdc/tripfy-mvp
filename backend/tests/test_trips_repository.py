@@ -83,5 +83,62 @@ class TripsRepositoryHelpersTest(unittest.TestCase):
         self.assertTrue(payload["days"][0]["activities"][0]["requires_ticket"])
 
 
+class TravelModePersistTest(unittest.TestCase):
+    def test_clone_resets_completed_keeps_place_id(self) -> None:
+        payload = _itinerary_payload(
+            {
+                "destination": "Lisboa",
+                "summary": "Sol",
+                "days": [
+                    {
+                        "day": 1,
+                        "title": "Belém",
+                        "activities": [
+                            {
+                                "time": "10:00",
+                                "title": "Jerónimos",
+                                "description": "x",
+                                "location": "Belém",
+                                "completed": True,
+                                "place_id": "ChIJ1234567890",
+                            }
+                        ],
+                    }
+                ],
+            },
+            reset_completed=True,
+        )
+        act = payload["days"][0]["activities"][0]
+        self.assertFalse(act["completed"])
+        self.assertEqual(act["place_id"], "ChIJ1234567890")
+
+    def test_create_keeps_completed(self) -> None:
+        payload = _itinerary_payload(
+            {
+                "destination": "Lisboa",
+                "summary": "Sol",
+                "days": [
+                    {
+                        "day": 1,
+                        "title": "Belém",
+                        "activities": [
+                            {
+                                "time": "10:00",
+                                "title": "Jerónimos",
+                                "description": "x",
+                                "location": "Belém",
+                                "completed": True,
+                                "place_id": "ChIJ1234567890",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        act = payload["days"][0]["activities"][0]
+        self.assertTrue(act["completed"])
+        self.assertEqual(act["place_id"], "ChIJ1234567890")
+
+
 if __name__ == "__main__":
     unittest.main()

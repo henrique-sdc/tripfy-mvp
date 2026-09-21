@@ -115,12 +115,23 @@ class ItineraryResponse(BaseModel):
     days: list[ItineraryDayResponse] = Field(..., min_length=1)
 
 
+class PersistedActivity(ActivityResponse):
+    """Parada gravada no Firestore — campos de campo, não de LLM.
+
+    Fora do response_schema do Gemini: senão o modelo geraria
+    `completed`/`place_id` em toda parada e gastaria token à toa.
+    """
+
+    completed: bool = False
+    place_id: str | None = None
+
+
 class PersistedDay(BaseModel):
     """Dia persistido — permite activities vazias (Fase 2: +Dia)."""
 
     day: int = Field(..., ge=1)
     title: str = ""
-    activities: list[ActivityResponse] = Field(default_factory=list)
+    activities: list[PersistedActivity] = Field(default_factory=list)
 
 
 class SavedTripResponse(BaseModel):
@@ -168,3 +179,22 @@ class CreateTripRequest(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     match_id: str | None = Field(default=None, max_length=128)
+
+
+def has_completed_place(days: list[PersistedDay], place_id: str) -> bool:
+    """True se alguma parada feita aponta pra este Google place_id."""
+    pid = place_id.strip()
+    if not pid:
+        return False
+    return any(
+        act.completed and act.place_id == pid
+        for day in days
+        for act in day.activities
+    )
+
+
+def user_has_completed_place(
+    trips: list[SavedTripResponse], place_id: str
+) -> bool:
+    """Scan das viagens ativas do uid — teto Free é 2 docs."""
+    return any(has_completed_place(trip.days, place_id) for trip in trips)

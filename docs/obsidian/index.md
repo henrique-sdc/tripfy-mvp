@@ -14,6 +14,7 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Geração de Roteiro RF06]] — RF06: LLM trocável (`openai`/`gemini`), SSE, prompt anti-injection, prefs do Firestore.
 - [[Afiliados RF10]] — RF10: Smart Deep Links para Booking / Skyscanner / GetYourGuide (sem Amadeus).
 - [[Detalhe da Viagem RF07]] — RF07: Lista/Mapa, drag-and-drop, coração → Firestore, coords opcionais.
+- [[Modo Viagem]] — assistente de campo: Planejar/Viajar, checkbox, mapa nativo, trava de review.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
 - [[Tripfy Pro e Paywall]] — mock de assinatura TCC: teto de 2 viagens ativas, 402, checkout simulado, overlay do paywall.
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).

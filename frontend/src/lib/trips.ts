@@ -54,15 +54,21 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
     days: itinerary.days.map((d) => ({
       day: d.day,
       title: d.title,
-      activities: d.activities.map((a) => ({
-        time: a.time,
-        title: a.title,
-        description: a.description,
-        location: a.location,
-        latitude: a.latitude ?? null,
-        longitude: a.longitude ?? null,
-        requires_ticket: Boolean(a.requires_ticket),
-      })),
+      activities: d.activities.map((a) => {
+        const pid =
+          typeof a.place_id === "string" ? a.place_id.trim() : "";
+        return {
+          time: a.time,
+          title: a.title,
+          description: a.description,
+          location: a.location,
+          latitude: a.latitude ?? null,
+          longitude: a.longitude ?? null,
+          requires_ticket: Boolean(a.requires_ticket),
+          completed: Boolean(a.completed),
+          place_id: pid.length >= 10 ? pid : null,
+        };
+      }),
     })),
     ...(start_date ? { start_date } : {}),
     ...(end_date ? { end_date } : {}),

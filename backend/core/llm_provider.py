@@ -310,6 +310,9 @@ if __name__ == "__main__":
     assert "title" in schema["$defs"]["ActivityResponse"]["required"]
     assert "title" in schema["$defs"]["ItineraryDayResponse"]["required"]
     assert "requires_ticket" in activity_props
+    # completed/place_id vivem em PersistedActivity — Gemini não deve gerá-los.
+    assert "completed" not in activity_props
+    assert "place_id" not in activity_props
     sample = (
         '{"destination":"X","summary":"Y","tips":["a","b","c"],'
         '"day_1":{"day":1,"title":"A","activities":[{"time":"09:00","title":"t",'

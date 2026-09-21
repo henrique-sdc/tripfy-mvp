@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import {
+  ApiError,
   deleteOwnPlaceReview,
   getPlaceFullDetails,
   getPlaceReviews,
@@ -81,6 +82,10 @@ type Props = {
   fallback?: PlaceFallback | null;
   /** Aba inicial ao abrir (ex.: Comunidade em Minhas avaliações). */
   initialTab?: Tab;
+  /** Trava de ouro: parada feita neste roteiro (ou review já existente). */
+  canWriteReview?: boolean;
+  /** Por que o CTA está bloqueado (só quando canWriteReview é false). */
+  reviewLockMessage?: string | null;
   onClose: () => void;
 };
 
@@ -88,6 +93,8 @@ export function PlaceDetailsSheet({
   placeId,
   fallback = null,
   initialTab = "about",
+  canWriteReview = false,
+  reviewLockMessage = null,
   onClose,
 }: Props) {
   const { t } = useTranslation();
@@ -246,6 +253,11 @@ export function PlaceDetailsSheet({
     } catch (err) {
       console.warn("[PlaceDetailsSheet] falha ao salvar review:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const msg =
+        err instanceof ApiError && err.status === 403
+          ? err.message
+          : t("tripDetail.placeSheet.saveReviewError");
+      Alert.alert(t("tripDetail.placeSheet.writeReview"), msg);
     } finally {
       setSaving(false);
     }
@@ -294,9 +306,11 @@ export function PlaceDetailsSheet({
   const showHardError = error && !hasFallback;
   const showContent = !loading && !showHardError;
   const canUseCommunity = Boolean(placeId);
+  const canEditOrWrite = ownReview != null || canWriteReview;
 
   function openReviewForm(existing?: PlaceReviewResponse | null) {
     if (!canUseCommunity) return;
+    if (!existing && !ownReview && !canWriteReview) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const source = existing ?? ownReview;
     if (source) {
@@ -485,6 +499,8 @@ export function PlaceDetailsSheet({
                     ownUid={ownUid}
                     showForm={showForm}
                     isEditingOwn={ownReview != null}
+                    canEditOrWrite={canEditOrWrite}
+                    lockMessage={reviewLockMessage}
                     rating={rating}
                     comment={comment}
                     saving={saving}
@@ -766,6 +782,8 @@ function CommunityTab({
   ownUid,
   showForm,
   isEditingOwn,
+  canEditOrWrite,
+  lockMessage,
   rating,
   comment,
   saving,
@@ -782,6 +800,8 @@ function CommunityTab({
   ownUid: string | null;
   showForm: boolean;
   isEditingOwn: boolean;
+  canEditOrWrite: boolean;
+  lockMessage?: string | null;
   rating: number;
   comment: string;
   saving: boolean;
@@ -808,22 +828,28 @@ function CommunityTab({
 
   return (
     <RNView style={styles.gap}>
-      <RNPressable
-        onPress={onToggleForm}
-        style={[
-          styles.primaryBtn,
-          { backgroundColor: theme.buttonPrimary },
-        ]}
-      >
-        <AppText
-          className="text-[14px] font-semibold"
-          style={{ color: theme.buttonText }}
+      {canEditOrWrite ? (
+        <RNPressable
+          onPress={onToggleForm}
+          style={[
+            styles.primaryBtn,
+            { backgroundColor: theme.buttonPrimary },
+          ]}
         >
-          {writeLabel}
+          <AppText
+            className="text-[14px] font-semibold"
+            style={{ color: theme.buttonText }}
+          >
+            {writeLabel}
+          </AppText>
+        </RNPressable>
+      ) : lockMessage ? (
+        <AppText tone="secondary" className="text-[13px] leading-5">
+          {lockMessage}
         </AppText>
-      </RNPressable>
+      ) : null}
 
-      {showForm ? (
+      {showForm && canEditOrWrite ? (
         <RNView
           style={[
             styles.formBox,

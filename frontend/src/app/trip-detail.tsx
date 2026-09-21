@@ -53,14 +53,21 @@ import {
   type SyncStatus,
 } from "@/components/trip/SyncIndicator";
 import { TripOsmMap } from "@/components/trip/TripOsmMap";
+import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
 import type { ActivityResponse, ItineraryResponse } from "@/lib/api";
 import { cloneTripApi, getTripApi, isPremiumRequired } from "@/lib/api";
 import { appDeepLink } from "@/lib/deep-links";
+import { openNativeMaps } from "@/lib/openNativeMaps";
 import { peekPendingItinerary, peekPendingMatchId } from "@/lib/pendingItinerary";
 import { getTrip, saveTrip } from "@/lib/trips";
 import { optionalIsoDate } from "@/lib/tripDates";
+import {
+  defaultChromeMode,
+  hasCompletedPlace,
+  type TripChromeMode,
+} from "@/lib/travelMode";
 import { useAuthStore } from "@/stores/authStore";
 
 const DELETE_ACTION_W = 76;
@@ -161,6 +168,22 @@ function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
     })),
     start_date: itinerary.start_date,
     end_date: itinerary.end_date,
+  };
+}
+
+function patchLocalActivity(
+  itinerary: LocalItinerary,
+  key: string,
+  patch: Partial<LocalActivity>,
+): LocalItinerary {
+  return {
+    ...itinerary,
+    days: itinerary.days.map((d) => ({
+      ...d,
+      activities: d.activities.map((a) =>
+        a.key === key ? { ...a, ...patch } : a,
+      ),
+    })),
   };
 }
 
@@ -343,6 +366,7 @@ export default function TripDetailScreen() {
   );
   const [detailsPlace, setDetailsPlace] = useState<{
     placeId: string | null;
+    activityKey?: string;
     fallback: {
       title: string;
       description: string;
@@ -359,6 +383,11 @@ export default function TripDetailScreen() {
   // Visitante via deep link — sem auto-save / edição.
   const [readOnly, setReadOnly] = useState(false);
   const [cloning, setCloning] = useState(false);
+  const [chromeMode, setChromeMode] = useState<TripChromeMode>(() =>
+    defaultChromeMode(
+      resolveInitialItinerary(params.itinerary)?.start_date,
+    ),
+  );
 
   const tripIdRef = useRef(tripId);
   const matchIdRef = useRef<string | undefined>(
@@ -366,6 +395,11 @@ export default function TripDetailScreen() {
   );
   const savingLock = useRef(false);
   const paywallBlocked = useRef(false);
+  const itineraryRef = useRef(itinerary);
+  itineraryRef.current = itinerary;
+  const persistNowRef = useRef(false);
+  const chromeTouchedRef = useRef(false);
+  const [saveTick, setSaveTick] = useState(0);
   const isPremium = useAuthStore((s) => s.isPremium);
   const sheetPlaced = useRef(false);
   const peekH = useSharedValue(0);
@@ -389,23 +423,31 @@ export default function TripDetailScreen() {
         const remote = await getTrip(id);
         if (cancelled) return;
         if (remote) {
-          setItinerary(stampKeys(remote));
+          const stamped = stampKeys(remote);
+          setItinerary(stamped);
           setTripId(remote.id);
           if (remote.match_id) matchIdRef.current = remote.match_id;
           setReadOnly(false);
           setSyncStatus("saved");
           setDirty(false);
+          if (!chromeTouchedRef.current) {
+            setChromeMode(defaultChromeMode(stamped.start_date));
+          }
           return;
         }
 
         // Não é do usuário (ou soft-deleted no client) — tenta API.
         const shared = await getTripApi(id);
         if (cancelled) return;
-        setItinerary(stampKeys(shared));
+        const stampedShared = stampKeys(shared);
+        setItinerary(stampedShared);
         setTripId(shared.id);
         setReadOnly(shared.read_only);
         setSyncStatus("saved");
         setDirty(false);
+        if (!chromeTouchedRef.current) {
+          setChromeMode(defaultChromeMode(stampedShared.start_date));
+        }
       } catch (err) {
         console.error("[trip-detail] Falha ao carregar viagem:", err);
         Alert.alert(
@@ -435,19 +477,28 @@ export default function TripDetailScreen() {
     if (!itinerary || !dirty || loadingRemote || readOnly) return;
     if (paywallBlocked.current) return;
 
+    const snapshot = itinerary;
+    const delay = persistNowRef.current ? 0 : AUTOSAVE_MS;
+    persistNowRef.current = false;
+
     const timer = setTimeout(async () => {
       if (savingLock.current) return;
       savingLock.current = true;
       setSyncStatus("saving");
       try {
         const id = await saveTrip(
-          toPersistable(itinerary),
+          toPersistable(snapshot),
           tripIdRef.current ?? undefined,
           matchIdRef.current ? { matchId: matchIdRef.current } : undefined,
         );
         setTripId(id);
-        setDirty(false);
-        setSyncStatus("saved");
+        if (itineraryRef.current === snapshot) {
+          setDirty(false);
+          setSyncStatus("saved");
+        } else {
+          persistNowRef.current = true;
+          setDirty(true);
+        }
         console.info(`[trip-detail] Auto-save ok tripId=${id}`);
       } catch (err) {
         console.error("[trip-detail] Auto-save falhou:", err);
@@ -463,13 +514,19 @@ export default function TripDetailScreen() {
         Alert.alert(t("tripDetail.saveErrorTitle"), msg);
       } finally {
         savingLock.current = false;
+        if (itineraryRef.current !== snapshot) {
+          persistNowRef.current = true;
+          setSaveTick((n) => n + 1);
+        }
       }
-    }, AUTOSAVE_MS);
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, [itinerary, dirty, loadingRemote, readOnly, t]);
+  }, [itinerary, dirty, loadingRemote, readOnly, t, saveTick]);
 
   const showingAll = daySelection === null;
+  const travelMode = chromeMode === "travel";
+  const planChrome = chromeMode === "plan" && !readOnly;
   const currentDay =
     !showingAll && itinerary ? itinerary.days[daySelection] : undefined;
 
@@ -538,6 +595,63 @@ export default function TripDetailScreen() {
       setSyncStatus("saving");
     },
     [readOnly],
+  );
+
+  const onToggleCompleted = useCallback(
+    (key: string, completed: boolean, placeId: string | null) => {
+      if (!itinerary || readOnly) return;
+      const pid = placeId?.trim() ?? "";
+      persistNowRef.current = true;
+      patchItinerary(
+        patchLocalActivity(itinerary, key, {
+          completed,
+          ...(pid.length >= 10 ? { place_id: pid } : {}),
+        }),
+      );
+      console.info(
+        "[trip-detail] Parada %s marcada completed=%s",
+        key,
+        completed,
+      );
+    },
+    [itinerary, readOnly, patchItinerary],
+  );
+
+  const onPlaceIdResolved = useCallback(
+    (key: string, placeId: string) => {
+      if (!itinerary || readOnly) return;
+      const pid = placeId.trim();
+      if (pid.length < 10) return;
+      const current = itinerary.days
+        .flatMap((d) => d.activities)
+        .find((a) => a.key === key);
+      if (!current?.completed || current.place_id === pid) return;
+      persistNowRef.current = true;
+      patchItinerary(patchLocalActivity(itinerary, key, { place_id: pid }));
+      console.info("[trip-detail] place_id carimbado na parada %s", key);
+    },
+    [itinerary, readOnly, patchItinerary],
+  );
+
+  const onNavigateActivity = useCallback(
+    (item: LocalActivity) => {
+      void (async () => {
+        try {
+          await openNativeMaps({
+            latitude: item.latitude,
+            longitude: item.longitude,
+            label: [item.title, item.location].filter(Boolean).join(" "),
+          });
+        } catch (err) {
+          console.warn("[trip-detail] Maps nativo falhou:", err);
+          Alert.alert(
+            t("tripDetail.travelMode.navigateErrorTitle"),
+            t("tripDetail.travelMode.navigateErrorBody"),
+          );
+        }
+      })();
+    },
+    [t],
   );
 
   async function onShare() {
@@ -755,6 +869,8 @@ export default function TripDetailScreen() {
         latitude: payload.latitude,
         longitude: payload.longitude,
         requires_ticket: false,
+        completed: false,
+        place_id: null,
         dayNumber: day.day,
         key: `manual-${Date.now()}-${payload.title.slice(0, 12)}`,
       };
@@ -859,8 +975,8 @@ export default function TripDetailScreen() {
   const renderActivity = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<LocalActivity>) => {
       const index = getIndex() ?? 0;
-      const canDrag = !showingAll && !readOnly;
-      const canDelete = !readOnly && canDeleteActivity(item.key);
+      const canDrag = !showingAll && planChrome;
+      const canDelete = planChrome && canDeleteActivity(item.key);
 
       return (
         <ScaleDecorator activeScale={1.03}>
@@ -901,10 +1017,12 @@ export default function TripDetailScreen() {
                   }
                   showDragHandle={canDrag}
                   dimmed={isActive}
+                  travelMode={travelMode}
                   onDragHandlePressIn={canDrag ? drag : undefined}
                   onOpenDetails={(payload) =>
                     setDetailsPlace({
                       placeId: payload.placeId,
+                      activityKey: item.key,
                       fallback: {
                         title: payload.title,
                         description: payload.description,
@@ -914,14 +1032,27 @@ export default function TripDetailScreen() {
                     })
                   }
                   onEdit={
-                    readOnly
-                      ? undefined
-                      : () => {
+                    planChrome
+                      ? () => {
                           Haptics.impactAsync(
                             Haptics.ImpactFeedbackStyle.Light,
                           );
                           setEditingActivityKey(item.key);
                         }
+                      : undefined
+                  }
+                  onToggleCompleted={
+                    travelMode && !readOnly
+                      ? (done, pid) => onToggleCompleted(item.key, done, pid)
+                      : undefined
+                  }
+                  onPlaceIdResolved={
+                    !readOnly
+                      ? (pid) => onPlaceIdResolved(item.key, pid)
+                      : undefined
+                  }
+                  onNavigate={
+                    travelMode ? () => onNavigateActivity(item) : undefined
                   }
                 />
               </RNPressable>
@@ -930,8 +1061,44 @@ export default function TripDetailScreen() {
         </ScaleDecorator>
       );
     },
-    [onRemove, t, showingAll, canDeleteActivity, readOnly, itinerary?.destination],
+    [
+      onRemove,
+      t,
+      showingAll,
+      canDeleteActivity,
+      planChrome,
+      travelMode,
+      readOnly,
+      itinerary?.destination,
+      onToggleCompleted,
+      onPlaceIdResolved,
+      onNavigateActivity,
+    ],
   );
+
+  const reviewGate = useMemo(() => {
+    const placeId = detailsPlace?.placeId ?? null;
+    const locked = {
+      canWrite: false,
+      lock: t("tripDetail.travelMode.reviewLocked") as string | null,
+    };
+    if (!itinerary || readOnly) return locked;
+    if (hasCompletedPlace(itinerary.days, placeId)) {
+      return { canWrite: true, lock: null as string | null };
+    }
+    const source = detailsPlace?.activityKey
+      ? itinerary.days
+          .flatMap((d) => d.activities)
+          .find((a) => a.key === detailsPlace.activityKey)
+      : undefined;
+    if (source?.completed && (!source.place_id || !placeId)) {
+      return {
+        canWrite: false,
+        lock: t("tripDetail.travelMode.reviewNoPlace"),
+      };
+    }
+    return locked;
+  }, [itinerary, detailsPlace, readOnly, t]);
 
   // Sem GestureHandlerRootView aqui: o _layout já envolve o app.
   // Root aninhado era o outro culpado do DnD parar no Android.
@@ -969,17 +1136,17 @@ export default function TripDetailScreen() {
         <RNView style={styles.headerCopy}>
           <RNPressable
             onPress={
-              itinerary && !readOnly
+              itinerary && planChrome
                 ? () => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setEditingMeta(true);
                   }
                 : undefined
             }
-            disabled={!itinerary || readOnly}
-            accessibilityRole={itinerary && !readOnly ? "button" : undefined}
+            disabled={!itinerary || !planChrome}
+            accessibilityRole={itinerary && planChrome ? "button" : undefined}
             accessibilityLabel={
-              itinerary && !readOnly
+              itinerary && planChrome
                 ? t("tripDetail.editTrip.title")
                 : undefined
             }
@@ -1100,6 +1267,30 @@ export default function TripDetailScreen() {
                 </RNView>
               </GestureDetector>
 
+          <RNView
+            style={styles.modeWrap}
+            accessibilityLabel={t("tripDetail.travelMode.selectorA11y")}
+          >
+            <CapsuleSelector
+              compact
+              value={chromeMode}
+              onChange={(value) => {
+                chromeTouchedRef.current = true;
+                setChromeMode(value as TripChromeMode);
+              }}
+              options={[
+                {
+                  value: "plan",
+                  label: t("tripDetail.travelMode.plan"),
+                },
+                {
+                  value: "travel",
+                  label: t("tripDetail.travelMode.travel"),
+                },
+              ]}
+            />
+          </RNView>
+
           <RNScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1156,7 +1347,7 @@ export default function TripDetailScreen() {
                 </RNPressable>
               );
             })}
-            {!readOnly ? (
+            {!planChrome ? null : (
               <RNPressable
                 onPress={onAddDay}
                 style={[
@@ -1170,31 +1361,31 @@ export default function TripDetailScreen() {
                   {t("tripDetail.addDay")}
                 </AppText>
               </RNPressable>
-            ) : null}
+            )}
           </RNScrollView>
 
           <RNView style={styles.dayTitleRow}>
             <RNPressable
               style={styles.dayTitle}
-              disabled={readOnly}
+              disabled={!planChrome}
               onPress={
-                readOnly
-                  ? undefined
-                  : () => {
+                planChrome
+                  ? () => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       if (showingAll) setEditingMeta(true);
                       else setEditingDayTitle(true);
                     }
+                  : undefined
               }
-              accessibilityRole={readOnly ? undefined : "button"}
+              accessibilityRole={planChrome ? "button" : undefined}
               accessibilityLabel={
-                readOnly
-                  ? undefined
-                  : showingAll
+                planChrome
+                  ? showingAll
                     ? t("tripDetail.editTrip.title")
                     : t("tripDetail.editDayTitle.title", {
                         day: currentDay?.day ?? 1,
                       })
+                  : undefined
               }
             >
               <AppText
@@ -1206,7 +1397,7 @@ export default function TripDetailScreen() {
                   ? itinerary.summary || t("tripDetail.allDaysTitle")
                   : (currentDay?.title ?? "")}
               </AppText>
-              {!readOnly ? (
+              {planChrome ? (
                 <Ionicons
                   name="pencil-outline"
                   size={14}
@@ -1215,7 +1406,7 @@ export default function TripDetailScreen() {
                 />
               ) : null}
             </RNPressable>
-            {!readOnly && !showingAll && itinerary.days.length > 1 ? (
+            {planChrome && !showingAll && itinerary.days.length > 1 ? (
               <RNPressable
                 onPress={onDeleteDay}
                 hitSlop={10}
@@ -1231,19 +1422,19 @@ export default function TripDetailScreen() {
           {!readOnly || itinerary.notes.trim() ? (
             <RNPressable
               onPress={
-                readOnly
-                  ? undefined
-                  : () => {
+                planChrome
+                  ? () => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setEditingMeta(true);
                     }
+                  : undefined
               }
-              disabled={readOnly}
+              disabled={!planChrome}
               style={[
                 styles.notesRow,
                 { borderColor: theme.border, backgroundColor: theme.surface },
               ]}
-              accessibilityRole={readOnly ? undefined : "button"}
+              accessibilityRole={planChrome ? "button" : undefined}
               accessibilityLabel={t("tripDetail.notes.a11y")}
             >
               <Ionicons
@@ -1262,43 +1453,53 @@ export default function TripDetailScreen() {
             </RNPressable>
           ) : null}
 
-          <PartnerReserveRow
-            destination={itinerary.destination}
-            startDate={itinerary.start_date}
-            endDate={itinerary.end_date}
-          />
-
-          {!showingAll ? (
-            <AppText
-              tone="muted"
-              className="text-[11px]"
-              style={styles.dragHint}
-            >
-              {t("tripDetail.dragHint")}
-            </AppText>
-          ) : (
-            <RNView style={{ height: 8 }} />
-          )}
-
           <DraggableFlatList
             data={activities}
             keyExtractor={(item) => item.key}
             onDragBegin={() => {
-              if (readOnly) return;
+              if (!planChrome) return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
             onDragEnd={({ data }) => {
-              if (readOnly) return;
+              if (!planChrome) return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onReorder(data);
             }}
             containerStyle={styles.flex}
             contentContainerStyle={{
-              paddingBottom: insets.bottom + (readOnly ? 32 : 88),
+              paddingBottom: insets.bottom + (planChrome ? 88 : 32),
             }}
             renderItem={renderActivity}
-            activationDistance={showingAll || readOnly ? 10_000 : 8}
+            activationDistance={showingAll || !planChrome ? 10_000 : 8}
             autoscrollThreshold={48}
+            ListHeaderComponent={
+              <>
+                <PartnerReserveRow
+                  destination={itinerary.destination}
+                  startDate={itinerary.start_date}
+                  endDate={itinerary.end_date}
+                />
+                {!showingAll && planChrome ? (
+                  <AppText
+                    tone="muted"
+                    className="text-[11px]"
+                    style={styles.dragHint}
+                  >
+                    {t("tripDetail.dragHint")}
+                  </AppText>
+                ) : !showingAll && travelMode ? (
+                  <AppText
+                    tone="muted"
+                    className="text-[11px]"
+                    style={styles.dragHint}
+                  >
+                    {t("tripDetail.travelMode.hint")}
+                  </AppText>
+                ) : (
+                  <RNView style={{ height: 8 }} />
+                )}
+              </>
+            }
             ListFooterComponent={
               <TripTipsFooter tips={itinerary.tips} theme={theme} t={t} />
             }
@@ -1306,7 +1507,7 @@ export default function TripDetailScreen() {
             </RNView>
           </RNView>
 
-          {!readOnly ? (
+          {planChrome ? (
             <RNPressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1343,6 +1544,8 @@ export default function TripDetailScreen() {
       <PlaceDetailsSheet
         placeId={detailsPlace?.placeId ?? null}
         fallback={detailsPlace?.fallback ?? null}
+        canWriteReview={reviewGate.canWrite}
+        reviewLockMessage={reviewGate.lock}
         onClose={() => setDetailsPlace(null)}
       />
 
@@ -1423,6 +1626,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
+  },
+  modeWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   header: {
     flexDirection: "row",
@@ -1512,6 +1719,7 @@ const styles = StyleSheet.create({
   notesRow: {
     marginHorizontal: 16,
     marginTop: 8,
+    marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,

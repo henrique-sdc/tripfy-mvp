@@ -41,6 +41,13 @@ export class NetworkError extends Error {
   }
 }
 
+function isFetchAborted(error: unknown, signal?: AbortSignal | null): boolean {
+  if (signal?.aborted) return true;
+  if (!(error instanceof Error)) return false;
+  if (error.name === "AbortError") return true;
+  return /cancel+ed|aborted/i.test(error.message);
+}
+
 // Tipos espelhando os schemas Pydantic do backend (snake_case no fio).
 export type TravelPreferences = {
   interests: string[];
@@ -84,6 +91,10 @@ export type ActivityResponse = {
   longitude?: number | null;
   /** RF10 — CTA GetYourGuide. Ausente = false (roteiros antigos). */
   requires_ticket?: boolean;
+  /** Modo Viagem — ausente = não feito (roteiros antigos). */
+  completed?: boolean;
+  /** Google place_id carimbado ao marcar feito. Ausente = lookup ainda não resolveu. */
+  place_id?: string | null;
 };
 
 export type ItineraryDayResponse = {
@@ -546,6 +557,10 @@ async function authFetch(
       },
     });
   } catch (error) {
+    // Unmount / troca de dia aborta o lookup — não é queda de rede.
+    if (isFetchAborted(error, options.signal)) {
+      throw error;
+    }
     // O próprio fetch() falhou (ex.: ConnectException) — backend inalcançável
     // na rede, não um erro de aplicação. Log preserva a causa original.
     console.error("[api] Falha de rede ao chamar o backend:", error);

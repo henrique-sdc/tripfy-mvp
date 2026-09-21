@@ -1,5 +1,10 @@
 # Log — Tripfy Wiki
 
+## [2026-09-06] ingest | Modo Viagem
+
+Assistente de campo no detalhe do roteiro: checkbox, mapa nativo, trava de review.
+[[Modo Viagem]], [[Detalhe da Viagem RF07]] e [[changelog]].
+
 ## [2026-09-05] update | Paywall Light/Dark
 
 `PaywallScreen` usa `useTheme()`. Halo e cards no tema; texto no CTA é branco.

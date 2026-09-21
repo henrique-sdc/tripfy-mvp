@@ -4,7 +4,7 @@
 // tamanhos diferentes (ex.: "Sozinho(a)" vs "Família").
 
 import * as Haptics from "@/lib/haptics";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LayoutChangeEvent } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -25,6 +25,8 @@ type CapsuleSelectorProps = {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Padding menor — cabe no header do roteiro sem competir com os chips de dia. */
+  compact?: boolean;
 };
 
 export function CapsuleSelector({
@@ -32,12 +34,15 @@ export function CapsuleSelector({
   value,
   onChange,
   disabled,
+  compact = false,
 }: CapsuleSelectorProps) {
   const theme = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
 
   const indicatorX = useSharedValue(PADDING);
   const indicatorW = useSharedValue(0);
+  // Primeiro layout (e resize do track) posiciona sem animar; slide só na troca.
+  const lastIndex = useRef<number | null>(null);
 
   const selectedIndex = Math.max(
     0,
@@ -49,10 +54,18 @@ export function CapsuleSelector({
 
   useEffect(() => {
     if (segmentWidth <= 0) return;
-    indicatorX.value = withTiming(PADDING + selectedIndex * segmentWidth, {
-      duration: 220,
-    });
-    indicatorW.value = withTiming(segmentWidth, { duration: 220 });
+    const x = PADDING + selectedIndex * segmentWidth;
+    const shouldAnimate =
+      lastIndex.current !== null && lastIndex.current !== selectedIndex;
+    lastIndex.current = selectedIndex;
+
+    if (shouldAnimate) {
+      indicatorX.value = withTiming(x, { duration: 220 });
+      indicatorW.value = withTiming(segmentWidth, { duration: 220 });
+      return;
+    }
+    indicatorX.value = x;
+    indicatorW.value = segmentWidth;
   }, [selectedIndex, segmentWidth, indicatorX, indicatorW]);
 
   function handleTrackLayout(e: LayoutChangeEvent) {
@@ -95,10 +108,18 @@ export function CapsuleSelector({
               Haptics.selectionAsync();
               onChange(opt.value);
             }}
-            className="flex-1 py-3 px-2 items-center justify-center z-10"
+            className={
+              compact
+                ? "flex-1 py-1.5 px-2 items-center justify-center z-10"
+                : "flex-1 py-3 px-2 items-center justify-center z-10"
+            }
           >
             <AppText
-              className="text-sm font-semibold text-center"
+              className={
+                compact
+                  ? "text-xs font-semibold text-center"
+                  : "text-sm font-semibold text-center"
+              }
               style={{ color: selected ? theme.buttonText : theme.textSecondary }}
             >
               {opt.label}

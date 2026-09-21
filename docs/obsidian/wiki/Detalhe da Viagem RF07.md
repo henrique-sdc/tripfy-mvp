@@ -43,7 +43,8 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
 | Autocomplete destino     | `GET /places/autocomplete` — typeahead do wizard (RF05); `description` + `place_id`                                                    |
 | Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
-| Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`                                                             |
+| Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`. POST novo exige parada `completed`+`place_id`. Ver [[Modo Viagem]] |
+| **Modo Viagem**          | Toggle Planejar/Viajar; checkbox + mapa nativo; `PersistedActivity` fora do schema LLM                                                   |
 
 ## Proxy Google Places (PASSO 1 — backend)
 
@@ -127,6 +128,7 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 - Fallback: se Places falha ou devolve endereço como nome (`Cl. 82 #12 -21`), usa título/descrição/local da parada (`lib/placeDisplay.ts`).
 - Lookup Places: `título, endereço` (endereço sozinho casa pin genérico).
 - Comunidade desabilitada sem `place_id`.
+- Nova avaliação exige parada `completed` com o mesmo `place_id` ([[Modo Viagem]]). Review já existente continua editável.
 - API: `getPlaceFullDetails`, `getPlaceReviews`, `upsertPlaceReview` em `lib/api.ts`.
 
 ## Edição tátil (PASSO 3)
@@ -178,5 +180,6 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 ## Relacionados
 
 - [[Geração de Roteiro RF06]] — schema + SSE + lat/lng no prompt
+- [[Modo Viagem]] — Planejar/Viajar, checklist, trava de review
 - [[Afiliados RF10]] — PartnerReserveRow + requires_ticket
 - [[Home e Bottom Tabs]] — entrada pelo Wizard Solo / aba Viagens

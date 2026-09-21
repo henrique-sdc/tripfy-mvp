@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 
 from core.firebase import db
 from models.trip import (
-    ActivityResponse,
+    PersistedActivity,
     PersistedDay,
     SavedTripResponse,
 )
@@ -52,8 +52,18 @@ def _parse_iso_date(value: Any) -> date | None:
     return None
 
 
-def _parse_activity(raw: dict[str, Any]) -> ActivityResponse:
-    return ActivityResponse(
+def _parse_place_id(value: Any) -> str | None:
+    """Place ID curto; vazio/curto demais = None (roteiros antigos)."""
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    if cleaned.startswith("places/"):
+        cleaned = cleaned[len("places/") :]
+    return cleaned if len(cleaned) >= 10 else None
+
+
+def _parse_activity(raw: dict[str, Any]) -> PersistedActivity:
+    return PersistedActivity(
         time=str(raw.get("time") or ""),
         title=str(raw.get("title") or ""),
         description=str(raw.get("description") or ""),
@@ -61,6 +71,8 @@ def _parse_activity(raw: dict[str, Any]) -> ActivityResponse:
         latitude=raw.get("latitude"),
         longitude=raw.get("longitude"),
         requires_ticket=_as_bool(raw.get("requires_ticket")),
+        completed=_as_bool(raw.get("completed")),
+        place_id=_parse_place_id(raw.get("place_id")),
     )
 
 
@@ -141,8 +153,15 @@ def _doc_to_saved(
     )
 
 
-def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
-    """Copia só o miolo do roteiro pra clone (sem metadados de dono/lixeira)."""
+def _itinerary_payload(
+    data: dict[str, Any],
+    *,
+    reset_completed: bool = False,
+) -> dict[str, Any]:
+    """Copia o miolo do roteiro (clone/create) — sem metadados de dono/lixeira.
+
+    Clone zera `completed` (viagem nova) e conserva `place_id` (mesmo lugar).
+    """
     days_out: list[dict[str, Any]] = []
     for d in data.get("days") or []:
         if not isinstance(d, dict):
@@ -160,6 +179,12 @@ def _itinerary_payload(data: dict[str, Any]) -> dict[str, Any]:
                     "latitude": a.get("latitude"),
                     "longitude": a.get("longitude"),
                     "requires_ticket": _as_bool(a.get("requires_ticket")),
+                    "completed": (
+                        False
+                        if reset_completed
+                        else _as_bool(a.get("completed"))
+                    ),
+                    "place_id": _parse_place_id(a.get("place_id")),
                 }
             )
         days_out.append(
@@ -364,7 +389,7 @@ async def clone_trip(source_trip_id: str, new_owner_uid: str) -> str | None:
         if data.get("deleted_at") is not None:
             return None
 
-        payload = _itinerary_payload(data)
+        payload = _itinerary_payload(data, reset_completed=True)
         new_ref = _trips_col(new_owner_uid).document()
         new_ref.set(
             {

@@ -42,6 +42,16 @@ export function optionalIsoDate(value: unknown): string | undefined {
   return parseIsoDate(iso) ? iso : undefined;
 }
 
+/** Default do Modo Viagem: a partir do start_date (durante e pós-viagem). */
+export function isOnOrAfterTripStart(
+  startIso?: string | null,
+  today: Date = new Date(),
+): boolean {
+  const start = startIso ? parseIsoDate(startIso) : null;
+  if (!start) return false;
+  return startOfLocalDay(today).getTime() >= start.getTime();
+}
+
 export function clampEndToMaxSpan(start: Date, end: Date): Date {
   const maxEnd = addLocalDays(start, MAX_TRIP_DAYS - 1);
   const e = startOfLocalDay(end);

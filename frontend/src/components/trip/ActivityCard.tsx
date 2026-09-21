@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
@@ -56,6 +56,12 @@ type Props = {
   onEdit?: () => void;
   /** Inicia o drag no handle (mais confiável que long-press no card inteiro). */
   onDragHandlePressIn?: () => void;
+  /** Chrome de campo: checkbox + navegar no lugar de lápis/handle. */
+  travelMode?: boolean;
+  onToggleCompleted?: (completed: boolean, placeId: string | null) => void;
+  /** Lookup chegou depois do "feito" — carimba place_id sem sujar no mount. */
+  onPlaceIdResolved?: (placeId: string) => void;
+  onNavigate?: () => void;
 };
 
 export function ActivityCard({
@@ -68,6 +74,10 @@ export function ActivityCard({
   onOpenDetails,
   onEdit,
   onDragHandlePressIn,
+  travelMode = false,
+  onToggleCompleted,
+  onPlaceIdResolved,
+  onNavigate,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -77,10 +87,14 @@ export function ActivityCard({
   const [loading, setLoading] = useState(true);
   const [imageReady, setImageReady] = useState(false);
 
+  const onPlaceIdResolvedRef = useRef(onPlaceIdResolved);
+  onPlaceIdResolvedRef.current = onPlaceIdResolved;
   const shimmer = useSharedValue(0.45);
   const photoOpacity = useSharedValue(0);
+  const doneOpacity = useSharedValue(activity.completed ? 0.55 : 1);
 
   const placeId = details?.place_id ?? null;
+  const completed = Boolean(activity.completed);
 
   function openDetails() {
     if (!onOpenDetails) return;
@@ -119,6 +133,20 @@ export function ActivityCard({
     opacity: photoOpacity.value,
   }));
 
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    opacity: dimmed ? Math.min(0.92, doneOpacity.value) : doneOpacity.value,
+  }));
+
+  useEffect(() => {
+    const next = completed ? 0.55 : 1;
+    doneOpacity.value = reduceMotion
+      ? next
+      : withTiming(next, {
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+        });
+  }, [completed, doneOpacity, reduceMotion]);
+
   useEffect(() => {
     // Título + endereço: endereço sozinho (ex. "Cl. 82 #12 -21") casa pin genérico.
     const query = buildPlacesLookupQuery(activity.title, activity.location);
@@ -142,7 +170,9 @@ export function ActivityCard({
           activity.longitude,
           controller.signal,
         );
-        if (!cancelled) setDetails(result);
+        if (!cancelled) {
+          setDetails(result);
+        }
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
         console.warn("[ActivityCard] Places lookup falhou:", err);
@@ -163,6 +193,12 @@ export function ActivityCard({
     activity.longitude,
     photoOpacity,
   ]);
+
+  useEffect(() => {
+    const pid = details?.place_id?.trim() ?? "";
+    if (pid.length < 10 || !activity.completed || activity.place_id) return;
+    onPlaceIdResolvedRef.current?.(pid);
+  }, [details?.place_id, activity.completed, activity.place_id]);
 
   const photoUrl = details?.photo_url ?? null;
   const showPhoto = Boolean(photoUrl) && imageReady;
@@ -194,15 +230,72 @@ export function ActivityCard({
     </Pressable>
   ) : null;
 
+  const navBtn =
+    travelMode && onNavigate ? (
+      <Pressable
+        onPress={onNavigate}
+        hitSlop={10}
+        accessibilityLabel={t("tripDetail.travelMode.navigateA11y", {
+          title: activity.title,
+        })}
+        style={showPhoto ? styles.removeBtn : undefined}
+      >
+        <Ionicons
+          name="navigate-outline"
+          size={showPhoto ? 18 : 20}
+          color={showPhoto ? "rgba(255,255,255,0.9)" : theme.accent}
+        />
+      </Pressable>
+    ) : null;
+
+  function onPressDone() {
+    if (!onToggleCompleted) return;
+    Haptics.selectionAsync();
+    onToggleCompleted(!completed, placeId);
+  }
+
+  const checkboxBorder = showPhoto
+    ? "rgba(255,255,255,0.85)"
+    : theme.border;
+  const doneBox =
+    travelMode && onToggleCompleted ? (
+      <Pressable
+        onPress={onPressDone}
+        hitSlop={12}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: completed }}
+        accessibilityLabel={t(
+          completed
+            ? "tripDetail.travelMode.undoneA11y"
+            : "tripDetail.travelMode.doneA11y",
+          { title: activity.title },
+        )}
+      >
+        <View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: completed ? theme.accent : checkboxBorder,
+              backgroundColor: completed ? theme.accent : "transparent",
+            },
+          ]}
+        >
+          {completed ? (
+            <Ionicons name="checkmark" size={14} color={theme.buttonText} />
+          ) : null}
+        </View>
+      </Pressable>
+    ) : null;
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.card,
         {
           backgroundColor: theme.surface,
           borderColor: theme.border,
-          opacity: dimmed ? 0.92 : 1,
         },
+        cardAnimStyle,
       ]}
     >
       {showHero ? (
@@ -253,6 +346,7 @@ export function ActivityCard({
             <View style={styles.heroMeta} pointerEvents="box-none">
               <View style={styles.heroTopRow}>
                 <View style={styles.heroTopLeft}>
+                  {doneBox}
                   <View
                     style={[
                       styles.badge,
@@ -299,6 +393,7 @@ export function ActivityCard({
                     </View>
                   ) : null}
                   {editBtn}
+                  {navBtn}
                   {onRemove ? (
                     <Pressable
                       onPress={onRemove}
@@ -318,7 +413,11 @@ export function ActivityCard({
 
               <AppText
                 className="text-[17px] font-bold"
-                style={{ color: OVERLAY_TEXT, letterSpacing: -0.3 }}
+                style={{
+                  color: OVERLAY_TEXT,
+                  letterSpacing: -0.3,
+                  textDecorationLine: completed ? "line-through" : "none",
+                }}
                 numberOfLines={2}
               >
                 {activity.title}
@@ -349,6 +448,7 @@ export function ActivityCard({
         {!showPhoto ? (
           <View style={styles.bodyHeader}>
             <View style={styles.heroTopLeft}>
+              {doneBox}
               <View
                 style={[styles.badge, { backgroundColor: `${theme.accent}22` }]}
               >
@@ -379,6 +479,7 @@ export function ActivityCard({
             </View>
             <View style={styles.heroTopRight}>
               {editBtn}
+              {navBtn}
               {onRemove ? (
                 <Pressable
                   onPress={onRemove}
@@ -397,7 +498,13 @@ export function ActivityCard({
         ) : null}
 
         {!showPhoto ? (
-          <AppText className="text-[15px] font-semibold" numberOfLines={2}>
+          <AppText
+            className="text-[15px] font-semibold"
+            style={{
+              textDecorationLine: completed ? "line-through" : "none",
+            }}
+            numberOfLines={2}
+          >
             {activity.title}
           </AppText>
         ) : null}
@@ -455,7 +562,7 @@ export function ActivityCard({
           </Pressable>
         ) : null}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -531,6 +638,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   body: {
     padding: 14,
