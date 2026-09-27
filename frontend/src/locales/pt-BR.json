@@ -483,6 +483,19 @@
     "cannotRemoveLastBody": "O dia precisa de pelo menos uma atividade.",
     "mapEmptyTitle": "Sem coordenadas neste dia",
     "mapEmptyBody": "A IA não enviou lat/lng pra estas paradas.",
+    "offline": {
+      "download": "Disponibilizar offline",
+      "remove": "Remover do offline",
+      "downloading": "Baixando roteiro",
+      "needNetworkTitle": "Sem rede",
+      "needNetworkBody": "Conecta pra baixar este roteiro.",
+      "failTitle": "Não deu pra baixar",
+      "failBody": "Confira a conexão e tenta de novo.",
+      "mapTitle": "Mapa indisponível offline",
+      "mapBody": "As paradas continuam na lista. O mapa volta com a rede.",
+      "unavailableTitle": "Roteiro não está neste celular",
+      "unavailableBody": "Disponibilize offline com internet pra abrir sem rede."
+    },
     "dragHint": "Segure o ≡ e arraste pra reordenar. Os horários acompanham.",
     "travelMode": {
       "plan": "Planejar",
@@ -667,8 +680,11 @@
     "createCta": "Criar nova viagem",
     "filterAll": "Todos",
     "filterMatches": "Matches",
+    "filterOffline": "Offline",
     "emptyMatches": "Nenhum Match por aqui",
     "emptyMatchesHint": "Viagens geradas em dupla aparecem nesta lista.",
+    "emptyOffline": "Nenhum roteiro offline",
+    "emptyOfflineHint": "No detalhe da viagem, toque na nuvem pra baixar o roteiro neste celular.",
     "swipeDeleteA11y": "Mover viagem para a lixeira",
     "metaSeparator": "·",
     "relative": {
@@ -787,7 +803,7 @@
     "planFreeTitle": "Grátis",
     "planFreeBody": "2 viagens salvas. Match só em dupla.",
     "planProTitle": "Pro",
-    "planProBody": "Viagens ilimitadas. Grupos e offline entram depois.",
+    "planProBody": "Viagens ilimitadas. Dá pra levar o roteiro sem rede.",
     "benefitsTitle": "O que entra no Pro",
     "moreSoon": "Mais recursos em breve",
     "mockHint": "Simulação de TCC. Não tem cobrança de verdade.",
@@ -807,7 +823,7 @@
       },
       "offline": {
         "title": "Exportação offline",
-        "body": "Leva o roteiro no avião, sem depender de rede. Ainda não está no app."
+        "body": "Baixa o roteiro e as fotos de capa neste celular. Sem rede, o mapa sai e a edição trava."
       }
     }
   },
@@ -827,6 +843,19 @@
     "proCancelKeep": "Manter Pro",
     "proCancelError": "Não deu pra cancelar. Tenta de novo.",
     "trash": "Lixeira",
+    "offlineSection": "Neste celular",
+    "offlineSubtitle": "Roteiros offline para excluir.",
+    "offlineEmpty": "Nenhum roteiro offline",
+    "offlineRemove": "Excluir",
+    "offlineRemoveA11y": "Excluir {{title}} deste celular",
+    "offlineRemoveTitle": "Excluir cópia offline?",
+    "offlineRemoveBody": "{{title}} continua na sua conta.",
+    "offlineRemoveConfirm": "Excluir",
+    "offlineRemoveCancel": "Cancelar",
+    "offlineClearAll": "Excluir todos",
+    "offlineClearTitle": "Excluir todos?",
+    "offlineClearBody": "As viagens continuam na sua conta.",
+    "offlineClearConfirm": "Excluir todos",
     "appSection": "Preferências do app",
     "notifications": "Notificações",
     "haptics": "Vibração",

@@ -33,7 +33,7 @@ const ON_ACCENT = Colors.light.buttonText;
 const BENEFITS = [
   { key: "unlimited" as const, soon: false, icon: "map-outline" as const },
   { key: "match" as const, soon: true, icon: "people-outline" as const },
-  { key: "offline" as const, soon: true, icon: "cloud-offline-outline" as const },
+  { key: "offline" as const, soon: false, icon: "cloud-offline-outline" as const },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

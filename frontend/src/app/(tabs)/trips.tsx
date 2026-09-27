@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -24,7 +24,22 @@ import { useTheme } from "@/hooks/use-theme";
 import { softDeleteTripApi } from "@/lib/api";
 import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
+import {
+  useOfflineTripsStore,
+  type OfflineTripPin,
+} from "@/stores/offlineTripsStore";
 import { Pressable, View } from "@/tw";
+
+function tripFromPin(pin: OfflineTripPin): SavedTrip {
+  return {
+    ...pin.trip,
+    id: pin.trip.id,
+    destination: pin.trip.destination,
+    summary: pin.trip.summary ?? "",
+    days: pin.trip.days,
+    notes: pin.trip.notes ?? "",
+  };
+}
 
 export default function TripsScreen() {
   const { t } = useTranslation();
@@ -36,7 +51,8 @@ export default function TripsScreen() {
 
   const [trips, setTrips] = useState<SavedTrip[]>([]);
   // Filtro local — Matches = docs com match_id (origem RF11/RF12).
-  const [filter, setFilter] = useState<"all" | "matches">("all");
+  const [filter, setFilter] = useState<"all" | "matches" | "offline">("all");
+  const offlinePins = useOfflineTripsStore((s) => s.pins);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,11 +115,25 @@ export default function TripsScreen() {
     })();
   }
 
-  const visibleTrips = useMemo(
-    () =>
-      filter === "matches" ? trips.filter((trip) => trip.match_id) : trips,
-    [filter, trips],
+  const pinList = useMemo(
+    () => Object.values(offlinePins),
+    [offlinePins],
   );
+
+  useEffect(() => {
+    if (filter === "offline" && pinList.length === 0) setFilter("all");
+  }, [filter, pinList.length]);
+
+  const visibleTrips = useMemo(() => {
+    if (filter === "matches") return trips.filter((trip) => trip.match_id);
+    if (filter === "offline") {
+      const byId = new Map(trips.map((trip) => [trip.id, trip]));
+      return pinList.map(
+        (pin) => byId.get(pin.trip.id) ?? tripFromPin(pin),
+      );
+    }
+    return trips;
+  }, [filter, trips, pinList]);
 
   const listHeader = useMemo(
     () => (
@@ -121,15 +151,20 @@ export default function TripsScreen() {
           options={[
             { value: "all", label: t("trips.filterAll") },
             { value: "matches", label: t("trips.filterMatches") },
+            ...(pinList.length > 0
+              ? [{ value: "offline", label: t("trips.filterOffline") }]
+              : []),
           ]}
           value={filter}
           onChange={(value) => {
-            if (value === "all" || value === "matches") setFilter(value);
+            if (value === "all" || value === "matches" || value === "offline") {
+              setFilter(value);
+            }
           }}
         />
       </View>
     ),
-    [filter, t],
+    [filter, pinList.length, t],
   );
 
   function renderEmpty() {
@@ -163,20 +198,39 @@ export default function TripsScreen() {
       );
     }
 
-    const matchesEmpty = filter === "matches";
+    const emptyKind =
+      filter === "offline" ? "offline" : filter === "matches" ? "matches" : "saved";
 
     return (
       <View className="items-center justify-center py-20 px-4 gap-3">
         <Ionicons
-          name={matchesEmpty ? "people-outline" : "map-outline"}
+          name={
+            emptyKind === "offline"
+              ? "cloud-offline-outline"
+              : emptyKind === "matches"
+                ? "people-outline"
+                : "map-outline"
+          }
           size={56}
           color={theme.textMuted}
         />
         <AppText className="text-[17px] font-semibold text-center">
-          {t(matchesEmpty ? "trips.emptyMatches" : "trips.emptySaved")}
+          {t(
+            emptyKind === "offline"
+              ? "trips.emptyOffline"
+              : emptyKind === "matches"
+                ? "trips.emptyMatches"
+                : "trips.emptySaved",
+          )}
         </AppText>
         <AppText tone="secondary" className="text-[14px] text-center mb-2">
-          {t(matchesEmpty ? "trips.emptyMatchesHint" : "trips.emptySavedHint")}
+          {t(
+            emptyKind === "offline"
+              ? "trips.emptyOfflineHint"
+              : emptyKind === "matches"
+                ? "trips.emptyMatchesHint"
+                : "trips.emptySavedHint",
+          )}
         </AppText>
         <Pressable
           onPress={() => {
@@ -203,7 +257,9 @@ export default function TripsScreen() {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <FlatList
-        data={error || loading ? [] : visibleTrips}
+        data={
+          filter !== "offline" && (error || loading) ? [] : visibleTrips
+        }
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={renderEmpty}
@@ -223,7 +279,8 @@ export default function TripsScreen() {
           />
         }
         renderItem={({ item }) =>
-          item.role === "member" ? (
+          item.role === "member" ||
+          (filter === "offline" && !trips.some((trip) => trip.id === item.id)) ? (
             <TripHistoryCard trip={item} onPress={() => openTrip(item)} />
           ) : (
             <SwipeToDelete

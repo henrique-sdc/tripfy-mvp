@@ -17,7 +17,7 @@ aliases:
 
 Demonstra o Freemium da banca **sem** StoreKit/Play Billing. Geração por IA continua livre (PRD 1.4 / 1.6). O teto Free é **2 viagens ativas** (`deleted_at == null`).
 
-Relacionado: [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]].
+Relacionado: [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]], [[Modo Offline]].
 
 ## O que o gate cobre
 
@@ -29,7 +29,7 @@ Relacionado: [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenc
 | `POST /trips/{id}/restore` | Sim |
 | Update / soft-delete no client | Não |
 | Match 3+ | Fora — join já fecha em 2 (`409`). Copy “Em breve” no paywall |
-| Exportação offline | Só copy no paywall |
+| Exportação offline | Ícone no detalhe. Gate `isPremium` no client (sem endpoint). Ver [[Modo Offline]] |
 
 ## Modelo — `users/{uid}`
 

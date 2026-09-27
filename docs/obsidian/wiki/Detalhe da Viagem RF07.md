@@ -46,6 +46,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
 | Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`. POST novo exige parada `completed`+`place_id`. Ver [[Modo Viagem]] |
 | **Modo Viagem**          | Toggle Planejar/Viajar; checkbox + mapa nativo; `PersistedActivity` fora do schema LLM                                                   |
+| **Offline Premium**      | Ícone no header. Pin no AsyncStorage + prefetch da capa. Sem rede: sem mapa e sem edição. Ver [[Modo Offline]] |
 
 ## Proxy Google Places (PASSO 1 — backend)
 

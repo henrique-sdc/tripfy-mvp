@@ -1,4 +1,16 @@
 # Changelog — Tripfy Docs
+## 2026-09-27 — Lista e gestão dos roteiros offline
+
+- Pílula Offline na aba Viagens, só quando existe pin neste celular.
+- Configurações: linha Neste celular abre a lista para excluir as cópias.
+- Wiki: [[Modo Offline]], [[Home e Bottom Tabs]].
+
+## 2026-09-27 — Modo Offline Premium
+
+- Ícone no detalhe da viagem. Pro grava um pin (roteiro + URLs de foto) no AsyncStorage e faz prefetch da capa.
+- Sem rede: mapa some, edição trava, viagem pinada abre. Free cai no paywall. Sem tiles e sem fila de sync.
+- Wiki: [[Modo Offline]], [[Tripfy Pro e Paywall]], [[Detalhe da Viagem RF07]].
+
 ## 2026-09-26 — Aviso de quem editou a viagem
 
 - A op grava `updated_by_name` e `last_change`. A outra tela mostra a frase e some.

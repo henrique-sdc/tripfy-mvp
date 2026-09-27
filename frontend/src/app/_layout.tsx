@@ -132,6 +132,7 @@ export default function RootLayout() {
             <Stack.Screen name="companions" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="profile/[id]" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="trash" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="offline-trips" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="my-reviews" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>
         </Stack>

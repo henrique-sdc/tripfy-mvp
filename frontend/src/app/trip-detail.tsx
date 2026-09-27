@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   Alert,
   Pressable as RNPressable,
   ScrollView as RNScrollView,
@@ -26,6 +27,7 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   Easing,
   Extrapolation,
+  FadeIn,
   interpolate,
   runOnJS,
   useAnimatedReaction,
@@ -57,6 +59,7 @@ import {
 import { TripOsmMap } from "@/components/trip/TripOsmMap";
 import { AppText } from "@/components/ui/AppText";
 import { useCollabTrip, type CollabEnqueue } from "@/hooks/use-collab-trip";
+import { useIsOffline } from "@/hooks/use-is-offline";
 import { useTheme } from "@/hooks/use-theme";
 import { useTripPresence } from "@/hooks/use-trip-presence";
 import { newActivityId } from "@/lib/activityId";
@@ -65,7 +68,13 @@ import type {
   ItineraryResponse,
   SavedTripApi,
 } from "@/lib/api";
-import { cloneTripApi, getTripApi, isPremiumRequired } from "@/lib/api";
+import {
+  cloneTripApi,
+  getTripApi,
+  isPremiumRequired,
+  NetworkError,
+  seedPlaceDetails,
+} from "@/lib/api";
 import { appDeepLink } from "@/lib/deep-links";
 import { relativeTimeParts } from "@/lib/formatRelativeTime";
 import { openNativeMaps } from "@/lib/openNativeMaps";
@@ -81,6 +90,13 @@ import {
 import { optionalIsoDate } from "@/lib/tripDates";
 import { getTrip, saveTrip, type SavedTrip } from "@/lib/trips";
 import { useAuthStore } from "@/stores/authStore";
+import {
+  downloadTripOffline,
+  refreshPinnedTrip,
+  useOfflineTripsStore,
+  type OfflineTripPin,
+} from "@/stores/offlineTripsStore";
+import { usePaywallStore } from "@/stores/paywallStore";
 
 const DELETE_ACTION_W = 76;
 /** progress > 1 = overshoot; acima disso apaga como o Mail da Apple. */
@@ -111,6 +127,16 @@ type LocalItinerary = {
 
 /** null = todos os dias; number = índice do dia em `days`. */
 type DaySelection = null | number;
+
+function failedBecauseOffline(err: unknown, deviceOffline: boolean): boolean {
+  if (deviceOffline) return true;
+  if (err instanceof NetworkError) return true;
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code?: unknown }).code ?? "")
+      : "";
+  return code === "unavailable" || code === "auth/network-request-failed";
+}
 
 function stampKeys(raw: ItineraryResponse): LocalItinerary {
   return {
@@ -446,6 +472,8 @@ export default function TripDetailScreen() {
   const [loadingRemote, setLoadingRemote] = useState(
     !itinerary && Boolean(params.tripId),
   );
+  const [offlineMissing, setOfflineMissing] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const [detailsPlace, setDetailsPlace] = useState<{
     placeId: string | null;
     activityKey?: string;
@@ -519,8 +547,15 @@ export default function TripDetailScreen() {
     [t, user?.uid],
   );
 
+  const isOffline = useIsOffline();
+  const writesLocked = readOnly || isOffline;
+  const pinned = useOfflineTripsStore(
+    (s) => tripId != null && s.pins[tripId] != null,
+  );
+  const offlineHydrated = useOfflineTripsStore((s) => s.hasHydrated);
+
   const { enqueue, dragRef, releaseDrag } = useCollabTrip({
-    enabled: collab && !readOnly && Boolean(tripId) && Boolean(ownerUid),
+    enabled: collab && !writesLocked && Boolean(tripId) && Boolean(ownerUid),
     tripId,
     ownerUid,
     initialRevision: revision,
@@ -540,7 +575,7 @@ export default function TripDetailScreen() {
   });
 
   const peers = useTripPresence({
-    enabled: collab && !readOnly,
+    enabled: collab && !writesLocked,
     tripId,
     name: user?.displayName?.trim() || "",
     photoUrl: user?.photoURL ?? null,
@@ -563,9 +598,13 @@ export default function TripDetailScreen() {
   }, [tripId]);
 
   // Abre viagem: dono (client SDK) ou visitante (API + trip_shares).
+  // Sem rede, só o pin Premium. Espera o AsyncStorage reidratar antes de
+  // concluir que a viagem não está no aparelho.
   useEffect(() => {
     const id = typeof params.tripId === "string" ? params.tripId : null;
     if (itinerary || !id) return;
+    if (!offlineHydrated) return;
+    const tripKey = id;
 
     let cancelled = false;
 
@@ -574,6 +613,7 @@ export default function TripDetailScreen() {
       forceReadOnly?: boolean,
     ) {
       const stamped = stampKeys(remote);
+      setOfflineMissing(false);
       setItinerary(stamped);
       setTripId(remote.id);
       if (remote.match_id) matchIdRef.current = remote.match_id;
@@ -598,13 +638,30 @@ export default function TripDetailScreen() {
       }
     }
 
+    function openFromPin(): boolean {
+      const pin: OfflineTripPin | undefined =
+        useOfflineTripsStore.getState().pins[tripKey];
+      if (!pin) return false;
+      seedPlaceDetails(pin.places);
+      adoptLoadedTrip(pin.trip, pin.trip.read_only);
+      console.info(`[trip-detail] pin tripId=${tripKey}`);
+      return true;
+    }
+
+    if (isOffline) {
+      if (!openFromPin()) setOfflineMissing(true);
+      setLoadingRemote(false);
+      return;
+    }
+
     (async () => {
+      setOfflineMissing(false);
       setLoadingRemote(true);
       try {
-        const remote = await getTrip(id);
+        const remote = await getTrip(tripKey);
         if (cancelled) return;
         if (remote?.role === "member") {
-          const shared = await getTripApi(id);
+          const shared = await getTripApi(tripKey);
           if (cancelled) return;
           adoptLoadedTrip(shared);
           return;
@@ -616,10 +673,20 @@ export default function TripDetailScreen() {
         }
 
         // Não é do usuário (ou soft-deleted no client) — tenta API.
-        const shared = await getTripApi(id);
+        const shared = await getTripApi(tripKey);
         if (cancelled) return;
         adoptLoadedTrip(shared);
       } catch (err) {
+        if (cancelled) return;
+        if (openFromPin()) {
+          console.warn("[trip-detail] carga remota falhou, pin usado:", err);
+          return;
+        }
+        if (failedBecauseOffline(err, isOffline)) {
+          setOfflineMissing(true);
+          console.warn("[trip-detail] sem pin e sem rede:", err);
+          return;
+        }
         console.error("[trip-detail] Falha ao carregar viagem:", err);
         Alert.alert(
           t("tripDetail.saveErrorTitle"),
@@ -634,7 +701,7 @@ export default function TripDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [itinerary, params.tripId, t]);
+  }, [itinerary, params.tripId, t, offlineHydrated, isOffline]);
 
   // Auto-save: dirty → debounce → API (create) ou Firestore (update).
   useEffect(() => {
@@ -645,7 +712,7 @@ export default function TripDetailScreen() {
   }, [isPremium]);
 
   useEffect(() => {
-    if (!itinerary || !dirty || loadingRemote || readOnly || collab) return;
+    if (!itinerary || !dirty || loadingRemote || writesLocked || collab) return;
     if (paywallBlocked.current) return;
 
     const snapshot = itinerary;
@@ -693,11 +760,45 @@ export default function TripDetailScreen() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [itinerary, dirty, loadingRemote, readOnly, collab, t, saveTick]);
+  }, [itinerary, dirty, loadingRemote, writesLocked, collab, t, saveTick]);
+
+  // Pin ligado: depois de um save online, atualiza o JSON e busca foto só
+  // da parada que ainda não está no pin.
+  useEffect(() => {
+    if (!pinned || isOffline || pinning || syncStatus !== "saved") return;
+    if (!tripId || !itinerary) return;
+    const id = tripId;
+    const body = toPersistable(itinerary);
+    const meta = {
+      id,
+      ownerUid,
+      matchId: matchIdRef.current,
+      collab,
+      revision,
+      readOnly,
+    };
+    const timer = setTimeout(() => {
+      void refreshPinnedTrip(body, meta).catch((err) => {
+        console.warn("[trip-detail] refresh do pin:", err);
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [
+    pinned,
+    isOffline,
+    pinning,
+    syncStatus,
+    tripId,
+    itinerary,
+    ownerUid,
+    collab,
+    revision,
+    readOnly,
+  ]);
 
   const showingAll = daySelection === null;
   const travelMode = chromeMode === "travel";
-  const planChrome = chromeMode === "plan" && !readOnly;
+  const planChrome = chromeMode === "plan" && !writesLocked;
   const currentDay =
     !showingAll && itinerary ? itinerary.days[daySelection] : undefined;
 
@@ -760,7 +861,7 @@ export default function TripDetailScreen() {
 
   const patchItinerary = useCallback(
     (next: LocalItinerary) => {
-      if (readOnly) return;
+      if (writesLocked) return;
       setItinerary(next);
       if (collab) {
         setSyncStatus("saving");
@@ -769,12 +870,12 @@ export default function TripDetailScreen() {
       setDirty(true);
       setSyncStatus("saving");
     },
-    [readOnly, collab],
+    [writesLocked, collab],
   );
 
   const onToggleCompleted = useCallback(
     (key: string, completed: boolean, placeId: string | null) => {
-      if (!itinerary || readOnly) return;
+      if (!itinerary || writesLocked) return;
       const pid = placeId?.trim() ?? "";
       persistNowRef.current = true;
       patchItinerary(
@@ -800,12 +901,12 @@ export default function TripDetailScreen() {
         completed,
       );
     },
-    [itinerary, readOnly, patchItinerary, enqueue],
+    [itinerary, writesLocked, patchItinerary, enqueue],
   );
 
   const onPlaceIdResolved = useCallback(
     (key: string, placeId: string) => {
-      if (!itinerary || readOnly) return;
+      if (!itinerary || writesLocked) return;
       const pid = placeId.trim();
       if (pid.length < 10) return;
       const current = itinerary.days
@@ -821,7 +922,7 @@ export default function TripDetailScreen() {
       });
       console.info("[trip-detail] place_id carimbado na parada %s", key);
     },
-    [itinerary, readOnly, patchItinerary, enqueue],
+    [itinerary, writesLocked, patchItinerary, enqueue],
   );
 
   const onNavigateActivity = useCallback(
@@ -844,6 +945,48 @@ export default function TripDetailScreen() {
     },
     [t],
   );
+
+  async function onToggleOffline() {
+    if (!tripId || !itinerary || pinning) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (pinned) {
+      useOfflineTripsStore.getState().unpin(tripId);
+      return;
+    }
+    if (!isPremium) {
+      usePaywallStore.getState().open("manage");
+      return;
+    }
+    if (isOffline) {
+      Alert.alert(
+        t("tripDetail.offline.needNetworkTitle"),
+        t("tripDetail.offline.needNetworkBody"),
+      );
+      return;
+    }
+    setPinning(true);
+    try {
+      const status = await downloadTripOffline(toPersistable(itinerary), {
+        id: tripId,
+        ownerUid,
+        matchId: matchIdRef.current,
+        collab,
+        revision,
+        readOnly,
+      });
+      if (status === "cancelled") return;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("[trip-detail] pin offline falhou:", err);
+      Alert.alert(
+        t("tripDetail.offline.failTitle"),
+        t("tripDetail.offline.failBody"),
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setPinning(false);
+    }
+  }
 
   async function onShare() {
     if (!tripId) {
@@ -1301,12 +1444,12 @@ export default function TripDetailScreen() {
                       : undefined
                   }
                   onToggleCompleted={
-                    travelMode && !readOnly
+                    travelMode && !writesLocked
                       ? (done, pid) => onToggleCompleted(item.key, done, pid)
                       : undefined
                   }
                   onPlaceIdResolved={
-                    !readOnly
+                    !writesLocked
                       ? (pid) => onPlaceIdResolved(item.key, pid)
                       : undefined
                   }
@@ -1340,7 +1483,7 @@ export default function TripDetailScreen() {
       canDeleteActivity,
       planChrome,
       travelMode,
-      readOnly,
+      writesLocked,
       itinerary?.destination,
       onToggleCompleted,
       onPlaceIdResolved,
@@ -1358,7 +1501,7 @@ export default function TripDetailScreen() {
       canWrite: false,
       lock: t("tripDetail.travelMode.reviewLocked") as string | null,
     };
-    if (!itinerary || readOnly) return locked;
+    if (!itinerary || writesLocked) return locked;
     if (hasCompletedPlace(itinerary.days, placeId)) {
       return { canWrite: true, lock: null as string | null };
     }
@@ -1374,7 +1517,7 @@ export default function TripDetailScreen() {
       };
     }
     return locked;
-  }, [itinerary, detailsPlace, readOnly, t]);
+  }, [itinerary, detailsPlace, writesLocked, t]);
 
   // Sem GestureHandlerRootView aqui: o _layout já envolve o app.
   // Root aninhado era o outro culpado do DnD parar no Android.
@@ -1493,6 +1636,39 @@ export default function TripDetailScreen() {
             ) : (
               <SyncIndicator status={syncStatus} />
             )}
+            {tripId ? (
+              <RNPressable
+                onPress={() => void onToggleOffline()}
+                disabled={pinning}
+                hitSlop={10}
+                style={[
+                  styles.iconBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    opacity: pinning ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  pinning
+                    ? t("tripDetail.offline.downloading")
+                    : pinned
+                      ? t("tripDetail.offline.remove")
+                      : t("tripDetail.offline.download")
+                }
+                accessibilityState={{ checked: pinned, busy: pinning }}
+              >
+                {pinning ? (
+                  <ActivityIndicator size="small" color={theme.textPrimary} />
+                ) : (
+                  <Ionicons
+                    name={pinned ? "cloud-done" : "cloud-download-outline"}
+                    size={20}
+                    color={pinned ? theme.accent : theme.textPrimary}
+                  />
+                )}
+              </RNPressable>
+            ) : null}
             <RNPressable
               onPress={() => void onShare()}
               hitSlop={10}
@@ -1530,6 +1706,15 @@ export default function TripDetailScreen() {
         <RNView style={styles.empty}>
           <AppText tone="secondary">{t("tripDetail.loading")}</AppText>
         </RNView>
+      ) : offlineMissing ? (
+        <RNView style={styles.empty}>
+          <AppText className="text-center text-[16px] font-semibold">
+            {t("tripDetail.offline.unavailableTitle")}
+          </AppText>
+          <AppText tone="secondary" className="text-center text-[13px]">
+            {t("tripDetail.offline.unavailableBody")}
+          </AppText>
+        </RNView>
       ) : !itinerary ? (
         <RNView style={styles.empty}>
           <AppText className="text-center text-[16px] font-semibold">
@@ -1554,17 +1739,43 @@ export default function TripDetailScreen() {
             }}
           >
             <Animated.View style={[styles.mapWrap, mapStyle]}>
-              <TripOsmMap
-                points={mapped}
-                accentColor={theme.accent}
-                fill
-                dark={scheme === "dark"}
-                emptyLabel={t("tripDetail.mapEmptyTitle")}
-                emptyHint={t("tripDetail.mapEmptyBody")}
-                emptyBg={theme.surface}
-                mutedColor={theme.textMuted}
-                textColor={theme.textPrimary}
-              />
+              {isOffline ? (
+                <Animated.View
+                  entering={FadeIn.duration(250)}
+                  style={[
+                    styles.mapOffline,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Ionicons
+                    name="map-outline"
+                    size={28}
+                    color={theme.textSecondary}
+                  />
+                  <AppText className="text-center text-[15px] font-semibold">
+                    {t("tripDetail.offline.mapTitle")}
+                  </AppText>
+                  <AppText
+                    tone="secondary"
+                    className="text-center text-[13px]"
+                    numberOfLines={3}
+                  >
+                    {t("tripDetail.offline.mapBody")}
+                  </AppText>
+                </Animated.View>
+              ) : (
+                <TripOsmMap
+                  points={mapped}
+                  accentColor={theme.accent}
+                  fill
+                  dark={scheme === "dark"}
+                  emptyLabel={t("tripDetail.mapEmptyTitle")}
+                  emptyHint={t("tripDetail.mapEmptyBody")}
+                  emptyBg={theme.surface}
+                  mutedColor={theme.textMuted}
+                  textColor={theme.textPrimary}
+                />
+              )}
             </Animated.View>
 
             <RNView
@@ -1955,6 +2166,13 @@ const styles = StyleSheet.create({
   mapWrap: {
     width: "100%",
     overflow: "hidden",
+  },
+  mapOffline: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    gap: 6,
   },
   sheet: {
     flex: 1,

@@ -1,5 +1,15 @@
 # Log — Tripfy Wiki
 
+## [2026-09-27] update | Gestão dos roteiros offline
+
+Pílula Offline na aba Viagens. Neste celular abre uma tela para excluir as cópias.
+[[Modo Offline]], [[Home e Bottom Tabs]] e [[changelog]].
+
+## [2026-09-27] ingest | Modo Offline
+
+Pin Premium por viagem: AsyncStorage + prefetch das capas. Sem rede o mapa sai e a edição trava.
+[[Modo Offline]], [[Tripfy Pro e Paywall]], [[Detalhe da Viagem RF07]], [[index]] e [[changelog]].
+
 ## [2026-09-26] update | Aviso de edição na sala
 
 Frase efêmera quando o outro muda o roteiro, e "editou agora" no título.

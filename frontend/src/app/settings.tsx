@@ -22,6 +22,7 @@ import * as Haptics from "@/lib/haptics";
 import { cancelCheckout } from "@/lib/api";
 import { deleteUserAccount } from "@/lib/profile";
 import { useAuthStore } from "@/stores/authStore";
+import { clearOfflinePins } from "@/stores/offlineTripsStore";
 import { usePaywallStore } from "@/stores/paywallStore";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { Pressable, ScrollView, View } from "@/tw";
@@ -124,6 +125,7 @@ export default function SettingsScreen() {
       // dependemos só dele pra não piscar estado intermediário.
       setUser(null);
       clearSessionFlags();
+      clearOfflinePins();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("[settings] signOut:", err);
@@ -197,6 +199,7 @@ export default function SettingsScreen() {
       await deleteUserAccount();
       setUser(null);
       clearSessionFlags();
+      clearOfflinePins();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("[settings] delete:", err);
@@ -280,6 +283,11 @@ export default function SettingsScreen() {
             icon="trash-outline"
             label={t("settings.trash")}
             onPress={() => router.push("/trash")}
+          />
+          <SettingsRow
+            icon="phone-portrait-outline"
+            label={t("settings.offlineSection")}
+            onPress={() => router.push("/offline-trips")}
           />
         </View>
 

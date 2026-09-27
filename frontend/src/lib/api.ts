@@ -194,6 +194,51 @@ function placeCacheKey(
   return `${query.trim().toLowerCase()}|${lat ?? ""}|${lng ?? ""}`;
 }
 
+/** Mesma chave do lookup. Coord só entra se lat e lng forem finitos juntos. */
+export function placeDetailsCacheKey(
+  query: string,
+  lat?: number | null,
+  lng?: number | null,
+): string {
+  const hasCoords =
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng);
+  return placeCacheKey(query, hasCoords ? lat : null, hasCoords ? lng : null);
+}
+
+export function peekPlaceDetails(
+  query: string,
+  lat?: number | null,
+  lng?: number | null,
+): PlaceDetailsResponse | undefined {
+  return placeDetailsCache.get(placeDetailsCacheKey(query, lat, lng));
+}
+
+export function rememberPlaceDetails(
+  query: string,
+  lat: number | null,
+  lng: number | null,
+  details: PlaceDetailsResponse,
+): void {
+  placeDetailsCache.set(placeDetailsCacheKey(query, lat, lng), details);
+}
+
+/** Reidrata o cache de sessão a partir do pin, antes dos cards montarem. */
+export function seedPlaceDetails(
+  entries: {
+    query: string;
+    lat: number | null;
+    lng: number | null;
+    details: PlaceDetailsResponse;
+  }[],
+): void {
+  for (const entry of entries) {
+    rememberPlaceDetails(entry.query, entry.lat, entry.lng, entry.details);
+  }
+}
+
 /**
  * GET /places/lookup — foto/nota/`open_now` via proxy (chave só no backend).
  * Passe lat+lng juntos para bias; omite ambos se algum for inválido.
@@ -211,11 +256,7 @@ export async function getPlaceDetails(
     Number.isFinite(lat) &&
     Number.isFinite(lng);
 
-  const key = placeCacheKey(
-    trimmed,
-    hasCoords ? lat : null,
-    hasCoords ? lng : null,
-  );
+  const key = placeDetailsCacheKey(trimmed, lat, lng);
   const cached = placeDetailsCache.get(key);
   if (cached) return cached;
 
