@@ -2,8 +2,8 @@
 // Google Maps no Expo Go = bege; usamos OpenStreetMap via WebView.
 // Persistência: auto-save no Firestore (sem coração manual).
 
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,24 +21,22 @@ import DraggableFlatList, {
   RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
-import {
-  Gesture,
-  GestureDetector,
-} from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   Easing,
   Extrapolation,
   interpolate,
   runOnJS,
-  type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { ActivityCard } from "@/components/trip/ActivityCard";
 import { AddActivityModal } from "@/components/trip/AddActivityModal";
 import { EditActivityModal } from "@/components/trip/EditActivityModal";
@@ -46,28 +44,42 @@ import {
   EditDayTitleModal,
   EditTripMetaModal,
 } from "@/components/trip/EditTripMetaModal";
-import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
 import { PartnerReserveRow } from "@/components/trip/PartnerReserveRow";
+import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
+import {
+  PresenceAvatars,
+  presenceColorFor,
+} from "@/components/trip/PresenceAvatars";
 import {
   SyncIndicator,
   type SyncStatus,
 } from "@/components/trip/SyncIndicator";
 import { TripOsmMap } from "@/components/trip/TripOsmMap";
-import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { AppText } from "@/components/ui/AppText";
+import { useCollabTrip, type CollabEnqueue } from "@/hooks/use-collab-trip";
 import { useTheme } from "@/hooks/use-theme";
-import type { ActivityResponse, ItineraryResponse } from "@/lib/api";
+import { useTripPresence } from "@/hooks/use-trip-presence";
+import { newActivityId } from "@/lib/activityId";
+import type {
+  ActivityResponse,
+  ItineraryResponse,
+  SavedTripApi,
+} from "@/lib/api";
 import { cloneTripApi, getTripApi, isPremiumRequired } from "@/lib/api";
 import { appDeepLink } from "@/lib/deep-links";
+import { relativeTimeParts } from "@/lib/formatRelativeTime";
 import { openNativeMaps } from "@/lib/openNativeMaps";
-import { peekPendingItinerary, peekPendingMatchId } from "@/lib/pendingItinerary";
-import { getTrip, saveTrip } from "@/lib/trips";
-import { optionalIsoDate } from "@/lib/tripDates";
+import {
+  peekPendingItinerary,
+  peekPendingMatchId,
+} from "@/lib/pendingItinerary";
 import {
   defaultChromeMode,
   hasCompletedPlace,
   type TripChromeMode,
 } from "@/lib/travelMode";
+import { optionalIsoDate } from "@/lib/tripDates";
+import { getTrip, saveTrip, type SavedTrip } from "@/lib/trips";
 import { useAuthStore } from "@/stores/authStore";
 
 const DELETE_ACTION_W = 76;
@@ -112,11 +124,18 @@ function stampKeys(raw: ItineraryResponse): LocalItinerary {
     days: raw.days.map((d) => ({
       day: d.day,
       title: d.title,
-      activities: d.activities.map((a, i) => ({
-        ...a,
-        dayNumber: d.day,
-        key: `${d.day}-${i}-${a.time}-${a.title}`,
-      })),
+      activities: d.activities.map((a) => {
+        const id =
+          typeof a.id === "string" && a.id.trim()
+            ? a.id.trim()
+            : newActivityId();
+        return {
+          ...a,
+          id,
+          dayNumber: d.day,
+          key: id,
+        };
+      }),
     })),
     start_date: optionalIsoDate(raw.start_date),
     end_date: optionalIsoDate(raw.end_date),
@@ -135,6 +154,52 @@ function parseItinerary(
   } catch {
     return null;
   }
+}
+
+/** "Henrique Teste" → "Henrique". O nome completo continua no perfil. */
+function firstName(full: string): string {
+  return full.trim().split(/\s+/)[0] ?? "";
+}
+
+function changeNoticeText(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  remote: {
+    updated_by_name?: string;
+    last_change?: string | null;
+    last_change_day?: number | null;
+  },
+): string | null {
+  const kind = remote.last_change;
+  if (!kind) return null;
+  const name =
+    firstName(remote.updated_by_name ?? "") || t("tripDetail.presence.someone");
+  return t(`tripDetail.collab.notice.${kind}`, {
+    name,
+    day: remote.last_change_day ?? "",
+  });
+}
+
+function lastEditLine(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  name: string,
+  at: unknown,
+): string | null {
+  const who = firstName(name);
+  if (!who) return null;
+  const parts = relativeTimeParts(at);
+  if (!parts || parts.key === "trips.relative.today") {
+    return t("tripDetail.collab.editedNow", { name: who });
+  }
+  if (parts.key === "trips.relative.hours") {
+    return t("tripDetail.collab.editedHours", {
+      name: who,
+      count: parts.count,
+    });
+  }
+  if (parts.key === "trips.relative.days") {
+    return t("tripDetail.collab.editedDays", { name: who, count: parts.count });
+  }
+  return t("tripDetail.collab.editedWeeks", { name: who, count: parts.count });
 }
 
 function displayTripTitle(
@@ -184,6 +249,23 @@ function patchLocalActivity(
         a.key === key ? { ...a, ...patch } : a,
       ),
     })),
+  };
+}
+
+function reorderOp(day: number, activities: LocalActivity[]): CollabEnqueue {
+  return {
+    type: "reorder_day",
+    coalesceKey: `reorder:${day}`,
+    payload: {
+      day,
+      activity_ids: activities.map((activity) => activity.id || activity.key),
+      times: Object.fromEntries(
+        activities.map((activity) => [
+          activity.id || activity.key,
+          activity.time,
+        ]),
+      ),
+    },
   };
 }
 
@@ -382,11 +464,21 @@ export default function TripDetailScreen() {
   const [addingActivity, setAddingActivity] = useState(false);
   // Visitante via deep link — sem auto-save / edição.
   const [readOnly, setReadOnly] = useState(false);
+  // Sala do Match: um doc, ops no FastAPI, listener no doc do dono.
+  const [collab, setCollab] = useState(false);
+  const [ownerUid, setOwnerUid] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [focusedActivityId, setFocusedActivityId] = useState<string | null>(
+    null,
+  );
+  const [editStamp, setEditStamp] = useState<{
+    name: string;
+    at: unknown;
+  } | null>(null);
+  const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
   const [chromeMode, setChromeMode] = useState<TripChromeMode>(() =>
-    defaultChromeMode(
-      resolveInitialItinerary(params.itinerary)?.start_date,
-    ),
+    defaultChromeMode(resolveInitialItinerary(params.itinerary)?.start_date),
   );
 
   const tripIdRef = useRef(tripId);
@@ -396,11 +488,70 @@ export default function TripDetailScreen() {
   const savingLock = useRef(false);
   const paywallBlocked = useRef(false);
   const itineraryRef = useRef(itinerary);
-  itineraryRef.current = itinerary;
+  useEffect(() => {
+    itineraryRef.current = itinerary;
+  }, [itinerary]);
   const persistNowRef = useRef(false);
   const chromeTouchedRef = useRef(false);
   const [saveTick, setSaveTick] = useState(0);
   const isPremium = useAuthStore((s) => s.isPremium);
+  const user = useAuthStore((s) => s.user);
+
+  const applyRemoteTrip = useCallback(
+    (remote: SavedTrip) => {
+      setItinerary(stampKeys(remote));
+      setRevision(remote.revision ?? 0);
+      if (remote.owner_uid) setOwnerUid(remote.owner_uid);
+      setCollab(remote.collab === true);
+      setDirty(false);
+      setSyncStatus("saved");
+      if (remote.updated_by_name || remote.updated_at) {
+        setEditStamp({
+          name: remote.updated_by_name?.trim() || "",
+          at: remote.updated_at,
+        });
+      }
+      if (remote.updated_by && remote.updated_by !== user?.uid) {
+        const phrase = changeNoticeText(t, remote);
+        if (phrase) setLiveNotice(phrase);
+      }
+    },
+    [t, user?.uid],
+  );
+
+  const { enqueue, dragRef, releaseDrag } = useCollabTrip({
+    enabled: collab && !readOnly && Boolean(tripId) && Boolean(ownerUid),
+    tripId,
+    ownerUid,
+    initialRevision: revision,
+    onRemote: applyRemoteTrip,
+    onConflict: (code) => {
+      const bodyKey =
+        code === "activity_deleted"
+          ? "tripDetail.collab.activityDeleted"
+          : code === "last_activity"
+            ? "tripDetail.cannotRemoveLastBody"
+            : code === "last_day"
+              ? "tripDetail.cannotDeleteLastDayBody"
+              : "tripDetail.collab.conflictBody";
+      Alert.alert(t("tripDetail.collab.conflictTitle"), t(bodyKey));
+    },
+    onStatus: setSyncStatus,
+  });
+
+  const peers = useTripPresence({
+    enabled: collab && !readOnly,
+    tripId,
+    name: user?.displayName?.trim() || "",
+    photoUrl: user?.photoURL ?? null,
+    focusedActivityId,
+  });
+
+  useEffect(() => {
+    if (!liveNotice) return;
+    const id = setTimeout(() => setLiveNotice(null), 4000);
+    return () => clearTimeout(id);
+  }, [liveNotice]);
   const sheetPlaced = useRef(false);
   const peekH = useSharedValue(0);
   const mapH = useSharedValue(0);
@@ -417,37 +568,57 @@ export default function TripDetailScreen() {
     if (itinerary || !id) return;
 
     let cancelled = false;
+
+    function adoptLoadedTrip(
+      remote: SavedTrip | SavedTripApi,
+      forceReadOnly?: boolean,
+    ) {
+      const stamped = stampKeys(remote);
+      setItinerary(stamped);
+      setTripId(remote.id);
+      if (remote.match_id) matchIdRef.current = remote.match_id;
+      const readOnlyFlag =
+        forceReadOnly ??
+        ("read_only" in remote ? Boolean(remote.read_only) : false);
+      setReadOnly(readOnlyFlag);
+      setCollab(Boolean(remote.collab) && !readOnlyFlag);
+      setOwnerUid(remote.owner_uid ?? null);
+      setRevision(remote.revision ?? 0);
+      setEditStamp({
+        name:
+          typeof remote.updated_by_name === "string"
+            ? remote.updated_by_name.trim()
+            : "",
+        at: remote.updated_at,
+      });
+      setSyncStatus("saved");
+      setDirty(false);
+      if (!chromeTouchedRef.current) {
+        setChromeMode(defaultChromeMode(stamped.start_date));
+      }
+    }
+
     (async () => {
       setLoadingRemote(true);
       try {
         const remote = await getTrip(id);
         if (cancelled) return;
+        if (remote?.role === "member") {
+          const shared = await getTripApi(id);
+          if (cancelled) return;
+          adoptLoadedTrip(shared);
+          return;
+        }
+
         if (remote) {
-          const stamped = stampKeys(remote);
-          setItinerary(stamped);
-          setTripId(remote.id);
-          if (remote.match_id) matchIdRef.current = remote.match_id;
-          setReadOnly(false);
-          setSyncStatus("saved");
-          setDirty(false);
-          if (!chromeTouchedRef.current) {
-            setChromeMode(defaultChromeMode(stamped.start_date));
-          }
+          adoptLoadedTrip(remote, false);
           return;
         }
 
         // Não é do usuário (ou soft-deleted no client) — tenta API.
         const shared = await getTripApi(id);
         if (cancelled) return;
-        const stampedShared = stampKeys(shared);
-        setItinerary(stampedShared);
-        setTripId(shared.id);
-        setReadOnly(shared.read_only);
-        setSyncStatus("saved");
-        setDirty(false);
-        if (!chromeTouchedRef.current) {
-          setChromeMode(defaultChromeMode(stampedShared.start_date));
-        }
+        adoptLoadedTrip(shared);
       } catch (err) {
         console.error("[trip-detail] Falha ao carregar viagem:", err);
         Alert.alert(
@@ -474,7 +645,7 @@ export default function TripDetailScreen() {
   }, [isPremium]);
 
   useEffect(() => {
-    if (!itinerary || !dirty || loadingRemote || readOnly) return;
+    if (!itinerary || !dirty || loadingRemote || readOnly || collab) return;
     if (paywallBlocked.current) return;
 
     const snapshot = itinerary;
@@ -522,7 +693,7 @@ export default function TripDetailScreen() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [itinerary, dirty, loadingRemote, readOnly, t, saveTick]);
+  }, [itinerary, dirty, loadingRemote, readOnly, collab, t, saveTick]);
 
   const showingAll = daySelection === null;
   const travelMode = chromeMode === "travel";
@@ -591,10 +762,14 @@ export default function TripDetailScreen() {
     (next: LocalItinerary) => {
       if (readOnly) return;
       setItinerary(next);
+      if (collab) {
+        setSyncStatus("saving");
+        return;
+      }
       setDirty(true);
       setSyncStatus("saving");
     },
-    [readOnly],
+    [readOnly, collab],
   );
 
   const onToggleCompleted = useCallback(
@@ -608,13 +783,24 @@ export default function TripDetailScreen() {
           ...(pid.length >= 10 ? { place_id: pid } : {}),
         }),
       );
+      enqueue({
+        type: "patch_activity",
+        coalesceKey: `act:${key}`,
+        payload: {
+          activity_id: key,
+          fields: {
+            completed,
+            ...(pid.length >= 10 ? { place_id: pid } : {}),
+          },
+        },
+      });
       console.info(
         "[trip-detail] Parada %s marcada completed=%s",
         key,
         completed,
       );
     },
-    [itinerary, readOnly, patchItinerary],
+    [itinerary, readOnly, patchItinerary, enqueue],
   );
 
   const onPlaceIdResolved = useCallback(
@@ -628,9 +814,14 @@ export default function TripDetailScreen() {
       if (!current?.completed || current.place_id === pid) return;
       persistNowRef.current = true;
       patchItinerary(patchLocalActivity(itinerary, key, { place_id: pid }));
+      enqueue({
+        type: "patch_activity",
+        coalesceKey: `act:${key}`,
+        payload: { activity_id: key, fields: { place_id: pid } },
+      });
       console.info("[trip-detail] place_id carimbado na parada %s", key);
     },
-    [itinerary, readOnly, patchItinerary],
+    [itinerary, readOnly, patchItinerary, enqueue],
   );
 
   const onNavigateActivity = useCallback(
@@ -714,8 +905,9 @@ export default function TripDetailScreen() {
           i === daySelection ? { ...d, activities: rescheduled } : d,
         ),
       });
+      enqueue(reorderOp(currentDay.day, rescheduled));
     },
-    [itinerary, showingAll, daySelection, currentDay, patchItinerary],
+    [itinerary, showingAll, daySelection, currentDay, patchItinerary, enqueue],
   );
 
   const onRemove = useCallback(
@@ -743,8 +935,13 @@ export default function TripDetailScreen() {
           i === dayIdx ? { ...d, activities: rescheduled } : d,
         ),
       });
+      enqueue({
+        type: "delete_activity",
+        payload: { activity_id: key },
+      });
+      enqueue(reorderOp(day.day, rescheduled));
     },
-    [itinerary, t, patchItinerary],
+    [itinerary, t, patchItinerary, enqueue],
   );
 
   const canDeleteActivity = useCallback(
@@ -796,56 +993,69 @@ export default function TripDetailScreen() {
         }
       }
       if (!moved || fromIdx < 0) return;
+      const source = moved;
 
       const safeTarget = Math.max(
         0,
         Math.min(targetDayIndex, itinerary.days.length - 1),
       );
 
-      if (fromIdx === safeTarget) {
-        patchItinerary({
-          ...itinerary,
-          days: itinerary.days.map((d, i) =>
-            i === fromIdx
-              ? {
-                  ...d,
-                  activities: sortByTime(
-                    d.activities.map((a) =>
-                      a.key === key ? { ...a, time, title, description } : a,
+      const nextDays =
+        fromIdx === safeTarget
+          ? itinerary.days.map((d, i) =>
+              i === fromIdx
+                ? {
+                    ...d,
+                    activities: sortByTime(
+                      d.activities.map((a) =>
+                        a.key === key ? { ...a, time, title, description } : a,
+                      ),
                     ),
-                  ),
-                }
-              : d,
-          ),
-        });
-      } else {
-        const targetDay = itinerary.days[safeTarget];
-        const withDay: LocalActivity = {
-          ...moved,
-          dayNumber: targetDay.day,
-        };
-        patchItinerary({
-          ...itinerary,
-          days: itinerary.days.map((d, i) => {
-            if (i === fromIdx) {
-              return {
-                ...d,
-                activities: d.activities.filter((a) => a.key !== key),
-              };
-            }
-            if (i === safeTarget) {
-              return {
-                ...d,
-                activities: sortByTime([...d.activities, withDay]),
-              };
-            }
-            return d;
-          }),
-        });
+                  }
+                : d,
+            )
+          : itinerary.days.map((d, i) => {
+              if (i === fromIdx) {
+                return {
+                  ...d,
+                  activities: d.activities.filter((a) => a.key !== key),
+                };
+              }
+              if (i === safeTarget) {
+                const withDay: LocalActivity = {
+                  ...source,
+                  dayNumber: d.day,
+                };
+                return {
+                  ...d,
+                  activities: sortByTime([...d.activities, withDay]),
+                };
+              }
+              return d;
+            });
+      patchItinerary({ ...itinerary, days: nextDays });
+      // Modal já é o "sair do campo". 700 ms junta o patch com o reorder.
+      enqueue({
+        type: "patch_activity",
+        coalesceKey: `act:${key}`,
+        debounceMs: 700,
+        payload: {
+          activity_id: key,
+          fields: { time, title, description },
+          ...(fromIdx !== safeTarget
+            ? { to_day: itinerary.days[safeTarget].day }
+            : {}),
+        },
+      });
+      const touched = new Set([fromIdx, safeTarget]);
+      for (const index of touched) {
+        const day = nextDays[index];
+        if (!day) continue;
+        enqueue({ ...reorderOp(day.day, day.activities), debounceMs: 700 });
       }
       setEditingActivityKey(null);
     },
-    [itinerary, patchItinerary],
+    [itinerary, patchItinerary, enqueue],
   );
 
   const onAddActivity = useCallback(
@@ -861,7 +1071,9 @@ export default function TripDetailScreen() {
       const day = itinerary.days[daySelection];
       if (!day) return;
 
+      const activityId = newActivityId();
       const activity: LocalActivity = {
+        id: activityId,
         time: payload.time,
         title: payload.title,
         description: payload.description,
@@ -872,17 +1084,36 @@ export default function TripDetailScreen() {
         completed: false,
         place_id: null,
         dayNumber: day.day,
-        key: `manual-${Date.now()}-${payload.title.slice(0, 12)}`,
+        key: activityId,
       };
+      const activities = sortByTime([...day.activities, activity]);
 
       patchItinerary({
         ...itinerary,
         days: itinerary.days.map((d, i) =>
-          i === daySelection
-            ? { ...d, activities: sortByTime([...d.activities, activity]) }
-            : d,
+          i === daySelection ? { ...d, activities } : d,
         ),
       });
+      enqueue({
+        type: "add_activity",
+        payload: {
+          day: day.day,
+          index: activities.findIndex((item) => item.key === activityId),
+          activity: {
+            id: activityId,
+            time: activity.time,
+            title: activity.title,
+            description: activity.description,
+            location: activity.location,
+            latitude: activity.latitude,
+            longitude: activity.longitude,
+            requires_ticket: false,
+            completed: false,
+            place_id: null,
+          },
+        },
+      });
+      enqueue(reorderOp(day.day, activities));
       setAddingActivity(false);
       console.info(
         "[trip-detail] Nova parada adicionada no dia",
@@ -890,7 +1121,7 @@ export default function TripDetailScreen() {
         payload.latitude != null ? "com pin" : "sem pin",
       );
     },
-    [itinerary, showingAll, daySelection, patchItinerary],
+    [itinerary, showingAll, daySelection, patchItinerary, enqueue],
   );
 
   const onAddDay = useCallback(() => {
@@ -907,9 +1138,13 @@ export default function TripDetailScreen() {
       },
     ];
     patchItinerary({ ...itinerary, days: nextDays });
+    enqueue({
+      type: "add_day",
+      payload: { day: nextNum, title: t("tripDetail.newDayTitle") },
+    });
     setDaySelection(nextDays.length - 1);
     console.info("[trip-detail] Novo dia adicionado:", nextNum);
-  }, [itinerary, patchItinerary, t]);
+  }, [itinerary, patchItinerary, enqueue, t]);
 
   const onDeleteDay = useCallback(() => {
     if (!itinerary || showingAll || daySelection === null) return;
@@ -939,38 +1174,62 @@ export default function TripDetailScreen() {
               ...itinerary,
               days: reindexDays(remaining),
             });
+            enqueue({
+              type: "delete_day",
+              payload: { day: day.day },
+            });
             setDaySelection(null);
             console.info("[trip-detail] Dia removido e reindexado");
           },
         },
       ],
     );
-  }, [itinerary, showingAll, daySelection, patchItinerary, t]);
+  }, [itinerary, showingAll, daySelection, patchItinerary, enqueue, t]);
 
   const onEditMeta = useCallback(
     (title: string, summary: string, notes: string) => {
       if (!itinerary) return;
       // Título separado do destino real — Places / foto continuam no destination.
       patchItinerary({ ...itinerary, title, summary, notes });
+      enqueue({
+        type: "patch_meta",
+        coalesceKey: "meta",
+        debounceMs: 700,
+        payload: { title, summary, notes },
+      });
       setEditingMeta(false);
     },
-    [itinerary, patchItinerary],
+    [itinerary, patchItinerary, enqueue],
   );
 
   const onEditDayTitle = useCallback(
     (title: string) => {
       if (!itinerary || showingAll || daySelection === null) return;
+      const day = itinerary.days[daySelection];
       patchItinerary({
         ...itinerary,
         days: itinerary.days.map((d, i) =>
           i === daySelection ? { ...d, title } : d,
         ),
       });
+      if (day) {
+        enqueue({
+          type: "patch_meta",
+          coalesceKey: `day-title:${day.day}`,
+          debounceMs: 700,
+          payload: { day_titles: [{ day: day.day, title }] },
+        });
+      }
       setEditingDayTitle(false);
       console.info("[trip-detail] Título do dia atualizado");
     },
-    [itinerary, showingAll, daySelection, patchItinerary],
+    [itinerary, showingAll, daySelection, patchItinerary, enqueue],
   );
+
+  useEffect(() => {
+    if (!collab) return;
+    setFocusedActivityId(editingActivityKey);
+  }, [collab, editingActivityKey]);
 
   const renderActivity = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<LocalActivity>) => {
@@ -1054,6 +1313,19 @@ export default function TripDetailScreen() {
                   onNavigate={
                     travelMode ? () => onNavigateActivity(item) : undefined
                   }
+                  presenceRing={(() => {
+                    const others = peers.filter(
+                      (peer) => peer.uid !== user?.uid,
+                    );
+                    const ringPeer = others.find(
+                      (peer) => peer.focusedActivityId === item.key,
+                    );
+                    if (!ringPeer) return null;
+                    return presenceColorFor(ringPeer.uid, peers, [
+                      theme.presenceA,
+                      theme.presenceB,
+                    ]);
+                  })()}
                 />
               </RNPressable>
             </Swipeable>
@@ -1073,6 +1345,10 @@ export default function TripDetailScreen() {
       onToggleCompleted,
       onPlaceIdResolved,
       onNavigateActivity,
+      peers,
+      user?.uid,
+      theme.presenceA,
+      theme.presenceB,
     ],
   );
 
@@ -1164,10 +1440,35 @@ export default function TripDetailScreen() {
               ? t("tripDetail.daysCount", { count: itinerary.days.length })
               : t("tripDetail.subtitle")}
           </AppText>
+          {collab && editStamp
+            ? (() => {
+                const line = lastEditLine(t, editStamp.name, editStamp.at);
+                return line ? (
+                  <AppText
+                    tone="secondary"
+                    className="text-[12px]"
+                    numberOfLines={1}
+                  >
+                    {line}
+                  </AppText>
+                ) : null;
+              })()
+            : null}
         </RNView>
 
         {itinerary ? (
           <RNView style={styles.headerActions}>
+            {collab ? (
+              <PresenceAvatars
+                peers={peers}
+                colors={[theme.presenceA, theme.presenceB]}
+                labelFor={(name) =>
+                  t("tripDetail.presence.online", {
+                    name: name || t("tripDetail.presence.someone"),
+                  })
+                }
+              />
+            ) : null}
             {readOnly ? (
               <RNPressable
                 onPress={() => void onClone()}
@@ -1207,6 +1508,23 @@ export default function TripDetailScreen() {
           </RNView>
         ) : null}
       </RNView>
+
+      {liveNotice ? (
+        <RNView
+          style={[
+            styles.changeNotice,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+          accessibilityLiveRegion="polite"
+        >
+          <AppText className="text-[13px] font-semibold" numberOfLines={2}>
+            {liveNotice}
+          </AppText>
+        </RNView>
+      ) : null}
 
       {loadingRemote ? (
         <RNView style={styles.empty}>
@@ -1267,243 +1585,269 @@ export default function TripDetailScreen() {
                 </RNView>
               </GestureDetector>
 
-          <RNView
-            style={styles.modeWrap}
-            accessibilityLabel={t("tripDetail.travelMode.selectorA11y")}
-          >
-            <CapsuleSelector
-              compact
-              value={chromeMode}
-              onChange={(value) => {
-                chromeTouchedRef.current = true;
-                setChromeMode(value as TripChromeMode);
-              }}
-              options={[
-                {
-                  value: "plan",
-                  label: t("tripDetail.travelMode.plan"),
-                },
-                {
-                  value: "travel",
-                  label: t("tripDetail.travelMode.travel"),
-                },
-              ]}
-            />
-          </RNView>
-
-          <RNScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dayChips}
-            style={styles.dayChipsScroll}
-          >
-            <RNPressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                setDaySelection(null);
-              }}
-              style={[
-                styles.dayChip,
-                {
-                  backgroundColor: showingAll ? theme.accent : theme.surface,
-                  borderColor: showingAll ? theme.accent : theme.border,
-                },
-              ]}
-            >
-              <AppText
-                className="text-[12px] font-semibold"
-                style={{
-                  color: showingAll ? "#fff" : theme.textSecondary,
-                }}
+              <RNView
+                style={styles.modeWrap}
+                accessibilityLabel={t("tripDetail.travelMode.selectorA11y")}
               >
-                {t("tripDetail.allDaysChip")}
-              </AppText>
-            </RNPressable>
-            {itinerary.days.map((d, i) => {
-              const active = daySelection === i;
-              return (
+                <CapsuleSelector
+                  compact
+                  value={chromeMode}
+                  onChange={(value) => {
+                    chromeTouchedRef.current = true;
+                    setChromeMode(value as TripChromeMode);
+                  }}
+                  options={[
+                    {
+                      value: "plan",
+                      label: t("tripDetail.travelMode.plan"),
+                    },
+                    {
+                      value: "travel",
+                      label: t("tripDetail.travelMode.travel"),
+                    },
+                  ]}
+                />
+              </RNView>
+
+              <RNScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dayChips}
+                style={styles.dayChipsScroll}
+              >
                 <RNPressable
-                  key={`day-${d.day}-${i}`}
                   onPress={() => {
                     Haptics.selectionAsync();
-                    setDaySelection(i);
+                    setDaySelection(null);
                   }}
                   style={[
                     styles.dayChip,
                     {
-                      backgroundColor: active ? theme.accent : theme.surface,
-                      borderColor: active ? theme.accent : theme.border,
+                      backgroundColor: showingAll
+                        ? theme.accent
+                        : theme.surface,
+                      borderColor: showingAll ? theme.accent : theme.border,
                     },
                   ]}
                 >
                   <AppText
                     className="text-[12px] font-semibold"
                     style={{
-                      color: active ? "#fff" : theme.textSecondary,
+                      color: showingAll ? "#fff" : theme.textSecondary,
                     }}
                   >
-                    {t("tripDetail.dayChip", { day: d.day })}
+                    {t("tripDetail.allDaysChip")}
                   </AppText>
                 </RNPressable>
-              );
-            })}
-            {!planChrome ? null : (
-              <RNPressable
-                onPress={onAddDay}
-                style={[
-                  styles.dayChip,
-                  styles.dayChipGhost,
-                  { borderColor: theme.border },
-                ]}
-                accessibilityLabel={t("tripDetail.addDay")}
-              >
-                <AppText tone="secondary" className="text-[12px] font-semibold">
-                  {t("tripDetail.addDay")}
-                </AppText>
-              </RNPressable>
-            )}
-          </RNScrollView>
-
-          <RNView style={styles.dayTitleRow}>
-            <RNPressable
-              style={styles.dayTitle}
-              disabled={!planChrome}
-              onPress={
-                planChrome
-                  ? () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (showingAll) setEditingMeta(true);
-                      else setEditingDayTitle(true);
-                    }
-                  : undefined
-              }
-              accessibilityRole={planChrome ? "button" : undefined}
-              accessibilityLabel={
-                planChrome
-                  ? showingAll
-                    ? t("tripDetail.editTrip.title")
-                    : t("tripDetail.editDayTitle.title", {
-                        day: currentDay?.day ?? 1,
-                      })
-                  : undefined
-              }
-            >
-              <AppText
-                tone="secondary"
-                className="text-[13px]"
-                numberOfLines={2}
-              >
-                {showingAll
-                  ? itinerary.summary || t("tripDetail.allDaysTitle")
-                  : (currentDay?.title ?? "")}
-              </AppText>
-              {planChrome ? (
-                <Ionicons
-                  name="pencil-outline"
-                  size={14}
-                  color={theme.textMuted}
-                  style={{ marginTop: 2 }}
-                />
-              ) : null}
-            </RNPressable>
-            {planChrome && !showingAll && itinerary.days.length > 1 ? (
-              <RNPressable
-                onPress={onDeleteDay}
-                hitSlop={10}
-                style={styles.deleteDayBtn}
-                accessibilityLabel={t("tripDetail.deleteDayConfirm")}
-              >
-                <Ionicons name="trash-outline" size={18} color={theme.error} />
-              </RNPressable>
-            ) : null}
-          </RNView>
-
-          {/* Notas pessoais — toque abre o modal de meta da viagem. */}
-          {!readOnly || itinerary.notes.trim() ? (
-            <RNPressable
-              onPress={
-                planChrome
-                  ? () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setEditingMeta(true);
-                    }
-                  : undefined
-              }
-              disabled={!planChrome}
-              style={[
-                styles.notesRow,
-                { borderColor: theme.border, backgroundColor: theme.surface },
-              ]}
-              accessibilityRole={planChrome ? "button" : undefined}
-              accessibilityLabel={t("tripDetail.notes.a11y")}
-            >
-              <Ionicons
-                name="create-outline"
-                size={16}
-                color={theme.textMuted}
-              />
-              <AppText
-                tone={itinerary.notes.trim() ? "secondary" : "muted"}
-                className="text-[12px]"
-                style={{ flex: 1 }}
-                numberOfLines={2}
-              >
-                {itinerary.notes.trim() || t("tripDetail.notes.empty")}
-              </AppText>
-            </RNPressable>
-          ) : null}
-
-          <DraggableFlatList
-            data={activities}
-            keyExtractor={(item) => item.key}
-            onDragBegin={() => {
-              if (!planChrome) return;
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            onDragEnd={({ data }) => {
-              if (!planChrome) return;
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onReorder(data);
-            }}
-            containerStyle={styles.flex}
-            contentContainerStyle={{
-              paddingBottom: insets.bottom + (planChrome ? 88 : 32),
-            }}
-            renderItem={renderActivity}
-            activationDistance={showingAll || !planChrome ? 10_000 : 8}
-            autoscrollThreshold={48}
-            ListHeaderComponent={
-              <>
-                <PartnerReserveRow
-                  destination={itinerary.destination}
-                  startDate={itinerary.start_date}
-                  endDate={itinerary.end_date}
-                />
-                {!showingAll && planChrome ? (
-                  <AppText
-                    tone="muted"
-                    className="text-[11px]"
-                    style={styles.dragHint}
+                {itinerary.days.map((d, i) => {
+                  const active = daySelection === i;
+                  return (
+                    <RNPressable
+                      key={`day-${d.day}-${i}`}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setDaySelection(i);
+                      }}
+                      style={[
+                        styles.dayChip,
+                        {
+                          backgroundColor: active
+                            ? theme.accent
+                            : theme.surface,
+                          borderColor: active ? theme.accent : theme.border,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        className="text-[12px] font-semibold"
+                        style={{
+                          color: active ? "#fff" : theme.textSecondary,
+                        }}
+                      >
+                        {t("tripDetail.dayChip", { day: d.day })}
+                      </AppText>
+                    </RNPressable>
+                  );
+                })}
+                {!planChrome ? null : (
+                  <RNPressable
+                    onPress={onAddDay}
+                    style={[
+                      styles.dayChip,
+                      styles.dayChipGhost,
+                      { borderColor: theme.border },
+                    ]}
+                    accessibilityLabel={t("tripDetail.addDay")}
                   >
-                    {t("tripDetail.dragHint")}
-                  </AppText>
-                ) : !showingAll && travelMode ? (
-                  <AppText
-                    tone="muted"
-                    className="text-[11px]"
-                    style={styles.dragHint}
-                  >
-                    {t("tripDetail.travelMode.hint")}
-                  </AppText>
-                ) : (
-                  <RNView style={{ height: 8 }} />
+                    <AppText
+                      tone="secondary"
+                      className="text-[12px] font-semibold"
+                    >
+                      {t("tripDetail.addDay")}
+                    </AppText>
+                  </RNPressable>
                 )}
-              </>
-            }
-            ListFooterComponent={
-              <TripTipsFooter tips={itinerary.tips} theme={theme} t={t} />
-            }
-          />
+              </RNScrollView>
+
+              <RNView style={styles.dayTitleRow}>
+                <RNPressable
+                  style={styles.dayTitle}
+                  disabled={!planChrome}
+                  onPress={
+                    planChrome
+                      ? () => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light,
+                          );
+                          if (showingAll) setEditingMeta(true);
+                          else setEditingDayTitle(true);
+                        }
+                      : undefined
+                  }
+                  accessibilityRole={planChrome ? "button" : undefined}
+                  accessibilityLabel={
+                    planChrome
+                      ? showingAll
+                        ? t("tripDetail.editTrip.title")
+                        : t("tripDetail.editDayTitle.title", {
+                            day: currentDay?.day ?? 1,
+                          })
+                      : undefined
+                  }
+                >
+                  <AppText
+                    tone="secondary"
+                    className="text-[13px]"
+                    numberOfLines={2}
+                  >
+                    {showingAll
+                      ? itinerary.summary || t("tripDetail.allDaysTitle")
+                      : (currentDay?.title ?? "")}
+                  </AppText>
+                  {planChrome ? (
+                    <Ionicons
+                      name="pencil-outline"
+                      size={14}
+                      color={theme.textMuted}
+                      style={{ marginTop: 2 }}
+                    />
+                  ) : null}
+                </RNPressable>
+                {planChrome && !showingAll && itinerary.days.length > 1 ? (
+                  <RNPressable
+                    onPress={onDeleteDay}
+                    hitSlop={10}
+                    style={styles.deleteDayBtn}
+                    accessibilityLabel={t("tripDetail.deleteDayConfirm")}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={theme.error}
+                    />
+                  </RNPressable>
+                ) : null}
+              </RNView>
+
+              {/* Notas pessoais — toque abre o modal de meta da viagem. */}
+              {!readOnly || itinerary.notes.trim() ? (
+                <RNPressable
+                  onPress={
+                    planChrome
+                      ? () => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light,
+                          );
+                          setEditingMeta(true);
+                        }
+                      : undefined
+                  }
+                  disabled={!planChrome}
+                  style={[
+                    styles.notesRow,
+                    {
+                      borderColor: theme.border,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
+                  accessibilityRole={planChrome ? "button" : undefined}
+                  accessibilityLabel={t("tripDetail.notes.a11y")}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={16}
+                    color={theme.textMuted}
+                  />
+                  <AppText
+                    tone={itinerary.notes.trim() ? "secondary" : "muted"}
+                    className="text-[12px]"
+                    style={{ flex: 1 }}
+                    numberOfLines={2}
+                  >
+                    {itinerary.notes.trim() ||
+                      t(
+                        collab
+                          ? "tripDetail.notes.sharedEmpty"
+                          : "tripDetail.notes.empty",
+                      )}
+                  </AppText>
+                </RNPressable>
+              ) : null}
+
+              <DraggableFlatList
+                data={activities}
+                keyExtractor={(item) => item.key}
+                onDragBegin={() => {
+                  if (!planChrome) return;
+                  dragRef.current = true;
+                  setFocusedActivityId(null);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                onDragEnd={({ data }) => {
+                  if (!planChrome) return;
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onReorder(data);
+                  releaseDrag();
+                }}
+                containerStyle={styles.flex}
+                contentContainerStyle={{
+                  paddingBottom: insets.bottom + (planChrome ? 88 : 32),
+                }}
+                renderItem={renderActivity}
+                activationDistance={showingAll || !planChrome ? 10_000 : 8}
+                autoscrollThreshold={48}
+                ListHeaderComponent={
+                  <>
+                    <PartnerReserveRow
+                      destination={itinerary.destination}
+                      startDate={itinerary.start_date}
+                      endDate={itinerary.end_date}
+                    />
+                    {!showingAll && planChrome ? (
+                      <AppText
+                        tone="muted"
+                        className="text-[11px]"
+                        style={styles.dragHint}
+                      >
+                        {t("tripDetail.dragHint")}
+                      </AppText>
+                    ) : !showingAll && travelMode ? (
+                      <AppText
+                        tone="muted"
+                        className="text-[11px]"
+                        style={styles.dragHint}
+                      >
+                        {t("tripDetail.travelMode.hint")}
+                      </AppText>
+                    ) : (
+                      <RNView style={{ height: 8 }} />
+                    )}
+                  </>
+                }
+                ListFooterComponent={
+                  <TripTipsFooter tips={itinerary.tips} theme={theme} t={t} />
+                }
+              />
             </RNView>
           </RNView>
 
@@ -1588,6 +1932,7 @@ export default function TripDetailScreen() {
         place={itinerary?.destination ?? ""}
         initialSummary={itinerary?.summary ?? ""}
         initialNotes={itinerary?.notes ?? ""}
+        sharedNotes={collab}
         onClose={() => setEditingMeta(false)}
         onSave={onEditMeta}
       />
@@ -1647,6 +1992,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerCopy: { flex: 1, minWidth: 0 },
+  changeNotice: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",

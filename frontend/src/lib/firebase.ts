@@ -6,6 +6,7 @@ import { getApp, getApps, initializeApp } from "firebase/app";
 // @ts-ignore: getReactNativePersistence existe no bundle React Native do
 // Firebase v12, mas está ausente das definições de tipo públicas (web).
 import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -42,3 +43,7 @@ export const auth = createAuth();
 // Exporta cada serviço — importe onde precisar, não o `app` em si.
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Presença da sala (onDisconnect). Sem URL, a edição conjunta segue sem avatar.
+const databaseUrl = process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL?.trim();
+export const rtdb = databaseUrl ? getDatabase(app, databaseUrl) : null;

@@ -42,7 +42,7 @@ export function TripHistoryCard({ trip, onPress }: Props) {
   const [loadingPhoto, setLoadingPhoto] = useState(true);
   const [imageReady, setImageReady] = useState(false);
 
-  const days = trip.days?.length ?? 0;
+  const days = trip.days?.length || trip.day_count || 0;
   const relative = relativeTimeParts(trip.created_at ?? trip.updated_at);
   const place = trip.destination.trim();
   const displayTitle =

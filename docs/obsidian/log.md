@@ -1,5 +1,20 @@
 # Log — Tripfy Wiki
 
+## [2026-09-26] update | Aviso de edição na sala
+
+Frase efêmera quando o outro muda o roteiro, e "editou agora" no título.
+[[Edição Conjunta]] e [[changelog]].
+
+## [2026-09-26] update | Poll da sala se o listener falhar
+
+Convidado sem rules publicadas não lia o doc do dono. Poll via API.
+[[Edição Conjunta]] e [[changelog]].
+
+## [2026-09-21] ingest | Edição Conjunta
+
+Sala do Match: doc canônico, ops com revisão, `onSnapshot` e presença.
+[[Edição Conjunta]], [[Match de Viajantes RF11 RF12]], [[Detalhe da Viagem RF07]], [[index]] e [[changelog]].
+
 ## [2026-09-06] ingest | Modo Viagem
 
 Assistente de campo no detalhe do roteiro: checkbox, mapa nativo, trava de review.

@@ -19,6 +19,13 @@ from models.trip import (
     PersistedDay,
     SavedTripResponse,
 )
+from services.trip_ops import (
+    TripOpError,
+    apply_op,
+    clean_activity_id,
+    describe_change,
+    stamp_activity_ids,
+)
 
 _SHARES = "trip_shares"
 _TRASH_DAYS = 30
@@ -64,6 +71,7 @@ def _parse_place_id(value: Any) -> str | None:
 
 def _parse_activity(raw: dict[str, Any]) -> PersistedActivity:
     return PersistedActivity(
+        id=clean_activity_id(raw.get("id")) or "",
         time=str(raw.get("time") or ""),
         title=str(raw.get("title") or ""),
         description=str(raw.get("description") or ""),
@@ -109,6 +117,26 @@ def _as_datetime(value: Any) -> datetime | None:
     return None
 
 
+def _payload_day_field(value: Any) -> int | None:
+    try:
+        day = int(value)
+    except (TypeError, ValueError):
+        return None
+    return day if day >= 1 else None
+
+
+def _member_uids(data: dict[str, Any]) -> list[str]:
+    raw = data.get("member_uids")
+    if not isinstance(raw, list):
+        return []
+    return [uid for uid in raw if isinstance(uid, str) and uid]
+
+
+def _is_member_pointer(data: dict[str, Any]) -> bool:
+    """Ponteiro da Home do convidado — não é roteiro e não conta no teto Free."""
+    return data.get("role") == "member"
+
+
 def _doc_to_saved(
     trip_id: str,
     data: dict[str, Any],
@@ -117,7 +145,29 @@ def _doc_to_saved(
 ) -> SavedTripResponse:
     owner = str(data.get("owner_uid") or "")
     is_owner = owner == viewer_uid
+    members = _member_uids(data)
+    collab = _as_bool(data.get("collab"))
+    is_member = viewer_uid in members
     deleted_at = _as_datetime(data.get("deleted_at"))
+    if _is_member_pointer(data):
+        role = "member"
+    elif is_owner:
+        role = "owner"
+    elif is_member:
+        role = "member"
+    else:
+        role = "viewer"
+    try:
+        revision = int(data.get("revision") or 0)
+    except (TypeError, ValueError):
+        revision = 0
+    try:
+        day_count = int(data.get("day_count") or 0)
+    except (TypeError, ValueError):
+        day_count = 0
+    days = _parse_days(data.get("days"))
+    if day_count <= 0:
+        day_count = len(days)
     return SavedTripResponse(
         id=trip_id,
         owner_uid=owner,
@@ -130,7 +180,7 @@ def _doc_to_saved(
             if isinstance(t, str) and str(t).strip()
         ],
         notes=str(data.get("notes") or ""),
-        days=_parse_days(data.get("days")),
+        days=days,
         start_date=_parse_iso_date(data.get("start_date")),
         end_date=_parse_iso_date(data.get("end_date")),
         match_id=(
@@ -148,8 +198,30 @@ def _doc_to_saved(
         created_at=_as_datetime(data.get("created_at")),
         updated_at=_as_datetime(data.get("updated_at")),
         is_owner=is_owner,
-        # Visitante só lê; dono edita (mesmo se veio da lixeira — UI decide).
-        read_only=not is_owner,
+        # Membro do Match edita. Visitante do link continua só leitura.
+        read_only=not (is_owner or (collab and is_member)),
+        collab=collab,
+        revision=revision,
+        member_uids=members,
+        last_op_id=(
+            str(data["last_op_id"])
+            if isinstance(data.get("last_op_id"), str) and data["last_op_id"]
+            else None
+        ),
+        updated_by=(
+            str(data["updated_by"])
+            if isinstance(data.get("updated_by"), str) and data["updated_by"]
+            else None
+        ),
+        updated_by_name=str(data.get("updated_by_name") or "").strip(),
+        last_change=(
+            str(data["last_change"])
+            if isinstance(data.get("last_change"), str) and data["last_change"]
+            else None
+        ),
+        last_change_day=_payload_day_field(data.get("last_change_day")),
+        role=role,
+        day_count=day_count,
     )
 
 
@@ -157,6 +229,7 @@ def _itinerary_payload(
     data: dict[str, Any],
     *,
     reset_completed: bool = False,
+    refresh_ids: bool = False,
 ) -> dict[str, Any]:
     """Copia o miolo do roteiro (clone/create) — sem metadados de dono/lixeira.
 
@@ -172,6 +245,11 @@ def _itinerary_payload(
                 continue
             acts.append(
                 {
+                    "id": (
+                        ""
+                        if refresh_ids
+                        else clean_activity_id(a.get("id")) or ""
+                    ),
                     "time": a.get("time"),
                     "title": a.get("title"),
                     "description": a.get("description"),
@@ -194,6 +272,7 @@ def _itinerary_payload(
                 "activities": acts,
             }
         )
+    days_out = stamp_activity_ids(days_out)
     start = _parse_iso_date(data.get("start_date"))
     end = _parse_iso_date(data.get("end_date"))
     return {
@@ -289,7 +368,7 @@ async def count_active(uid: str) -> int:
         n = 0
         for snap in _trips_col(uid).stream():
             data = snap.to_dict() or {}
-            if data.get("deleted_at") is None:
+            if data.get("deleted_at") is None and not _is_member_pointer(data):
                 n += 1
         return n
 
@@ -334,12 +413,12 @@ async def soft_delete(uid: str, trip_id: str) -> bool:
         snap = ref.get()
         if not snap.exists:
             return False
-        ref.update(
-            {
-                "deleted_at": firestore.SERVER_TIMESTAMP,
-                "updated_at": firestore.SERVER_TIMESTAMP,
-            }
-        )
+        fields = {
+            "deleted_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+        ref.update(fields)
+        _sync_member_pointers(snap.to_dict() or {}, trip_id, fields)
         logger.info("Trip soft-delete: uid={} trip_id={}", uid, trip_id)
         return True
 
@@ -358,12 +437,12 @@ async def restore(uid: str, trip_id: str) -> bool:
         deleted_at = _as_datetime(data.get("deleted_at"))
         if not _is_in_trash_window(deleted_at):
             return False
-        ref.update(
-            {
-                "deleted_at": None,
-                "updated_at": firestore.SERVER_TIMESTAMP,
-            }
-        )
+        fields = {
+            "deleted_at": None,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+        ref.update(fields)
+        _sync_member_pointers(data, trip_id, fields)
         logger.info("Trip restore: uid={} trip_id={}", uid, trip_id)
         return True
 
@@ -389,7 +468,11 @@ async def clone_trip(source_trip_id: str, new_owner_uid: str) -> str | None:
         if data.get("deleted_at") is not None:
             return None
 
-        payload = _itinerary_payload(data, reset_completed=True)
+        payload = _itinerary_payload(
+            data,
+            reset_completed=True,
+            refresh_ids=True,
+        )
         new_ref = _trips_col(new_owner_uid).document()
         new_ref.set(
             {
@@ -441,3 +524,259 @@ async def create_trip(
         return new_ref.id
 
     return await run_in_threadpool(_write)
+
+
+class TripAccessError(Exception):
+    """UID não é dono nem membro."""
+
+
+class TripMissingError(Exception):
+    """Doc ou índice de share não existe."""
+
+
+class CollabConflict(Exception):
+    """Op não comuta. `trip` é o doc atual, sem a op rejeitada."""
+
+    def __init__(self, code: str, trip: SavedTripResponse) -> None:
+        self.code = code
+        self.trip = trip
+        super().__init__(code)
+
+
+def _sync_member_pointers(
+    data: dict[str, Any],
+    trip_id: str,
+    fields: dict[str, Any],
+) -> None:
+    """Espelha lixeira/meta no ponteiro do convidado. Sem `days`."""
+    owner = str(data.get("owner_uid") or "")
+    for member in _member_uids(data):
+        if member == owner:
+            continue
+        ref = _trips_col(member).document(trip_id)
+        if ref.get().exists:
+            ref.update(fields)
+
+
+def _grant_presence(trip_id: str, uids: list[str]) -> None:
+    """ACL efêmera no Realtime Database. Sem URL configurada, presença fica off."""
+    from core.config import settings
+
+    url = (settings.FIREBASE_DATABASE_URL or "").strip()
+    if not url:
+        return
+    try:
+        from firebase_admin import db as rtdb
+
+        rtdb.reference(f"presence_acl/{trip_id}", url=url).set(
+            {uid: True for uid in uids}
+        )
+    except Exception:
+        logger.warning("Presença indisponível: trip_id={}", trip_id)
+
+
+def _state_from_doc(data: dict[str, Any]) -> dict[str, Any]:
+    payload = _itinerary_payload(data)
+    try:
+        revision = int(data.get("revision") or 0)
+    except (TypeError, ValueError):
+        revision = 0
+    recent = data.get("recent_op_ids")
+    return {
+        **payload,
+        "revision": revision,
+        "recent_op_ids": recent if isinstance(recent, list) else [],
+        "last_op_id": data.get("last_op_id"),
+        "last_op_type": data.get("last_op_type"),
+    }
+
+
+def _list_fields(state: dict[str, Any]) -> dict[str, Any]:
+    days = state.get("days") or []
+    return {
+        "destination": state.get("destination") or "",
+        "title": str(state.get("title") or "").strip(),
+        "summary": state.get("summary") or "",
+        "start_date": state.get("start_date"),
+        "end_date": state.get("end_date"),
+        "day_count": len(days) if isinstance(days, list) else 0,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }
+
+
+async def create_collab_trip(
+    owner_uid: str,
+    guest_uid: str,
+    match_id: str,
+    itinerary: dict[str, Any],
+) -> str:
+    """Uma viagem canônica no dono + ponteiro sem `days` no convidado.
+
+    O ponteiro não entra em `count_active` (`role == member`).
+    """
+
+    def _write() -> str:
+        payload = _itinerary_payload(itinerary)
+        members = [owner_uid]
+        if guest_uid and guest_uid != owner_uid:
+            members.append(guest_uid)
+        new_ref = _trips_col(owner_uid).document()
+        trip_id = new_ref.id
+        body: dict[str, Any] = {
+            **payload,
+            "owner_uid": owner_uid,
+            "trip_id": trip_id,
+            "match_id": match_id,
+            "member_uids": members,
+            "collab": True,
+            "revision": 0,
+            "recent_op_ids": [],
+            "last_op_id": None,
+            "last_op_type": None,
+            "deleted_at": None,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+        new_ref.set(body)
+        _write_share_index(trip_id, owner_uid)
+        if guest_uid and guest_uid != owner_uid:
+            _trips_col(guest_uid).document(trip_id).set(
+                {
+                    "owner_uid": owner_uid,
+                    "trip_id": trip_id,
+                    "role": "member",
+                    "collab": True,
+                    "match_id": match_id,
+                    "member_uids": members,
+                    "destination": payload.get("destination") or "",
+                    "title": payload.get("title") or "",
+                    "summary": payload.get("summary") or "",
+                    "start_date": payload.get("start_date"),
+                    "end_date": payload.get("end_date"),
+                    "day_count": len(payload.get("days") or []),
+                    "deleted_at": None,
+                    "created_at": firestore.SERVER_TIMESTAMP,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+            )
+        _grant_presence(trip_id, members)
+        logger.info(
+            "Trip conjunta criada: owner={} guest={} trip_id={} match_id={}",
+            owner_uid,
+            guest_uid,
+            trip_id,
+            match_id,
+        )
+        return trip_id
+
+    return await run_in_threadpool(_write)
+
+
+async def apply_trip_op(
+    trip_id: str,
+    uid: str,
+    op: dict[str, Any],
+    *,
+    editor_name: str = "",
+) -> tuple[SavedTripResponse, bool]:
+    """Transação: revisão + op. Idempotente se `op_id` já está no doc."""
+    name = editor_name.strip()[:80]
+
+    def _run() -> tuple[SavedTripResponse, bool]:
+        owner = _resolve_owner(trip_id)
+        if not owner:
+            raise TripMissingError
+        ref = _trips_col(owner).document(trip_id)
+        transaction = db.transaction()
+        applied_box: dict[str, bool] = {"applied": False}
+
+        @firestore.transactional
+        def _txn(transaction: Any) -> dict[str, Any]:
+            snap = ref.get(transaction=transaction)
+            if not snap.exists:
+                raise TripMissingError
+            data = snap.to_dict() or {}
+            data.setdefault("owner_uid", owner)
+            members = _member_uids(data)
+            owner_uid = str(data.get("owner_uid") or owner)
+            if uid != owner_uid and uid not in members:
+                raise TripAccessError
+            if not _as_bool(data.get("collab")):
+                raise CollabConflict(
+                    "not_collab",
+                    _doc_to_saved(trip_id, data, viewer_uid=uid),
+                )
+            state = _state_from_doc(data)
+            try:
+                new_state, applied = apply_op(state, op)
+            except TripOpError as exc:
+                raise CollabConflict(
+                    exc.code,
+                    _doc_to_saved(trip_id, data, viewer_uid=uid),
+                ) from exc
+            applied_box["applied"] = applied
+            if not applied:
+                return data
+            kind, change_day = describe_change(state, new_state, op)
+            data.update(
+                {
+                    "days": new_state.get("days") or [],
+                    "destination": new_state.get("destination") or "",
+                    "title": str(new_state.get("title") or "").strip(),
+                    "summary": new_state.get("summary") or "",
+                    "notes": new_state.get("notes") or "",
+                    "tips": new_state.get("tips") or [],
+                    "start_date": new_state.get("start_date"),
+                    "end_date": new_state.get("end_date"),
+                    "revision": new_state.get("revision") or 0,
+                    "recent_op_ids": new_state.get("recent_op_ids") or [],
+                    "last_op_id": new_state.get("last_op_id"),
+                    "last_op_type": new_state.get("last_op_type"),
+                    "last_change": kind,
+                    "last_change_day": change_day,
+                    "updated_by": uid,
+                    "updated_by_name": name,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+            )
+            transaction.update(
+                ref,
+                {
+                    "days": data["days"],
+                    "destination": data["destination"],
+                    "title": data["title"],
+                    "summary": data["summary"],
+                    "notes": data["notes"],
+                    "tips": data["tips"],
+                    "start_date": data["start_date"],
+                    "end_date": data["end_date"],
+                    "revision": data["revision"],
+                    "recent_op_ids": data["recent_op_ids"],
+                    "last_op_id": data["last_op_id"],
+                    "last_op_type": data["last_op_type"],
+                    "last_change": kind,
+                    "last_change_day": change_day,
+                    "updated_by": uid,
+                    "updated_by_name": name,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                },
+            )
+            if op.get("type") in {"patch_meta", "add_day", "delete_day"}:
+                pointer_fields = _list_fields(new_state)
+                for member in members:
+                    if member == owner_uid:
+                        continue
+                    transaction.set(
+                        _trips_col(member).document(trip_id),
+                        pointer_fields,
+                        merge=True,
+                    )
+            return data
+
+        try:
+            stored = _txn(transaction)
+        except CollabConflict:
+            raise
+        return _doc_to_saved(trip_id, stored, viewer_uid=uid), applied_box["applied"]
+
+    return await run_in_threadpool(_run)

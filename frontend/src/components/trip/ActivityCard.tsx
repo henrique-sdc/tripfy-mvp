@@ -62,6 +62,8 @@ type Props = {
   /** Lookup chegou depois do "feito" — carimba place_id sem sujar no mount. */
   onPlaceIdResolved?: (placeId: string) => void;
   onNavigate?: () => void;
+  /** Anel de quem está editando esta parada na sala. */
+  presenceRing?: string | null;
 };
 
 export function ActivityCard({
@@ -78,6 +80,7 @@ export function ActivityCard({
   onToggleCompleted,
   onPlaceIdResolved,
   onNavigate,
+  presenceRing = null,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -293,7 +296,8 @@ export function ActivityCard({
         styles.card,
         {
           backgroundColor: theme.surface,
-          borderColor: theme.border,
+          borderColor: presenceRing ?? theme.border,
+          borderWidth: presenceRing ? 2 : StyleSheet.hairlineWidth,
         },
         cardAnimStyle,
       ]}

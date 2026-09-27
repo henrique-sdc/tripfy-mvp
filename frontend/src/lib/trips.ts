@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 
 import type { ItineraryResponse } from "@/lib/api";
+import { newActivityId } from "@/lib/activityId";
 import { createTripApi, restoreTripApi } from "@/lib/api";
 import { auth, db } from "@/lib/firebase";
 import { optionalIsoDate } from "@/lib/tripDates";
@@ -29,6 +30,17 @@ export type SavedTrip = ItineraryResponse & {
   deleted_at?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
+  /** Edição conjunta — o miolo mora no doc do dono. */
+  collab?: boolean;
+  revision?: number;
+  last_op_id?: string | null;
+  updated_by?: string | null;
+  updated_by_name?: string;
+  last_change?: string | null;
+  last_change_day?: number | null;
+  /** `member` = ponteiro da Home, sem `days`. */
+  role?: string;
+  day_count?: number;
 };
 
 function optionalMatchId(value: unknown): string | undefined {
@@ -57,7 +69,10 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
       activities: d.activities.map((a) => {
         const pid =
           typeof a.place_id === "string" ? a.place_id.trim() : "";
+        const activityId =
+          typeof a.id === "string" && a.id.trim() ? a.id.trim() : newActivityId();
         return {
+          id: activityId,
           time: a.time,
           title: a.title,
           description: a.description,
@@ -191,6 +206,56 @@ export async function countTripStats(): Promise<{
   };
 }
 
+function asRevision(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function asDayCount(value: unknown, days: unknown[]): number {
+  if (typeof value === "number" && value > 0) return value;
+  return days.length;
+}
+
+/** Doc Firestore → card / detalhe. Ponteiro de membro vem sem `days`. */
+export function tripFromDoc(
+  id: string,
+  data: Record<string, unknown>,
+  uid: string,
+): SavedTrip {
+  const days = Array.isArray(data.days) ? data.days : [];
+  return {
+    id,
+    owner_uid: String(data.owner_uid ?? uid),
+    destination: String(data.destination ?? ""),
+    title:
+      typeof data.title === "string" && data.title.trim()
+        ? data.title.trim()
+        : undefined,
+    summary: String(data.summary ?? ""),
+    tips: Array.isArray(data.tips)
+      ? data.tips.map((item: unknown) => String(item)).filter(Boolean)
+      : [],
+    notes: typeof data.notes === "string" ? data.notes : "",
+    days: days as SavedTrip["days"],
+    start_date: optionalIsoDate(data.start_date),
+    end_date: optionalIsoDate(data.end_date),
+    match_id: optionalMatchId(data.match_id),
+    deleted_at: data.deleted_at,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    collab: data.collab === true,
+    revision: asRevision(data.revision),
+    last_op_id: typeof data.last_op_id === "string" ? data.last_op_id : null,
+    updated_by: typeof data.updated_by === "string" ? data.updated_by : null,
+    updated_by_name:
+      typeof data.updated_by_name === "string" ? data.updated_by_name.trim() : "",
+    last_change: typeof data.last_change === "string" ? data.last_change : null,
+    last_change_day:
+      typeof data.last_change_day === "number" ? data.last_change_day : null,
+    role: typeof data.role === "string" ? data.role : undefined,
+    day_count: asDayCount(data.day_count, days),
+  };
+}
+
 /** Lista roteiros ativos (sem deleted_at). */
 export async function listTrips(): Promise<SavedTrip[]> {
   const uid = auth.currentUser?.uid;
@@ -202,30 +267,7 @@ export async function listTrips(): Promise<SavedTrip[]> {
   );
   const snap = await getDocs(q);
   return snap.docs
-    .map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        owner_uid: String(data.owner_uid ?? uid),
-        destination: String(data.destination ?? ""),
-        title:
-          typeof data.title === "string" && data.title.trim()
-            ? data.title.trim()
-            : undefined,
-        summary: String(data.summary ?? ""),
-        tips: Array.isArray(data.tips)
-          ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
-          : [],
-        notes: typeof data.notes === "string" ? data.notes : "",
-        days: Array.isArray(data.days) ? data.days : [],
-        start_date: optionalIsoDate(data.start_date),
-        end_date: optionalIsoDate(data.end_date),
-        match_id: optionalMatchId(data.match_id),
-        deleted_at: data.deleted_at,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      } as SavedTrip;
-    })
+    .map((d) => tripFromDoc(d.id, d.data() as Record<string, unknown>, uid))
     .filter((t) => t.deleted_at == null);
 }
 
@@ -242,24 +284,5 @@ export async function getTrip(tripId: string): Promise<SavedTrip | null> {
   if (!snap.exists()) return null;
   const data = snap.data();
   if (data.deleted_at != null) return null;
-  return {
-    id: snap.id,
-    owner_uid: String(data.owner_uid ?? uid),
-    destination: String(data.destination ?? ""),
-    title:
-      typeof data.title === "string" && data.title.trim()
-        ? data.title.trim()
-        : undefined,
-    summary: String(data.summary ?? ""),
-    tips: Array.isArray(data.tips)
-      ? data.tips.map((x: unknown) => String(x)).filter(Boolean)
-      : [],
-    notes: typeof data.notes === "string" ? data.notes : "",
-    days: Array.isArray(data.days) ? data.days : [],
-    start_date: optionalIsoDate(data.start_date),
-    end_date: optionalIsoDate(data.end_date),
-    match_id: optionalMatchId(data.match_id),
-    created_at: data.created_at,
-    updated_at: data.updated_at,
-  };
+  return tripFromDoc(snap.id, data as Record<string, unknown>, uid);
 }

@@ -21,6 +21,7 @@ import { TripHistoryCard } from "@/components/trip/TripHistoryCard";
 import { AppText } from "@/components/ui/AppText";
 import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
 import { useTheme } from "@/hooks/use-theme";
+import { softDeleteTripApi } from "@/lib/api";
 import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { Pressable, View } from "@/tw";
@@ -77,13 +78,19 @@ export default function TripsScreen() {
   }
 
   function trashTrip(trip: SavedTrip) {
+    if (trip.role === "member") {
+      Alert.alert(t("trips.sharedDeleteTitle"), t("trips.sharedDeleteBody"));
+      return;
+    }
     // Otimista: some da lista na hora; soft-delete é reversível na lixeira.
     setTrips((prev) => prev.filter((x) => x.id !== trip.id));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     void (async () => {
       try {
-        await softDeleteTrip(trip.id);
+        // Conjunta: a API também marca o ponteiro do convidado.
+        if (trip.collab) await softDeleteTripApi(trip.id);
+        else await softDeleteTrip(trip.id);
       } catch (err) {
         console.error("[trips] Soft delete falhou:", err);
         Alert.alert(t("trips.loadError"), t("trips.trashError"));
@@ -215,14 +222,18 @@ export default function TripsScreen() {
             colors={[theme.accent]}
           />
         }
-        renderItem={({ item }) => (
-          <SwipeToDelete
-            accessibilityLabel={t("trips.swipeDeleteA11y")}
-            onDelete={() => trashTrip(item)}
-          >
+        renderItem={({ item }) =>
+          item.role === "member" ? (
             <TripHistoryCard trip={item} onPress={() => openTrip(item)} />
-          </SwipeToDelete>
-        )}
+          ) : (
+            <SwipeToDelete
+              accessibilityLabel={t("trips.swipeDeleteA11y")}
+              onDelete={() => trashTrip(item)}
+            >
+              <TripHistoryCard trip={item} onPress={() => openTrip(item)} />
+            </SwipeToDelete>
+          )
+        }
       />
     </View>
   );

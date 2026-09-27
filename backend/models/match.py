@@ -84,6 +84,8 @@ class MatchInDB(BaseModel):
     generation_lock: GenerationLock | None = None
     itinerary: ItineraryResponse | None = None
     completed_at: datetime | None = None
+    # Viagem canônica criada no complete. Ausente = Match antigo (cópias locais).
+    trip_id: str | None = None
 
     @model_validator(mode="after")
     def validate_participants(self) -> "MatchInDB":

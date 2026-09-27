@@ -65,10 +65,10 @@ No lobby:
 - Convidado consulta o resumo via API e confirma com `joinMatch`.
 - Após o join, ambos observam `matches/{id}` com `onSnapshot`.
 - Owner abre o SSE uma vez. O convidado aguarda o `itinerary` persistido.
-- Ao chegar `completed`, ambos navegam para `/trip-detail` com o mesmo JSON.
-  O auto-save grava `match_id` em `users/{uid}/trips/{tripId}` (metadado, fora
-  do schema da LLM). Clone não copia esse campo. A aba Viagens filtra por ele
-  ([[Home e Bottom Tabs]]).
+- Ao chegar `completed` com `trip_id`, os dois abrem a mesma viagem
+  ([[Edição Conjunta]]). Sem `trip_id` (Match antigo ou dono no teto Free),
+  cada aparelho ainda grava a própria cópia com `match_id`. Clone não copia
+  esse campo. A aba Viagens filtra por ele ([[Home e Bottom Tabs]]).
 
 A tela usa tokens semânticos, `AppText`, Dark/Light Mode, haptics, reduced
 motion e estados inline para convite inválido, sala cheia e falhas de rede.
@@ -90,6 +90,7 @@ Campos persistidos:
 - `generation_lock`: token, owner e timestamp do claim single-flight.
 - `itinerary`: `ItineraryResponse` validado; nulo antes da conclusão.
 - `completed_at`: timestamp do término.
+- `trip_id`: viagem canônica dos dois. Nulo em sessões antigas. Ver [[Edição Conjunta]].
 
 O Repository executa o ingresso em uma transação. Duas pessoas não conseguem
 ocupar a segunda vaga ao mesmo tempo. Repetir a aceitação pelo mesmo convidado

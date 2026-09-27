@@ -581,6 +581,8 @@
       "summaryPlaceholder": "Notas gerais do roteiro",
       "notesLabel": "Notas pessoais",
       "notesPlaceholder": "Lembretes, reservas, contatos…",
+      "sharedNotesLabel": "Notas da viagem",
+      "sharedNotesPlaceholder": "Visível para quem está nesta viagem",
       "cancel": "Cancelar",
       "save": "Salvar"
     },
@@ -591,7 +593,34 @@
     },
     "notes": {
       "empty": "Adicionar notas pessoais…",
+      "sharedEmpty": "Adicionar notas da viagem…",
       "a11y": "Editar notas da viagem"
+    },
+    "collab": {
+      "conflictTitle": "Roteiro atualizado",
+      "conflictBody": "A outra pessoa mudou o roteiro. A tela foi atualizada.",
+      "activityDeleted": "Essa parada foi removida por outra pessoa.",
+      "editedNow": "{{name}} editou agora",
+      "editedHours": "{{name}} editou há {{count}} h",
+      "editedDays": "{{name}} editou há {{count}} dias",
+      "editedWeeks": "{{name}} editou há {{count}} sem",
+      "notice": {
+        "title": "{{name}} alterou o título",
+        "notes": "{{name}} alterou as notas",
+        "summary": "{{name}} alterou o resumo",
+        "dayTitle": "{{name}} alterou o título do Dia {{day}}",
+        "meta": "{{name}} alterou a viagem",
+        "reorder": "{{name}} reordenou o Dia {{day}}",
+        "delete_activity": "{{name}} removeu uma parada",
+        "patch_activity": "{{name}} editou uma parada",
+        "add_activity": "{{name}} adicionou uma parada",
+        "add_day": "{{name}} adicionou um dia",
+        "delete_day": "{{name}} removeu um dia"
+      }
+    },
+    "presence": {
+      "online": "{{name}} está nesta viagem",
+      "someone": "Alguém"
     },
     "partners": {
       "sectionA11y": "Reservar hospedagem e voos",
@@ -653,6 +682,8 @@
     "trashCancel": "Cancelar",
     "trashConfirm": "Mover",
     "trashError": "Não deu pra mover pra lixeira.",
+    "sharedDeleteTitle": "Viagem compartilhada",
+    "sharedDeleteBody": "Só quem criou a viagem pode mover ela pra lixeira.",
     "loadError": "Não deu pra carregar suas viagens.",
     "retry": "Tentar de novo"
   },

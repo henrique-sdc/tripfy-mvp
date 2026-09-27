@@ -21,6 +21,7 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
+    public payload?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -95,6 +96,8 @@ export type ActivityResponse = {
   completed?: boolean;
   /** Google place_id carimbado ao marcar feito. Ausente = lookup ainda não resolveu. */
   place_id?: string | null;
+  /** Identidade estável. Ausente em roteiros antigos — o app carimba ao abrir. */
+  id?: string;
 };
 
 export type ItineraryDayResponse = {
@@ -372,6 +375,16 @@ export type SavedTripApi = {
   updated_at: string | null;
   is_owner: boolean;
   read_only: boolean;
+  collab?: boolean;
+  revision?: number;
+  member_uids?: string[];
+  last_op_id?: string | null;
+  updated_by?: string | null;
+  updated_by_name?: string;
+  last_change?: string | null;
+  last_change_day?: number | null;
+  role?: string;
+  day_count?: number;
 };
 
 export type CloneTripResponse = {
@@ -434,6 +447,25 @@ export async function cloneTripApi(
     { method: "POST" },
   );
   return (await response.json()) as CloneTripResponse;
+}
+
+export type TripOpBody = {
+  op_id: string;
+  base_revision: number;
+  type: string;
+  payload: Record<string, unknown>;
+};
+
+/** POST /trips/{id}/ops — uma mutação da sala, não o roteiro inteiro. */
+export async function postTripOp(
+  tripId: string,
+  body: TripOpBody,
+): Promise<{ applied: boolean; trip: SavedTripApi }> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/ops`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return (await response.json()) as { applied: boolean; trip: SavedTripApi };
 }
 
 /** POST /trips — cria viagem ativa (gate Free). */
@@ -514,6 +546,8 @@ export type MatchInDB = {
   } | null;
   itinerary?: ItineraryResponse | null;
   completed_at?: unknown;
+  /** Viagem canônica do Match. Ausente = cada um gravou a própria cópia. */
+  trip_id?: string | null;
 };
 
 export type CreateMatchParams = {
@@ -571,6 +605,7 @@ async function authFetch(
     // Não confiamos cegamente no corpo; extraímos detail quando houver.
     let detail = `Erro ${response.status}`;
     let code: string | undefined;
+    let payload: unknown;
     try {
       const body: unknown = await response.json();
       if (body && typeof body === "object" && "detail" in body) {
@@ -578,6 +613,7 @@ async function authFetch(
         if (typeof raw === "string") {
           detail = raw;
         } else if (raw && typeof raw === "object") {
+          payload = raw;
           const obj = raw as {
             code?: unknown;
             message?: unknown;
@@ -600,7 +636,7 @@ async function authFetch(
     if (code === "premium_required") {
       usePaywallStore.getState().open("active_trip_limit");
     }
-    throw new ApiError(response.status, detail, code);
+    throw new ApiError(response.status, detail, code, payload);
   }
 
   return response;

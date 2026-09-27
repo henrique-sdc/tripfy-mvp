@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "presence_acl": {
+      ".read": false,
+      ".write": false
+    },
+    "presence": {
+      "$tripId": {
+        ".read": "auth != null && root.child('presence_acl').child($tripId).child(auth.uid).val() === true",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('presence_acl').child($tripId).child(auth.uid).val() === true"
+        }
+      }
+    }
+  }
+}

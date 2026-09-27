@@ -6,6 +6,7 @@ Response: contrato JSON que o Gemini é forçado a respeitar (Structured Output)
 e que a TripDetailScreen consome após remontar o SSE.
 """
 from datetime import date, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -120,8 +121,10 @@ class PersistedActivity(ActivityResponse):
 
     Fora do response_schema do Gemini: senão o modelo geraria
     `completed`/`place_id` em toda parada e gastaria token à toa.
+    `id` é identidade estável da edição conjunta — nunca deriva de título.
     """
 
+    id: str = ""
     completed: bool = False
     place_id: str | None = None
 
@@ -158,6 +161,20 @@ class SavedTripResponse(BaseModel):
     updated_at: datetime | None = None
     is_owner: bool = True
     read_only: bool = False
+    # Edição conjunta (Match, 2 pessoas). Ausente = viagem solo.
+    collab: bool = False
+    revision: int = 0
+    member_uids: list[str] = Field(default_factory=list)
+    last_op_id: str | None = None
+    updated_by: str | None = None
+    updated_by_name: str = ""
+    # Rótulo da última op (title, reorder, …). A frase fica no app.
+    last_change: str | None = None
+    last_change_day: int | None = None
+    # owner | member | viewer — member no ponteiro da Home do convidado.
+    role: str = "owner"
+    # Ponteiro não carrega `days`; a lista usa isto no card.
+    day_count: int = 0
 
 
 class CloneTripResponse(BaseModel):
@@ -179,6 +196,30 @@ class CreateTripRequest(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     match_id: str | None = Field(default=None, max_length=128)
+
+
+class TripOpRequest(BaseModel):
+    """Uma mutação da sala. `base_revision` é a revisão que o cliente enxergava."""
+
+    op_id: str = Field(..., min_length=8, max_length=64)
+    base_revision: int = Field(..., ge=0)
+    type: Literal[
+        "patch_activity",
+        "delete_activity",
+        "reorder_day",
+        "patch_meta",
+        "add_activity",
+        "add_day",
+        "delete_day",
+    ]
+    payload: dict[str, Any]
+
+
+class TripOpResponse(BaseModel):
+    """Estado depois da transação. `applied` falso = op_id repetido."""
+
+    applied: bool
+    trip: SavedTripResponse
 
 
 def has_completed_place(days: list[PersistedDay], place_id: str) -> bool:

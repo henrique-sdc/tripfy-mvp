@@ -17,8 +17,15 @@ from models.trip import (
     CreateTripRequest,
     GenerateTripRequest,
     SavedTripResponse,
+    TripOpRequest,
+    TripOpResponse,
 )
 from repositories import trips_repository, user_repository
+from repositories.trips_repository import (
+    CollabConflict,
+    TripAccessError,
+    TripMissingError,
+)
 from services import entitlement_service
 
 
@@ -120,3 +127,66 @@ async def restore_saved_trip(trip_id: str, uid: str) -> SavedTripResponse:
             detail="Viagem não encontrada após restaurar.",
         )
     return trip
+
+
+_CONFLICT_MESSAGES = {
+    "activity_deleted": "Essa parada foi removida por outra pessoa.",
+    "revision_conflict": "O roteiro mudou enquanto você editava.",
+    "day_missing": "Esse dia não existe mais.",
+    "day_conflict": "Esse dia já foi criado.",
+    "last_activity": "O dia precisa de pelo menos uma parada.",
+    "last_day": "A viagem precisa de pelo menos um dia.",
+    "not_collab": "Esta viagem não está em edição conjunta.",
+    "invalid_op": "Operação inválida.",
+}
+
+
+async def apply_saved_trip_op(
+    trip_id: str,
+    uid: str,
+    body: TripOpRequest,
+) -> TripOpResponse:
+    """Árbitro da sala. O client não escreve o doc quando `collab` está ligado."""
+    editor = await user_repository.get_user(uid)
+    editor_name = editor.name.strip() if editor and editor.name else ""
+    try:
+        trip, applied = await trips_repository.apply_trip_op(
+            trip_id,
+            uid,
+            body.model_dump(),
+            editor_name=editor_name,
+        )
+    except TripMissingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Viagem não encontrada.",
+        ) from exc
+    except TripAccessError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não participa desta viagem.",
+        ) from exc
+    except CollabConflict as exc:
+        code = exc.code
+        status_code = (
+            status.HTTP_422_UNPROCESSABLE_ENTITY
+            if code == "invalid_op"
+            else status.HTTP_409_CONFLICT
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "message": _CONFLICT_MESSAGES.get(code, "Não deu pra aplicar a edição."),
+                "trip": exc.trip.model_dump(mode="json"),
+            },
+        ) from exc
+    logger.info(
+        "Trip op: uid={} trip_id={} type={} applied={} revision={}",
+        uid,
+        trip_id,
+        body.type,
+        applied,
+        trip.revision,
+    )
+    return TripOpResponse(applied=applied, trip=trip)

@@ -219,8 +219,14 @@ async def complete_match_with_itinerary(
     owner_uid: str,
     lock_token: str,
     itinerary: ItineraryResponse,
+    *,
+    trip_id: str | None = None,
 ) -> None:
-    """Persiste o JSON validado se a requisição ainda possuir o lock."""
+    """Persiste o JSON validado se a requisição ainda possuir o lock.
+
+    `trip_id` aponta a viagem canônica (um doc, dois membros). None = Match
+    antigo, cada aparelho ainda grava a própria cópia.
+    """
 
     def _complete() -> None:
         document = db.collection(_MATCHES_COLLECTION).document(match_id)
@@ -249,6 +255,7 @@ async def complete_match_with_itinerary(
                     "itinerary": itinerary.model_dump(mode="json"),
                     "completed_at": firestore.SERVER_TIMESTAMP,
                     "generation_lock": None,
+                    "trip_id": trip_id,
                 },
             )
 

@@ -19,4 +19,5 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Tripfy Pro e Paywall]] — mock de assinatura TCC: teto de 2 viagens ativas, 402, checkout simulado, overlay do paywall.
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.
+- [[Edição Conjunta]] — um roteiro do Match para dois, ops com revisão, `onSnapshot` e presença no Realtime Database.
 - [[Build iOS EAS iPhone]] — development build no iPhone 13 via EAS (Windows, sem Xcode); Kaspersky + hotspot; certificados na Expo.

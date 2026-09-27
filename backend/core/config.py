@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Caminho para o JSON de credenciais do Firebase Admin SDK
     FIREBASE_SERVICE_ACCOUNT_JSON_PATH: str = "./firebase-adminsdk.json"
 
+    # Realtime Database — só presença (onDisconnect). Vazio = avatares desligados.
+    FIREBASE_DATABASE_URL: str = ""
+
     # Chave do Google Maps Platform (server-side apenas — nunca vai ao frontend)
     GOOGLE_MAPS_API_KEY: str = ""
 

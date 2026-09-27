@@ -397,6 +397,16 @@ export default function MatchLobbyScreen() {
   const showCompanionPicker =
     isOwner && !connected && companions.length > 0 && !isGenerating;
 
+  const navigateToSharedTrip = useCallback((sharedTripId: string) => {
+    if (navigatedRef.current) return;
+    navigatedRef.current = true;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.replace({
+      pathname: "/trip-detail",
+      params: { tripId: sharedTripId },
+    } as Href);
+  }, []);
+
   const navigateToItinerary = useCallback(
     (itinerary: ItineraryResponse) => {
       if (navigatedRef.current) return;
@@ -404,7 +414,7 @@ export default function MatchLobbyScreen() {
       void Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
       );
-      // Stash em memória — JSON multi-dia estoura o limite de params da URL.
+      // Match antigo, sem trip_id: cada aparelho ainda grava a própria cópia.
       const session = matchRef.current;
       stashPendingItinerary(
         {
@@ -427,9 +437,9 @@ export default function MatchLobbyScreen() {
     closeStreamRef.current = generateMatchStream(
       matchId,
       undefined,
-      (itinerary) => {
+      () => {
+        // O snapshot do match traz trip_id e navega os dois. Não cria cópia local.
         closeStreamRef.current = null;
-        navigateToItinerary(itinerary);
       },
       () => {
         closeStreamRef.current = null;
@@ -439,7 +449,7 @@ export default function MatchLobbyScreen() {
         );
       },
     );
-  }, [matchId, navigateToItinerary]);
+  }, [matchId]);
 
   const loadMatch = useCallback(async () => {
     if (!matchId) {
@@ -507,10 +517,19 @@ export default function MatchLobbyScreen() {
       startGeneration();
     }
 
-    if (fullMatch.status === "completed" && fullMatch.itinerary) {
+    if (fullMatch.status === "completed" && fullMatch.trip_id) {
+      navigateToSharedTrip(fullMatch.trip_id);
+    } else if (fullMatch.status === "completed" && fullMatch.itinerary) {
       navigateToItinerary(fullMatch.itinerary);
     }
-  }, [fullMatch, isOwner, match, navigateToItinerary, startGeneration]);
+  }, [
+    fullMatch,
+    isOwner,
+    match,
+    navigateToItinerary,
+    navigateToSharedTrip,
+    startGeneration,
+  ]);
 
   useEffect(() => {
     if (reduceMotion || !isOwner || fullMatch?.status !== "waiting") {
@@ -682,7 +701,10 @@ export default function MatchLobbyScreen() {
           accessibilityLabel={t("match.actions.back")}
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.back();
+            // Deep link (adb / convite) abre o Match como primeira tela.
+            // back() sem histórico vira o erro GO_BACK no Expo Go.
+            if (router.canGoBack()) router.back();
+            else router.replace("/(tabs)");
           }}
           style={[styles.backButton, { backgroundColor: theme.surface }]}
         >
@@ -705,6 +727,11 @@ export default function MatchLobbyScreen() {
           <MagicalGenerating
             destination={match.destination}
             translationPrefix="match.generating"
+            error={
+              generationError && isOwner
+                ? t("match.errors.generation")
+                : null
+            }
           />
           {generationError && isOwner && (
             <Animated.View
@@ -720,9 +747,6 @@ export default function MatchLobbyScreen() {
                 },
               ]}
             >
-              <AppText tone="error" className="text-center text-[13px]">
-                {t("match.errors.generation")}
-              </AppText>
               <ActionButton
                 onPress={retryGeneration}
                 secondary

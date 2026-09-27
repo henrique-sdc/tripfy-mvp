@@ -16,7 +16,11 @@ from core.config import settings
 # não houver um app padrão registrado (evita erro em hot-reload do uvicorn).
 if not firebase_admin._apps:
     cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_JSON_PATH)
-    firebase_admin.initialize_app(cred)
+    options: dict[str, str] = {}
+    database_url = settings.FIREBASE_DATABASE_URL.strip()
+    if database_url:
+        options["databaseURL"] = database_url
+    firebase_admin.initialize_app(cred, options or None)
     logger.info("Firebase Admin SDK inicializado com sucesso.")
 
 # Client Firestore síncrono compartilhado — importe `db` onde precisar.

@@ -23,7 +23,8 @@ from models.match import (
 )
 from models.trip import ItineraryResponse
 from models.user import TravelPreferences
-from repositories import match_repository, user_repository
+from repositories import match_repository, trips_repository, user_repository
+from services import entitlement_service
 
 
 async def _require_travel_preferences(uid: str) -> None:
@@ -155,13 +156,54 @@ async def _stream_and_persist_itinerary(
             yield token
 
         itinerary = ItineraryResponse.model_validate_json(accumulated)
-        await match_repository.complete_match_with_itinerary(
-            match.id,
-            owner_uid,
-            lock_token,
-            itinerary,
+        guest_uid = next(
+            (uid for uid in match.participants if uid != owner_uid),
+            None,
         )
-        persisted = True
+        trip_id: str | None = None
+        if guest_uid:
+            payload = itinerary.model_dump(mode="json")
+            if match.start_date is not None:
+                payload["start_date"] = match.start_date.isoformat()
+            if match.end_date is not None:
+                payload["end_date"] = match.end_date.isoformat()
+            if match.notes:
+                payload["notes"] = match.notes
+            try:
+                # Conta como 1 viagem ativa do dono. O ponteiro do convidado não conta.
+                await entitlement_service.assert_can_add_active_trip(owner_uid)
+                trip_id = await trips_repository.create_collab_trip(
+                    owner_uid,
+                    guest_uid,
+                    match.id,
+                    payload,
+                )
+            except HTTPException as exc:
+                logger.warning(
+                    "Match sem viagem canônica: match_id={} status={}",
+                    match.id,
+                    exc.status_code,
+                )
+            except Exception:
+                logger.exception(
+                    "Falha ao criar viagem conjunta: match_id={}",
+                    match.id,
+                )
+        try:
+            await match_repository.complete_match_with_itinerary(
+                match.id,
+                owner_uid,
+                lock_token,
+                itinerary,
+                trip_id=trip_id,
+            )
+            persisted = True
+        except Exception:
+            # Órfã contaria no teto Free se o complete falhar depois do create.
+            if trip_id:
+                with suppress(Exception):
+                    await trips_repository.soft_delete(owner_uid, trip_id)
+            raise
     finally:
         if not persisted:
             # Shield evita abandonar o lock quando o cliente fecha o SSE.

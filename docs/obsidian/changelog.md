@@ -1,4 +1,21 @@
 # Changelog — Tripfy Docs
+## 2026-09-26 — Aviso de quem editou a viagem
+
+- A op grava `updated_by_name` e `last_change`. A outra tela mostra a frase e some.
+- Debaixo do título: "Ana editou agora". Sem histórico. Wiki: [[Edição Conjunta]].
+
+## 2026-09-26 — Collab: poll se o listener do convidado falhar
+
+- Celular já gravava (`POST /ops`); emulador ficava cego se as rules novas não estavam no Firebase.
+- Fallback: `GET /trips/{id}` a cada 2 s. Wiki: [[Edição Conjunta]].
+
+## 2026-09-21 — Edição conjunta do Match
+
+- Uma viagem canônica no complete do Match (`trip_id`), ponteiro do convidado sem `days`.
+- `POST /trips/{id}/ops` com revisão: delete não ressuscita parada; reorder e patch comutam.
+- App: fila otimista, snapshot retido no drag, avatares no Realtime Database.
+- Wiki: [[Edição Conjunta]], [[Match de Viajantes RF11 RF12]], [[Detalhe da Viagem RF07]].
+
 ## 2026-09-06 — Modo Viagem (assistente de campo)
 
 - Toggle Planejar / Viajar no detalhe do roteiro. Default: Viajar se hoje >= `start_date`.

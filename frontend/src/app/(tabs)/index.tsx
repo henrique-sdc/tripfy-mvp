@@ -280,7 +280,7 @@ export default function HomeScreen() {
                 destination={
                   latestTrip.title?.trim() || latestTrip.destination
                 }
-                days={latestTrip.days?.length ?? 0}
+                days={latestTrip.days?.length || latestTrip.day_count || 0}
                 image={tripPhoto}
                 onPress={openLatestTrip}
               />

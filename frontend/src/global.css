@@ -21,6 +21,8 @@
 
     /* A Cor da Marca: Ametista/Violeta elegante (Apenas para focos e detalhes) */
     --color-accent: light-dark(#7c3aed, #9d4edd);
+    --color-presence-a: light-dark(#0a84ff, #64b5ff);
+    --color-presence-b: light-dark(#ff9f0a, #ffb340);
     --color-error: #ef4444;
 
     /* Vidro para iOS */

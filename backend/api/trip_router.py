@@ -13,6 +13,8 @@ from models.trip import (
     CreateTripRequest,
     GenerateTripRequest,
     SavedTripResponse,
+    TripOpRequest,
+    TripOpResponse,
 )
 from repositories import trips_repository
 from services import trip_service
@@ -22,6 +24,7 @@ router = APIRouter(prefix="/trips", tags=["trips"])
 _GENERATE_LIMIT = "5/minute"
 _CRUD_LIMIT = "30/minute"
 _CLONE_LIMIT = "10/minute"
+_OPS_LIMIT = "60/minute"
 
 
 @router.get("", response_model=list[SavedTripResponse])
@@ -106,6 +109,18 @@ async def restore_trip(
 ) -> SavedTripResponse:
     """Tira da lixeira (se ainda dentro dos 30 dias). Free no teto → 402."""
     return await trip_service.restore_saved_trip(trip_id, current_user.uid)
+
+
+@router.post("/{trip_id}/ops", response_model=TripOpResponse)
+@limiter.limit(_OPS_LIMIT)
+async def apply_trip_op(
+    request: Request,
+    body: TripOpRequest,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> TripOpResponse:
+    """Aplica uma operação na viagem conjunta. Conflito não comutável → 409."""
+    return await trip_service.apply_saved_trip_op(trip_id, current_user.uid, body)
 
 
 @router.post("/{trip_id}/clone", response_model=CloneTripResponse)

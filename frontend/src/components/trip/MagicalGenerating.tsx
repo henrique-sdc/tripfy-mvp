@@ -22,12 +22,15 @@ import { useTheme } from "@/hooks/use-theme";
 type MagicalGeneratingProps = {
   destination: string;
   translationPrefix?: "wizard.generating" | "match.generating";
+  /** Quando preenchido, o giro para e o texto vira este erro. */
+  error?: string | null;
 };
 
 /** Loading compartilhado das gerações Solo e Match. */
 export function MagicalGenerating({
   destination,
   translationPrefix = "wizard.generating",
+  error = null,
 }: MagicalGeneratingProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -37,6 +40,13 @@ export function MagicalGenerating({
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
+    if (error) {
+      cancelAnimation(pulse);
+      cancelAnimation(spin);
+      pulse.value = 1;
+      spin.value = 0;
+      return;
+    }
     if (reduceMotion) {
       pulse.value = 1;
       spin.value = 0;
@@ -74,7 +84,7 @@ export function MagicalGenerating({
       cancelAnimation(spin);
       clearInterval(id);
     };
-  }, [pulse, reduceMotion, spin]);
+  }, [error, pulse, reduceMotion, spin]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: pulse.value,
@@ -85,8 +95,9 @@ export function MagicalGenerating({
     transform: [{ rotate: `${reduceMotion ? 0 : spin.value}deg` }],
   }));
 
-  const statusText =
-    phase === 0
+  const statusText = error
+    ? error
+    : phase === 0
       ? t(`${translationPrefix}.exploringMap`)
       : t(`${translationPrefix}.craftingTrip`, { destination });
 
@@ -96,22 +107,49 @@ export function MagicalGenerating({
       exiting={FadeOut.duration(140)}
       style={styles.root}
     >
-      <View style={[styles.orb, { backgroundColor: `${theme.accent}18` }]}>
-        <Animated.View style={sparkleStyle}>
-          <Ionicons name="sparkles" size={36} color={theme.accent} />
-        </Animated.View>
+      <View
+        style={[
+          styles.orb,
+          {
+            backgroundColor: error ? `${theme.error}18` : `${theme.accent}18`,
+          },
+        ]}
+      >
+        {error ? (
+          <Ionicons
+            name="alert-circle"
+            size={40}
+            color={theme.error}
+            accessibilityLabel={error}
+          />
+        ) : (
+          <Animated.View style={sparkleStyle}>
+            <Ionicons name="sparkles" size={36} color={theme.accent} />
+          </Animated.View>
+        )}
       </View>
-      <Animated.View style={pulseStyle}>
+      {error ? (
         <AppText
           className="text-center text-[18px] font-semibold"
-          style={{ letterSpacing: -0.2 }}
+          style={{ letterSpacing: -0.2, color: theme.error }}
         >
           {statusText}
         </AppText>
-      </Animated.View>
-      <AppText tone="secondary" className="text-center text-[13px]">
-        {t(`${translationPrefix}.hint`)}
-      </AppText>
+      ) : (
+        <Animated.View style={pulseStyle}>
+          <AppText
+            className="text-center text-[18px] font-semibold"
+            style={{ letterSpacing: -0.2 }}
+          >
+            {statusText}
+          </AppText>
+        </Animated.View>
+      )}
+      {error ? null : (
+        <AppText tone="secondary" className="text-center text-[13px]">
+          {t(`${translationPrefix}.hint`)}
+        </AppText>
+      )}
     </Animated.View>
   );
 }

@@ -85,6 +85,8 @@ type MetaProps = {
   initialNotes: string;
   onClose: () => void;
   onSave: (title: string, summary: string, notes: string) => void;
+  /** Na sala, as notas são da viagem, não só de quem criou. */
+  sharedNotes?: boolean;
 };
 
 export function EditTripMetaModal({
@@ -95,6 +97,7 @@ export function EditTripMetaModal({
   initialNotes,
   onClose,
   onSave,
+  sharedNotes = false,
 }: MetaProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -170,12 +173,20 @@ export function EditTripMetaModal({
       />
 
       <AppText tone="secondary" className="text-[12px]">
-        {t("tripDetail.editTrip.notesLabel")}
+        {t(
+          sharedNotes
+            ? "tripDetail.editTrip.sharedNotesLabel"
+            : "tripDetail.editTrip.notesLabel",
+        )}
       </AppText>
       <TextInput
         value={notes}
         onChangeText={setNotes}
-        placeholder={t("tripDetail.editTrip.notesPlaceholder")}
+        placeholder={t(
+          sharedNotes
+            ? "tripDetail.editTrip.sharedNotesPlaceholder"
+            : "tripDetail.editTrip.notesPlaceholder",
+        )}
         placeholderTextColor={theme.textMuted}
         maxLength={1000}
         multiline

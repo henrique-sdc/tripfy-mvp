@@ -28,7 +28,8 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Reordenar horários       | `reassignTimes` redistribui slots do dia após drag                                                                                     |
 | Mapa                     | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go)                                                                                    |
 | Entrada                  | Stash `pendingItinerary` (pós-geração) ou `tripId` (aba Viagens)                                                                       |
-| **Auto-save**            | Debounce 700ms → `POST /trips` se for novo (teto Free), senão merge no Firestore. 402 abre o paywall e não entra em loop. Ver [[Tripfy Pro e Paywall]]. |
+| **Auto-save**            | Solo: debounce 700ms → `POST /trips` se for novo (teto Free), senão merge no Firestore. 402 abre o paywall e não entra em loop. Ver [[Tripfy Pro e Paywall]]. Viagem de Match edita por ops — [[Edição Conjunta]]. |
+| **Edição conjunta**      | Match com `trip_id`: um doc, `onSnapshot`, reorder só no drop, avatares no header. `activity.id` estável. Ver [[Edição Conjunta]]. |
 | Editar meta              | Toque no destino → destino + resumo + **notas pessoais** (`EditTripMetaModal`)                                                         |
 | Editar título do dia     | Toque no título do dia → `EditDayTitleModal` (auto-save)                                                                               |
 | Notas pessoais           | Campo `notes` no doc Firestore / `SavedTripResponse`; linha sob o título do dia                                                        |
