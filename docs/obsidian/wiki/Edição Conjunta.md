@@ -14,7 +14,7 @@ aliases:
 
 # Edição Conjunta
 
-Depois do [[Match de Viajantes RF11 RF12]], os dois viajantes editam **um** roteiro. O que um apaga, reordena ou renomeia aparece no outro via `onSnapshot`. Viagem solo continua no auto-save de 700 ms. O link `tripfy://trip/{id}` continua visita só leitura + clonar ([[Detalhe da Viagem RF07]]).
+Depois do [[Match de Viajantes RF11 RF12]], os dois viajantes editam **um** roteiro. O que um apaga, reordena ou renomeia aparece no outro via `onSnapshot`. Viagem solo segue no auto-save de 700 ms até alguém aceitar o convite de edição. O link de leitura (`appDeepLink(/trip/{id})`) continua visita só leitura + clonar ([[Detalhe da Viagem RF07]]).
 
 ## Por que um documento só
 
@@ -34,6 +34,26 @@ O convidado escuta o doc do dono. Sem `firebase deploy --only firestore:rules`, 
 Quando o snapshot chega e a revisão não é sua, uma faixa some sozinha: "Ana alterou o título", "Ana reordenou o Dia 2". Debaixo do título fica "Ana editou agora" / "há 2 h", usando `updated_by_name` e `last_change` gravados na op. Sem linha do tempo.
 
 No complete do Match o backend cria a viagem canônica e grava `trip_id` em `matches/{id}`. Os dois abrem esse id. Match antigo, sem `trip_id`, ainda cai na cópia local.
+
+## Convite numa viagem Solo
+
+O dono abre o sheet no ícone de compartilhar ([[Detalhe da Viagem RF07]]). Três intenções, dois segredos:
+
+1. **Editar** — `POST /api/v1/trips/{id}/invites` devolve um token (`secrets.token_urlsafe`). O Firestore guarda só o sha256 em `trip_invites/{hash}` (`trip_id`, `owner_uid`, `expires_at` de 7 dias). O link é `appDeepLink(/join/{token})`. Rotacionar apaga o hash anterior.
+2. **Cópia** — o link de leitura que já existia. Quem abre clona. O id da viagem não entra na sala.
+3. **Explorar** — ver [[Home e Bottom Tabs]].
+
+`/trip/{id}/join` não existe de propósito: quem tem o link de leitura (ou achou a viagem no feed) não vira editor só acrescentando um sufixo.
+
+A tela `/join/[token]` pede o preview (`GET /trips/invites/{token}`: nome, destino, título, dias — sem `days` nem notas) e confirma com `POST /trips/{id}/invite/accept`. A transação chama `decide_join` (teto dono + 1, igual ao Match grátis):
+
+- dono ou quem já está na lista: 200, e recria o ponteiro se ele sumiu
+- sala cheia: 409 `trip_full`
+- senão: `collab: true`, `member_uids`, `revision` se faltava, ids de parada se faltavam, ponteiro sem `days`, presença
+
+A op seguinte do convidado passa no mesmo árbitro. O client não escreve `collab` nem `member_uids`. Com a tela do dono aberta, um `onSnapshot` curto vê `collab` virar true e liga o hook que já existia. Um auto-save solo no ar nesse instante pode tomar permission-denied; o app relê pela API.
+
+O token continua válido até expirar ou o dono gerar outro. O segundo aceitante esbarra no teto.
 
 ## Conflito
 
@@ -57,8 +77,11 @@ Notas, na sala, são **notas da viagem**. E-mail e preferências de perfil não 
 ## Arquivos
 
 - `backend/services/trip_ops.py` — ops puras, testadas em `backend/tests/test_trip_ops.py`
-- `backend/repositories/trips_repository.py` — transação + ponteiro
-- `backend/api/trip_router.py` — `POST /{trip_id}/ops`
+- `backend/services/trip_invite.py` — `decide_join`, testado em `backend/tests/test_trip_invite.py`
+- `backend/repositories/trips_repository.py` — transação + ponteiro + aceite
+- `backend/api/trip_router.py` — `POST /{trip_id}/ops`, convite e publish
+- `frontend/src/app/join/[token].tsx`
+- `frontend/src/components/trip/ShareTripSheet.tsx`
 - `frontend/src/hooks/use-collab-trip.ts`
 - `frontend/src/hooks/use-trip-presence.ts`
 - `frontend/src/lib/collabQueue.ts`

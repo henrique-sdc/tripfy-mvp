@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "explore_trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "destination_key", "order": "ASCENDING" },
+        { "fieldPath": "published_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

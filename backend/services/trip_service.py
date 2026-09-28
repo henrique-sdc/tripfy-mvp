@@ -13,9 +13,12 @@ from loguru import logger
 from core.llm_provider import LLMProvider, get_llm_provider
 from core.prompt_engineering import build_user_prompt
 from models.trip import (
+    AcceptInviteRequest,
     CloneTripResponse,
     CreateTripRequest,
     GenerateTripRequest,
+    InviteCreatedResponse,
+    InvitePreviewResponse,
     SavedTripResponse,
     TripOpRequest,
     TripOpResponse,
@@ -23,6 +26,7 @@ from models.trip import (
 from repositories import trips_repository, user_repository
 from repositories.trips_repository import (
     CollabConflict,
+    InviteFullError,
     TripAccessError,
     TripMissingError,
 )
@@ -190,3 +194,88 @@ async def apply_saved_trip_op(
         trip.revision,
     )
     return TripOpResponse(applied=applied, trip=trip)
+
+
+def _missing_trip() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Viagem não encontrada.",
+    )
+
+
+def _not_owner() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Só quem criou a viagem pode fazer isso.",
+    )
+
+
+async def _owner_name(uid: str) -> str:
+    user = await user_repository.get_user(uid)
+    if user is None or not user.name:
+        return ""
+    return user.name.strip()
+
+
+async def create_trip_invite(trip_id: str, uid: str) -> InviteCreatedResponse:
+    try:
+        token, expires = await trips_repository.create_invite(trip_id, uid)
+    except TripMissingError as exc:
+        raise _missing_trip() from exc
+    except TripAccessError as exc:
+        raise _not_owner() from exc
+    return InviteCreatedResponse(token=token, expires_at=expires)
+
+
+async def preview_trip_invite(token: str, uid: str) -> InvitePreviewResponse:
+    raw = await trips_repository.read_invite(token, uid)
+    if raw is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Convite inválido ou vencido.",
+        )
+    owner_name = await _owner_name(str(raw["owner_uid"]))
+    return InvitePreviewResponse(
+        trip_id=str(raw["trip_id"]),
+        owner_name=owner_name,
+        destination=str(raw["destination"]),
+        title=str(raw["title"]),
+        day_count=int(raw["day_count"]),
+        already_member=bool(raw["already_member"]),
+    )
+
+
+async def accept_trip_invite(
+    trip_id: str,
+    uid: str,
+    body: AcceptInviteRequest,
+) -> SavedTripResponse:
+    try:
+        return await trips_repository.accept_invite(trip_id, uid, body.token)
+    except TripMissingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Convite inválido ou vencido.",
+        ) from exc
+    except InviteFullError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "trip_full",
+                "message": "Esta viagem já tem um parceiro de edição.",
+            },
+        ) from exc
+
+
+async def publish_saved_trip(trip_id: str, uid: str, *, public: bool) -> SavedTripResponse:
+    try:
+        return await trips_repository.set_trip_public(
+            trip_id,
+            uid,
+            owner_name=await _owner_name(uid),
+            public=public,
+        )
+    except TripMissingError as exc:
+        raise _missing_trip() from exc
+    except TripAccessError as exc:
+        raise _not_owner() from exc

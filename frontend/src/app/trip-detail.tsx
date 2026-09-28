@@ -4,6 +4,7 @@
 
 import * as Haptics from "@/lib/haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { doc, onSnapshot } from "firebase/firestore";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -46,12 +47,15 @@ import {
   EditDayTitleModal,
   EditTripMetaModal,
 } from "@/components/trip/EditTripMetaModal";
+import { NearbySuggestionsSheet } from "@/components/trip/NearbySuggestionsSheet";
 import { PartnerReserveRow } from "@/components/trip/PartnerReserveRow";
 import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
 import {
   PresenceAvatars,
   presenceColorFor,
 } from "@/components/trip/PresenceAvatars";
+import { RouteConnector } from "@/components/trip/RouteConnector";
+import { ShareTripSheet } from "@/components/trip/ShareTripSheet";
 import {
   SyncIndicator,
   type SyncStatus,
@@ -69,12 +73,18 @@ import type {
   SavedTripApi,
 } from "@/lib/api";
 import {
+  ApiError,
+  calculateRouteLegs,
   cloneTripApi,
+  createTripInviteApi,
   getTripApi,
   isPremiumRequired,
   NetworkError,
+  peekRouteLeg,
   seedPlaceDetails,
+  setTripPublicApi,
 } from "@/lib/api";
+import { db } from "@/lib/firebase";
 import { appDeepLink } from "@/lib/deep-links";
 import { maybeOfferNotificationPrompt } from "@/lib/push";
 import { relativeTimeParts } from "@/lib/formatRelativeTime";
@@ -83,6 +93,18 @@ import {
   peekPendingItinerary,
   peekPendingMatchId,
 } from "@/lib/pendingItinerary";
+import { getUserProfile } from "@/lib/profile";
+import {
+  groupMissRuns,
+  lastWithCoords,
+  primaryTransportMode,
+  routeGaps,
+  routeLegKey,
+  type LatLng,
+  type RouteGap,
+  type RouteLeg,
+  type TravelMode,
+} from "@/lib/routeLegs";
 import {
   defaultChromeMode,
   hasCompletedPlace,
@@ -132,6 +154,12 @@ type DaySelection = null | number;
 function oneParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
+}
+
+/** Params sobrevivem ao replace. String vazia não é id. */
+function routeTripId(value: string | string[] | undefined): string | null {
+  const id = oneParam(value).trim();
+  return id || null;
 }
 
 function failedBecauseOffline(err: unknown, deviceOffline: boolean): boolean {
@@ -321,6 +349,19 @@ function sortByTime(activities: LocalActivity[]): LocalActivity[] {
   );
 }
 
+/** Horário depois da última parada — a ordenação por time deixa a nova no fim. */
+function slotAfterLast(activities: { time: string }[]): string {
+  const sorted = [...activities].sort((a, b) =>
+    a.time.localeCompare(b.time, undefined, { numeric: true }),
+  );
+  const last = sorted[sorted.length - 1]?.time ?? "18:00";
+  const match = /^(\d{1,2}):(\d{2})$/.exec(last.trim());
+  if (!match) return "21:00";
+  const hours = Number(match[1]) + 1;
+  if (hours >= 24) return "23:59";
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
+}
+
 function reindexDays(days: LocalDay[]): LocalDay[] {
   return days.map((d, i) => {
     const day = i + 1;
@@ -459,6 +500,7 @@ export default function TripDetailScreen() {
     placeId?: string;
     sheet?: string;
     day?: string;
+    fresh?: string;
   }>();
 
   const [itinerary, setItinerary] = useState<LocalItinerary | null>(() =>
@@ -466,17 +508,18 @@ export default function TripDetailScreen() {
   );
   // Primeiro chip = todos os dias juntos.
   const [daySelection, setDaySelection] = useState<DaySelection>(null);
-  const [tripId, setTripId] = useState<string | null>(
-    typeof params.tripId === "string" ? params.tripId : null,
+  const [tripId, setTripId] = useState<string | null>(() =>
+    // Stash novo não herda o id da viagem que estava na rota.
+    peekPendingItinerary() ? null : routeTripId(params.tripId),
   );
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>(
-    typeof params.tripId === "string" ? "saved" : "saving",
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+    peekPendingItinerary() || !routeTripId(params.tripId) ? "saving" : "saved",
   );
   const [dirty, setDirty] = useState(() => {
     // Roteiro recém-gerado (stash/SSE) precisa persistir na abertura.
     const hasPending = Boolean(peekPendingItinerary());
     const hasParamItinerary = Boolean(params.itinerary);
-    const hasRemoteId = typeof params.tripId === "string";
+    const hasRemoteId = !hasPending && Boolean(routeTripId(params.tripId));
     return (hasPending || hasParamItinerary) && !hasRemoteId;
   });
   const [loadingRemote, setLoadingRemote] = useState(
@@ -519,6 +562,20 @@ export default function TripDetailScreen() {
   const [chromeMode, setChromeMode] = useState<TripChromeMode>(() =>
     defaultChromeMode(resolveInitialItinerary(params.itinerary)?.start_date),
   );
+  const [transportMode, setTransportMode] = useState<TravelMode>("walking");
+  const [interestTags, setInterestTags] = useState<string[]>([]);
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [routeLegs, setRouteLegs] = useState<Record<string, RouteLeg>>({});
+  const [pendingLegs, setPendingLegs] = useState<Record<string, true>>({});
+  /** Ponto da parada recém-apagada. Some ao abrir sugestões ou trocar de dia. */
+  const [suggestionAnchor, setSuggestionAnchor] = useState<LatLng | null>(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [sheetAnchor, setSheetAnchor] = useState<LatLng | null>(null);
+  const [memberUids, setMemberUids] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const consumedNotificationLink = useRef("");
   const tripIdRef = useRef(tripId);
@@ -543,6 +600,8 @@ export default function TripDetailScreen() {
       setRevision(remote.revision ?? 0);
       if (remote.owner_uid) setOwnerUid(remote.owner_uid);
       setCollab(remote.collab === true);
+      setMemberUids(remote.member_uids ?? []);
+      setIsPublic(Boolean(remote.is_public));
       setDirty(false);
       setSyncStatus("saved");
       if (remote.updated_by_name || remote.updated_at) {
@@ -608,6 +667,30 @@ export default function TripDetailScreen() {
   useEffect(() => {
     tripIdRef.current = tripId;
   }, [tripId]);
+
+  // A tela já montada não reinicia o state. `fresh` marca geração nova.
+  const freshToken = oneParam(params.fresh);
+  const consumedFresh = useRef("");
+  useEffect(() => {
+    if (!freshToken || consumedFresh.current === freshToken) return;
+    const pending = peekPendingItinerary();
+    if (!pending) return;
+    consumedFresh.current = freshToken;
+    tripIdRef.current = null;
+    matchIdRef.current = peekPendingMatchId() ?? undefined;
+    setItinerary(stampKeys(pending));
+    setTripId(null);
+    setDirty(true);
+    setSyncStatus("saving");
+    setReadOnly(false);
+    setCollab(false);
+    setOwnerUid(null);
+    setMemberUids([]);
+    setIsPublic(false);
+    setRevision(0);
+    setDaySelection(null);
+    setLoadingRemote(false);
+  }, [freshToken]);
 
   useEffect(() => {
     if (syncStatus !== "saved" || !tripId) return;
@@ -690,6 +773,14 @@ export default function TripDetailScreen() {
       setReadOnly(readOnlyFlag);
       setCollab(Boolean(remote.collab) && !readOnlyFlag);
       setOwnerUid(remote.owner_uid ?? null);
+      setMemberUids(
+        "member_uids" in remote && Array.isArray(remote.member_uids)
+          ? remote.member_uids.filter(
+              (item): item is string => typeof item === "string",
+            )
+          : [],
+      );
+      setIsPublic("is_public" in remote && Boolean(remote.is_public));
       setRevision(remote.revision ?? 0);
       setEditStamp({
         name:
@@ -770,6 +861,32 @@ export default function TripDetailScreen() {
     };
   }, [itinerary, params.tripId, t, offlineHydrated, isOffline]);
 
+  // Solo aberto: quando o parceiro aceita, collab vira true e o auto-save
+  // do client passa a ser recusado. O hook da sala assume daí.
+  useEffect(() => {
+    if (collab || readOnly || !tripId) return;
+    const me = user?.uid;
+    if (!me) return;
+    if (ownerUid && ownerUid !== me) return;
+    const watchUid = ownerUid ?? me;
+    return onSnapshot(
+      doc(db, "users", watchUid, "trips", tripId),
+      (snap) => {
+        if (!snap.exists() || snap.data()?.collab !== true) return;
+        const raw = snap.data()?.member_uids;
+        if (Array.isArray(raw)) {
+          setMemberUids(
+            raw.filter((item): item is string => typeof item === "string"),
+          );
+        }
+        setCollab(true);
+      },
+      (err) => {
+        console.warn("[trip-detail] sala:", err);
+      },
+    );
+  }, [collab, readOnly, tripId, ownerUid, user?.uid]);
+
   // Auto-save: dirty → debounce → API (create) ou Firestore (update).
   useEffect(() => {
     if (isPremium && paywallBlocked.current) {
@@ -812,10 +929,29 @@ export default function TripDetailScreen() {
           paywallBlocked.current = true;
           return;
         }
-        const msg =
-          err instanceof Error && /permission|insufficient/i.test(err.message)
-            ? t("tripDetail.saveRulesHint")
-            : t("tripDetail.saveErrorBody");
+        const permissionDenied =
+          err instanceof Error && /permission|insufficient/i.test(err.message);
+        if (permissionDenied && tripIdRef.current) {
+          try {
+            const remote = await getTripApi(tripIdRef.current);
+            if (remote.collab) {
+              setItinerary(stampKeys(remote));
+              setCollab(true);
+              setOwnerUid(remote.owner_uid ?? null);
+              setRevision(remote.revision ?? 0);
+              setMemberUids(remote.member_uids ?? []);
+              setIsPublic(Boolean(remote.is_public));
+              setDirty(false);
+              setSyncStatus("saved");
+              return;
+            }
+          } catch (reloadErr) {
+            console.warn("[trip-detail] releitura após sala:", reloadErr);
+          }
+        }
+        const msg = permissionDenied
+          ? t("tripDetail.saveRulesHint")
+          : t("tripDetail.saveErrorBody");
         Alert.alert(t("tripDetail.saveErrorTitle"), msg);
       } finally {
         savingLock.current = false;
@@ -876,6 +1012,115 @@ export default function TripDetailScreen() {
     }
     return currentDay?.activities ?? [];
   }, [itinerary, showingAll, currentDay]);
+
+  const legSignature = useMemo(() => {
+    const coords = activities
+      .map((activity) => {
+        const pin = hasCoords(activity)
+          ? `${activity.latitude!.toFixed(5)},${activity.longitude!.toFixed(5)}`
+          : "_";
+        return `${activity.dayNumber}:${pin}`;
+      })
+      .join(">");
+    return `${transportMode}|${coords}`;
+  }, [activities, transportMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getUserProfile()
+      .then((profile) => {
+        if (cancelled || !profile?.travel_preferences) return;
+        setTransportMode(
+          primaryTransportMode(profile.travel_preferences.transport_modes),
+        );
+        setInterestTags(profile.travel_preferences.interests ?? []);
+      })
+      .catch((err) => {
+        console.warn("[trip-detail] prefs de transporte:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setPrefsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setSuggestionAnchor(null);
+    setSuggestionsOpen(false);
+  }, [daySelection]);
+
+  useEffect(() => {
+    if (!prefsReady || !legSignature) {
+      setPendingLegs({});
+      return;
+    }
+    const gaps = routeGaps(activities, transportMode);
+    const cached: Record<string, RouteLeg> = {};
+    const misses: RouteGap[] = [];
+    for (const gap of gaps) {
+      const hit = peekRouteLeg(gap.key);
+      if (hit) cached[gap.key] = hit;
+      else misses.push(gap);
+    }
+    setRouteLegs(cached);
+    if (isOffline || misses.length === 0) {
+      setPendingLegs({});
+      return;
+    }
+    const pending: Record<string, true> = {};
+    for (const gap of misses) pending[gap.key] = true;
+    setPendingLegs(pending);
+
+    const controller = new AbortController();
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      const runs = groupMissRuns(misses);
+      void (async () => {
+        const settled = await Promise.allSettled(
+          runs.map(async (run) => {
+            const legs = await calculateRouteLegs(
+              transportMode,
+              run.stops,
+              controller.signal,
+            );
+            return { run, legs };
+          }),
+        );
+        if (cancelled) return;
+        setRouteLegs((prev) => {
+          const next = { ...prev };
+          for (const item of settled) {
+            if (item.status !== "fulfilled") continue;
+            const { run, legs } = item.value;
+            if (legs.length !== run.gaps.length) continue;
+            run.gaps.forEach((gap, index) => {
+              next[gap.key] = legs[index];
+            });
+          }
+          return next;
+        });
+        const failed = settled.some((item) => {
+          if (item.status !== "rejected") return false;
+          const reason = item.reason;
+          if (!(reason instanceof Error)) return true;
+          if (reason.name === "AbortError") return false;
+          return !/abort/i.test(reason.message);
+        });
+        if (failed) {
+          console.warn("[trip-detail] rotas indisponíveis");
+        }
+        if (!cancelled) setPendingLegs({});
+      })();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [legSignature, isOffline, transportMode, prefsReady, activities]);
 
   const mapped = useMemo(
     () =>
@@ -1055,15 +1300,10 @@ export default function TripDetailScreen() {
     }
   }
 
-  async function onShare() {
-    if (!tripId) {
-      Alert.alert(
-        t("tripDetail.shareNeedSaveTitle"),
-        t("tripDetail.shareNeedSaveBody"),
-      );
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const isTripOwner = !readOnly && (!ownerUid || ownerUid === user?.uid);
+
+  async function shareReadLink() {
+    if (!tripId) return;
     const link = appDeepLink(`/trip/${tripId}`);
     try {
       await Share.share({
@@ -1077,6 +1317,99 @@ export default function TripDetailScreen() {
     } catch (err) {
       console.warn("[trip-detail] Share cancelado/falhou:", err);
     }
+  }
+
+  async function onShare() {
+    if (!tripId) {
+      Alert.alert(
+        t("tripDetail.shareNeedSaveTitle"),
+        t("tripDetail.shareNeedSaveBody"),
+      );
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isTripOwner) {
+      setShareOpen(true);
+      return;
+    }
+    await shareReadLink();
+  }
+
+  async function onInviteEdit() {
+    if (!tripId || inviting) return;
+    setShareOpen(false);
+    setInviting(true);
+    try {
+      // O share nativo no mesmo frame do Modal não abre.
+      const [created] = await Promise.all([
+        createTripInviteApi(tripId),
+        new Promise((resolve) => setTimeout(resolve, 280)),
+      ]);
+      const link = appDeepLink(`/join/${created.token}`);
+      await Share.share({
+        title: displayTripTitle(itinerary, t("tripDetail.fallbackTitle")),
+        message: t("tripDetail.shareSheet.inviteMessage", {
+          destination: itinerary?.destination ?? "",
+          link,
+        }),
+        url: link,
+      });
+    } catch (err) {
+      const code = err instanceof ApiError ? err.code : undefined;
+      console.warn(
+        "[trip-detail] convite:",
+        err instanceof ApiError ? err.status : "falha",
+      );
+      Alert.alert(
+        t("tripDetail.shareSheet.failTitle"),
+        code === "trip_full"
+          ? t("tripDetail.shareSheet.inviteFull")
+          : t("tripDetail.shareSheet.failBody"),
+      );
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function runPublish(next: boolean) {
+    if (!tripId || publishing) return;
+    setPublishing(true);
+    try {
+      const remote = await setTripPublicApi(tripId, next);
+      setIsPublic(Boolean(remote.is_public));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShareOpen(false);
+    } catch (err) {
+      console.warn(
+        "[trip-detail] explorar:",
+        err instanceof ApiError ? err.status : "falha",
+      );
+      Alert.alert(
+        t("tripDetail.shareSheet.failTitle"),
+        t("tripDetail.shareSheet.failBody"),
+      );
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  function onTogglePublish() {
+    if (!tripId || publishing) return;
+    if (isPublic) {
+      void runPublish(false);
+      return;
+    }
+    Alert.alert(
+      t("tripDetail.shareSheet.publishConfirmTitle"),
+      t("tripDetail.shareSheet.publishConfirmBody"),
+      [
+        { text: t("tripDetail.shareSheet.cancel"), style: "cancel" },
+        {
+          text: t("tripDetail.shareSheet.publishTitle"),
+          onPress: () => void runPublish(true),
+        },
+      ],
+    );
   }
 
   async function onClone() {
@@ -1136,7 +1469,14 @@ export default function TripDetailScreen() {
         );
         return;
       }
+      const removed = day.activities.find((a) => a.key === key);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (removed && hasCoords(removed)) {
+        setSuggestionAnchor({
+          latitude: removed.latitude as number,
+          longitude: removed.longitude as number,
+        });
+      }
       const remaining = day.activities.filter((a) => a.key !== key);
       const rescheduled = reassignTimes(remaining, remaining);
       patchItinerary({
@@ -1276,6 +1616,7 @@ export default function TripDetailScreen() {
       location: string;
       latitude: number | null;
       longitude: number | null;
+      place_id?: string | null;
     }) => {
       if (!itinerary || showingAll || daySelection === null) return;
       const day = itinerary.days[daySelection];
@@ -1292,7 +1633,7 @@ export default function TripDetailScreen() {
         longitude: payload.longitude,
         requires_ticket: false,
         completed: false,
-        place_id: null,
+        place_id: payload.place_id ?? null,
         dayNumber: day.day,
         key: activityId,
       };
@@ -1319,7 +1660,7 @@ export default function TripDetailScreen() {
             longitude: activity.longitude,
             requires_ticket: false,
             completed: false,
-            place_id: null,
+            place_id: payload.place_id ?? null,
           },
         },
       });
@@ -1332,6 +1673,52 @@ export default function TripDetailScreen() {
       );
     },
     [itinerary, showingAll, daySelection, patchItinerary, enqueue],
+  );
+
+  const suggestionExisting = useMemo(
+    () =>
+      (currentDay?.activities ?? []).map((activity) => ({
+        place_id: activity.place_id,
+        title: activity.title,
+      })),
+    [currentDay],
+  );
+
+  const dayAnchor = lastWithCoords(currentDay?.activities ?? []);
+  const showSuggestions =
+    planChrome &&
+    !showingAll &&
+    (suggestionAnchor != null || dayAnchor != null);
+
+  const onOpenSuggestions = useCallback(() => {
+    const anchor =
+      suggestionAnchor ?? lastWithCoords(currentDay?.activities ?? []);
+    if (!anchor) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSheetAnchor(anchor);
+    setSuggestionsOpen(true);
+    setSuggestionAnchor(null);
+  }, [suggestionAnchor, currentDay]);
+
+  const onAddSuggestion = useCallback(
+    (place: {
+      name: string;
+      type_label: string | null;
+      latitude: number;
+      longitude: number;
+      place_id: string;
+    }) => {
+      onAddActivity({
+        time: slotAfterLast(currentDay?.activities ?? []),
+        title: place.name,
+        description: place.type_label ?? "",
+        location: itinerary?.destination?.trim() || place.name,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        place_id: place.place_id,
+      });
+    },
+    [currentDay?.activities, itinerary?.destination, onAddActivity],
   );
 
   const onAddDay = useCallback(() => {
@@ -1446,6 +1833,25 @@ export default function TripDetailScreen() {
       const index = getIndex() ?? 0;
       const canDrag = !showingAll && planChrome;
       const canDelete = planChrome && canDeleteActivity(item.key);
+      const nextStop = activities[index + 1];
+      const legKey =
+        nextStop &&
+        nextStop.dayNumber === item.dayNumber &&
+        hasCoords(item) &&
+        hasCoords(nextStop)
+          ? routeLegKey(
+              transportMode,
+              {
+                latitude: item.latitude as number,
+                longitude: item.longitude as number,
+              },
+              {
+                latitude: nextStop.latitude as number,
+                longitude: nextStop.longitude as number,
+              },
+            )
+          : null;
+      const leg = legKey ? (routeLegs[legKey] ?? null) : null;
 
       return (
         <ScaleDecorator activeScale={1.03}>
@@ -1540,6 +1946,13 @@ export default function TripDetailScreen() {
                 />
               </RNPressable>
             </Swipeable>
+            {legKey ? (
+              <RouteConnector
+                mode={transportMode}
+                leg={leg}
+                loading={pendingLegs[legKey] === true && leg == null}
+              />
+            ) : null}
           </RNView>
         </ScaleDecorator>
       );
@@ -1560,6 +1973,10 @@ export default function TripDetailScreen() {
       user?.uid,
       theme.presenceA,
       theme.presenceB,
+      activities,
+      transportMode,
+      routeLegs,
+      pendingLegs,
     ],
   );
 
@@ -2012,6 +2429,23 @@ export default function TripDetailScreen() {
                     />
                   ) : null}
                 </RNPressable>
+                {showSuggestions ? (
+                  <RNPressable
+                    onPress={onOpenSuggestions}
+                    hitSlop={8}
+                    style={styles.suggestBtn}
+                    accessibilityLabel={t("tripDetail.suggestions.open")}
+                  >
+                    <Ionicons
+                      name="sparkles-outline"
+                      size={14}
+                      color={theme.accent}
+                    />
+                    <AppText tone="accent" className="text-[12px] font-semibold">
+                      {t("tripDetail.suggestions.open")}
+                    </AppText>
+                  </RNPressable>
+                ) : null}
                 {planChrome && !showingAll && itinerary.days.length > 1 ? (
                   <RNPressable
                     onPress={onDeleteDay}
@@ -2203,6 +2637,31 @@ export default function TripDetailScreen() {
         onSave={onAddActivity}
       />
 
+      <NearbySuggestionsSheet
+        visible={suggestionsOpen}
+        anchor={sheetAnchor}
+        travelMode={transportMode}
+        interests={interestTags}
+        existing={suggestionExisting}
+        onClose={() => setSuggestionsOpen(false)}
+        onAdd={onAddSuggestion}
+      />
+
+      <ShareTripSheet
+        visible={shareOpen}
+        roomFull={memberUids.length >= 2}
+        isPublic={isPublic}
+        inviting={inviting}
+        publishing={publishing}
+        onClose={() => setShareOpen(false)}
+        onInvite={() => void onInviteEdit()}
+        onShareCopy={() => {
+          setShareOpen(false);
+          setTimeout(() => void shareReadLink(), 280);
+        }}
+        onTogglePublish={onTogglePublish}
+      />
+
       <EditTripMetaModal
         visible={editingMeta}
         initialTitle={displayTripTitle(
@@ -2371,6 +2830,16 @@ const styles = StyleSheet.create({
   deleteDayBtn: {
     marginTop: 6,
     padding: 6,
+  },
+  suggestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
+    marginTop: 6,
+    marginRight: 4,
+    paddingHorizontal: 4,
+    height: 28,
   },
   dragHint: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
   rowWrap: {

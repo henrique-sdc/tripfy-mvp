@@ -433,7 +433,10 @@ export default function MatchLobbyScreen() {
         },
         { matchId: session?.id || matchId },
       );
-      router.replace("/trip-detail" as Href);
+      router.replace({
+        pathname: "/trip-detail",
+        params: { fresh: String(Date.now()), tripId: "" },
+      } as Href);
     },
     [matchId],
   );

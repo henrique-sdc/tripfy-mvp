@@ -9,9 +9,12 @@ from core.auth_middleware import CurrentUser, get_current_user
 from core.rate_limit import limiter
 from core.sse import itinerary_sse_stream
 from models.trip import (
+    AcceptInviteRequest,
     CloneTripResponse,
     CreateTripRequest,
     GenerateTripRequest,
+    InviteCreatedResponse,
+    InvitePreviewResponse,
     SavedTripResponse,
     TripOpRequest,
     TripOpResponse,
@@ -25,6 +28,8 @@ _GENERATE_LIMIT = "5/minute"
 _CRUD_LIMIT = "30/minute"
 _CLONE_LIMIT = "10/minute"
 _OPS_LIMIT = "60/minute"
+_INVITE_LIMIT = "10/minute"
+_PUBLISH_LIMIT = "10/minute"
 
 
 @router.get("", response_model=list[SavedTripResponse])
@@ -59,6 +64,17 @@ async def list_trash(
     """Lixeira — soft-deleted há ≤30 dias."""
     logger.info("Listando lixeira: uid={}", current_user.uid)
     return await trips_repository.list_trash(current_user.uid)
+
+
+@router.get("/invites/{token}", response_model=InvitePreviewResponse)
+@limiter.limit(_INVITE_LIMIT)
+async def preview_trip_invite(
+    request: Request,
+    token: str = Path(..., min_length=20, max_length=200),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> InvitePreviewResponse:
+    """Tela de aceite. Token inválido ou vencido → 404. Sem o plaintext no log."""
+    return await trip_service.preview_trip_invite(token, current_user.uid)
 
 
 @router.get("/{trip_id}", response_model=SavedTripResponse)
@@ -132,6 +148,63 @@ async def clone_trip(
 ) -> CloneTripResponse:
     """Clona roteiro ativo pra conta do usuário autenticado. Free no teto → 402."""
     return await trip_service.clone_saved_trip(trip_id, current_user.uid)
+
+
+@router.post(
+    "/{trip_id}/invites",
+    response_model=InviteCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(_INVITE_LIMIT)
+async def create_trip_invite(
+    request: Request,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> InviteCreatedResponse:
+    """Gera (ou rotaciona) o link de edição. O token volta uma vez."""
+    return await trip_service.create_trip_invite(trip_id, current_user.uid)
+
+
+@router.post("/{trip_id}/invite/accept", response_model=SavedTripResponse)
+@limiter.limit(_INVITE_LIMIT)
+async def accept_trip_invite(
+    request: Request,
+    body: AcceptInviteRequest,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SavedTripResponse:
+    """Entra na sala. Solo vira collab no mesmo commit do ponteiro."""
+    return await trip_service.accept_trip_invite(trip_id, current_user.uid, body)
+
+
+@router.post("/{trip_id}/publish", response_model=SavedTripResponse)
+@limiter.limit(_PUBLISH_LIMIT)
+async def publish_trip(
+    request: Request,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SavedTripResponse:
+    """Cartão no Explorar. O link de leitura continua o mesmo."""
+    return await trip_service.publish_saved_trip(
+        trip_id,
+        current_user.uid,
+        public=True,
+    )
+
+
+@router.delete("/{trip_id}/publish", response_model=SavedTripResponse)
+@limiter.limit(_PUBLISH_LIMIT)
+async def unpublish_trip(
+    request: Request,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SavedTripResponse:
+    """Tira do feed. Não apaga trip_shares."""
+    return await trip_service.publish_saved_trip(
+        trip_id,
+        current_user.uid,
+        public=False,
+    )
 
 
 @router.post("/generate")

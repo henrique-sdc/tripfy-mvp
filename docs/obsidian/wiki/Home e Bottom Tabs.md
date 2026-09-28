@@ -22,7 +22,7 @@ Relacionado: [[Design System Auth]], [[Autenticação Full Stack]], [[Preferênc
 Início | Salvos | [✨ FAB] | Viagens | Perfil
 ```
 
-FAB ametista abre CreateTripSheet. Solo → `/wizard/solo`. Explorar removido.
+FAB ametista abre CreateTripSheet. Solo → `/wizard/solo`. Explorar é stack (`/explore`), não uma quinta aba: a barra parte 4 rotas ao redor do FAB (`TAB_COUNT = 4`).
 
 iOS: BlurView Liquid Glass. Android: pill surface. `useTabBarPadding()` no scroll.
 
@@ -43,7 +43,20 @@ Dados reais no `useFocusEffect`:
 - **Convite de Match** — `GET /api/v1/matches/invites` no foco, a cada 5 s com a Home aberta, e no pull-to-refresh. Banner no topo: Aceitar entra na sala (`POST /join`), Recusar zera `invitee_uid`. Sem swipe.
 - **Destinos da vibe** — `getRecommendedDestinations(travel_preferences)` catálogo estático ranqueado por `interests` ([[Preferências Sua Vibe]]).
 - **FAB** — `createTripSheetStore.open()`.
+- **Explorar** — card na Home → `/explore`. Feed de roteiros publicados (RF08). Catálogo estático da Em Alta continua separado.
 - **Em Alta** — catálogo local → `/trending`.
+
+## Explorar
+
+O feed não varre `users/{uid}/trips`. Publicar (`POST /trips/{id}/publish`, só o dono) grava `is_public` no doc canônico e um cartão em `explore_trips/{tripId}`: destino, título, resumo, `day_count`, `owner_name`, `published_at`, `clone_count`. Sem `days`, notas, e-mail ou UID. O client lê (autenticado); escreve só a API. `is_public`, `published_at` e `invite_hash` estão na denylist do auto-save.
+
+- Recentes: `orderBy(published_at desc) limit 20`, página com `startAfter`.
+- Em alta: `orderBy(clone_count desc) limit 20`. O clone incrementa o contador em best-effort.
+- Destino: igualdade em `destination_key` + `published_at`. Índice composto em `firestore.indexes.json`. Prefixo (“lis” → Lisboa) fica de fora.
+
+Abrir um card reusa `/trip/{id}` (leitura + clonar). Tirar do feed apaga o cartão e não apaga `trip_shares`.
+
+Deploy: `firebase deploy --only firestore:rules,firestore:indexes`. Sem as rules, o feed não lista; sem o índice, a busca por destino falha.
 
 Ver [[Match de Viajantes RF11 RF12]].
 

@@ -1,4 +1,26 @@
 # Changelog — Tripfy Docs
+## 2026-09-28 — Link de compartilhar não reusa o id anterior
+
+- Gerar outro roteiro com a tela de detalhe já aberta herdava o `tripId` da viagem anterior. A mensagem mostrava o destino novo e o link abria a viagem velha.
+
+## 2026-09-28 — Convite para editar e feed Explorar
+
+- Solo (ou clone) vira sala pelo mesmo árbitro do Match: `POST /trips/{id}/invite/accept` grava `collab`, `member_uids` e o ponteiro. Teto dono + 1.
+- O link de edição carrega um token (`/join/{token}`). O id do link de leitura não abre a sala.
+- Explorar lista `explore_trips` (20 por página). A barra de abas continua com 4 rotas; a entrada é um card na Home.
+- Wiki: [[Edição Conjunta]], [[Home e Bottom Tabs]], [[Detalhe da Viagem RF07]].
+
+## 2026-09-28 — Directions se a Routes API estiver desligada
+
+- O badge de tempo caía em silêncio quando o projeto só tinha a Directions API. `POST /routes/calculate` tenta a Routes e, no 403, usa a Directions clássica.
+- iPhone com dev client antigo não carrega mais `ExpoNetwork` / push no boot do roteiro: sem o módulo nativo, o app segue (rede tratada como online).
+
+## 2026-09-28 — Deslocamento real e alternativas próximas
+
+- `POST /routes/calculate`: tempo e distância do dia visível via Routes API. Badge entre os cards. Chip Todos e pin offline ficam de fora.
+- `GET /places/nearby`: sugestões da vibe num sheet no título do dia. Adicionar grava o `place_id`.
+- Wiki: [[Deslocamento e Alternativas]], [[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]], [[Modo Offline]].
+
 ## 2026-09-27 — Guia para testar o push
 
 - Wiki: [[Testar Notificações]]. Passos com variáveis de ambiente. Nenhum segredo, uid ou token no arquivo.

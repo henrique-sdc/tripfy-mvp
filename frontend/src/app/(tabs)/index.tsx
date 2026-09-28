@@ -391,6 +391,27 @@ export default function HomeScreen() {
             </GHScrollView>
           </View>
 
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/explore" as Href);
+            }}
+            className="mx-6 rounded-2xl px-4 py-3 flex-row items-center gap-3"
+            style={{ backgroundColor: theme.surface }}
+            accessibilityRole="button"
+          >
+            <Ionicons name="compass-outline" size={20} color={theme.accent} />
+            <View className="flex-1">
+              <AppText className="text-[16px] font-semibold">
+                {t("home.explore.title")}
+              </AppText>
+              <AppText tone="secondary" className="text-[13px]">
+                {t("home.explore.hint")}
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+          </Pressable>
+
           <View className="gap-3">
             <Pressable
               onPress={() => {

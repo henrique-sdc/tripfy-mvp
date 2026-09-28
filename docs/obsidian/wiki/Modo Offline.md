@@ -50,4 +50,4 @@ Com pelo menos um pin, a aba Viagens ganha a pílula **Offline**. Configuraçõe
 
 ## Fora do corte
 
-Fila de edição offline, pacote de tiles, `@react-native-firebase` só por persistência, ficha longa do lugar (horário, telefone, galeria, reviews).
+Fila de edição offline, pacote de tiles, `@react-native-firebase` só por persistência, ficha longa do lugar (horário, telefone, galeria, reviews), pernas de deslocamento e sugestões próximas ([[Deslocamento e Alternativas]]). O badge não vai para o pin; a frase da IA na descrição continua.

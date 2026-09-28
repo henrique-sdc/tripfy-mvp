@@ -226,6 +226,10 @@
         "patagonia": "Picos, trilhas e silêncio"
       }
     },
+    "explore": {
+      "title": "Explorar",
+      "hint": "Roteiros de outras pessoas"
+    },
     "trending": {
       "title": "Em alta na Tripfy",
       "copy": "Copiar este roteiro",
@@ -326,6 +330,17 @@
     "removeCancel": "Cancelar",
     "removeConfirm": "Remover",
     "removeA11y": "Remover item"
+  },
+  "explore": {
+    "title": "Explorar",
+    "searchPlaceholder": "Destino, como está no roteiro",
+    "sort": {
+      "recent": "Recentes",
+      "popular": "Em alta"
+    },
+    "meta": "{{destination}} · {{count}} dias · {{name}}",
+    "empty": "Nenhum roteiro público por aqui.",
+    "error": "Não deu pra carregar o Explorar."
   },
   "trending": {
     "screenTitle": "Em alta",
@@ -493,6 +508,24 @@
       "unavailableBody": "Disponibilize offline com internet pra abrir sem rede."
     },
     "dragHint": "Segure o ≡ e arraste pra reordenar. Os horários acompanham.",
+    "route": {
+      "label": "{{duration}} · {{distance}}",
+      "loading": "Calculando deslocamento",
+      "min": "{{count}} min",
+      "hour": "{{hours}} h",
+      "hourMin": "{{hours}} h {{minutes}} min",
+      "meters": "{{count}} m",
+      "km": "{{distance}} km"
+    },
+    "suggestions": {
+      "open": "Sugestões",
+      "title": "Perto daqui",
+      "radiusKm": "Até {{distance}} km",
+      "radiusM": "Até {{count}} m",
+      "empty": "Nada novo por aqui com a sua vibe.",
+      "error": "Não deu pra buscar agora.",
+      "add": "Adicionar ao roteiro"
+    },
     "travelMode": {
       "plan": "Planejar",
       "travel": "Viajar",
@@ -647,6 +680,35 @@
     "shareMessage": "Olha este roteiro na Tripfy: {{destination}}\n{{link}}",
     "shareNeedSaveTitle": "Ainda salvando",
     "shareNeedSaveBody": "Espera o sync terminar pra compartilhar o link.",
+    "shareSheet": {
+      "title": "Compartilhar",
+      "inviteTitle": "Convidar para editar",
+      "inviteBody": "Quem abrir o link entra na viagem e edita com você.",
+      "inviteFull": "Esta viagem já tem um parceiro de edição.",
+      "inviteMessage": "Vamos editar este roteiro juntos na Tripfy: {{destination}}\n{{link}}",
+      "copyTitle": "Enviar como cópia",
+      "copyBody": "A pessoa vê o roteiro e pode clonar pra conta dela.",
+      "publishTitle": "Publicar no Explorar",
+      "publishBody": "Qualquer pessoa logada poderá ver o roteiro, inclusive as notas, e clonar.",
+      "publishConfirmTitle": "Publicar no Explorar?",
+      "publishConfirmBody": "Qualquer pessoa logada poderá ver este roteiro, inclusive as notas, e clonar pra conta dela.",
+      "unpublishTitle": "Tirar do Explorar",
+      "unpublishBody": "Some do feed. Quem já tem o link de leitura continua podendo abrir.",
+      "cancel": "Cancelar",
+      "failTitle": "Não deu pra compartilhar",
+      "failBody": "Confira a conexão e tente de novo."
+    },
+    "join": {
+      "title": "{{name}} quer editar com você",
+      "body": "{{name}} te chamou pra montar {{destination}} juntos. {{count}} dias.",
+      "accept": "Entrar na viagem",
+      "open": "Abrir viagem",
+      "errors": {
+        "missing": "Este convite não vale mais.",
+        "full": "Esta viagem já tem um parceiro de edição.",
+        "generic": "Não deu pra entrar agora. Tenta de novo."
+      }
+    },
     "clone": "Clonar pra mim",
     "cloning": "Clonando…",
     "cloneErrorTitle": "Não deu pra clonar",

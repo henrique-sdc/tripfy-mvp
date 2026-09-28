@@ -29,7 +29,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Mapa                     | `TripOsmMap` — Leaflet + CARTO em WebView (Expo Go)                                                                                    |
 | Entrada                  | Stash `pendingItinerary` (pós-geração) ou `tripId` (aba Viagens)                                                                       |
 | **Auto-save**            | Solo: debounce 700ms → `POST /trips` se for novo (teto Free), senão merge no Firestore. 402 abre o paywall e não entra em loop. Ver [[Tripfy Pro e Paywall]]. Viagem de Match edita por ops — [[Edição Conjunta]]. |
-| **Edição conjunta**      | Match com `trip_id`: um doc, `onSnapshot`, reorder só no drop, avatares no header. `activity.id` estável. Ver [[Edição Conjunta]]. |
+| **Edição conjunta**      | Match com `trip_id`, ou Solo depois do aceite do convite: um doc, `onSnapshot`, reorder só no drop, avatares no header. `activity.id` estável. Ver [[Edição Conjunta]]. |
 | Editar meta              | Toque no destino → destino + resumo + **notas pessoais** (`EditTripMetaModal`)                                                         |
 | Editar título do dia     | Toque no título do dia → `EditDayTitleModal` (auto-save)                                                                               |
 | Notas pessoais           | Campo `notes` no doc Firestore / `SavedTripResponse`; linha sob o título do dia                                                        |
@@ -38,10 +38,12 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | Dias                     | Chip `+ Dia`; lixeira no título do dia (reindex 1..N); mín. 1 dia                                                                      |
 | **Lixeira**              | Soft delete 30d (`deleted_at`); Configurações → `/trash`; swipe em Viagens; swipe na lixeira = purge definitivo                         |
 | **Minhas avaliações**    | `GET /places/reviews/me` → `/my-reviews` (editar/excluir)                                                                              |
-| **Compartilhar / Clone** | Share `tripfy://trip/{id}`; visitante vê read-only + “Clonar pra mim” (clone também passa no teto Free)                                |
+| **Compartilhar / Clone** | Dono: sheet (editar / cópia / Explorar). Visitante: link de leitura. Quem abre a cópia vê read-only + “Clonar pra mim” (clone também passa no teto Free). Ver [[Edição Conjunta]] |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
 | **Parceiros (RF10)**     | `PartnerReserveRow` (hotéis Booking / voos Skyscanner) + CTA GetYourGuide se `requires_ticket`. Ver [[Afiliados RF10]]                 |
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
+| **Deslocamento**         | Badge entre cards do dia aberto. `POST /routes/calculate`. Ver [[Deslocamento e Alternativas]]                                          |
+| **Sugestões**            | Botão no título do dia → sheet Nearby. `GET /places/nearby`                                                                             |
 | Autocomplete destino     | `GET /places/autocomplete` — typeahead do wizard (RF05); `description` + `place_id`                                                    |
 | Place Details            | `GET /places/{place_id}/details` — + `price_level` (`$$`) + `menu_uri` (quando Google expõe)                                           |
 | Reviews Tripfy           | `GET/POST/DELETE` `/places/{place_id}/reviews` — Firestore `place_reviews`. POST novo exige parada `completed`+`place_id`. Ver [[Modo Viagem]] |
@@ -182,6 +184,7 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 ## Relacionados
 
 - [[Geração de Roteiro RF06]] — schema + SSE + lat/lng no prompt
+- [[Deslocamento e Alternativas]] — conector do dia e sugestões da vibe
 - [[Modo Viagem]] — Planejar/Viajar, checklist, trava de review
 - [[Afiliados RF10]] — PartnerReserveRow + requires_ticket
 - [[Home e Bottom Tabs]] — entrada pelo Wizard Solo / aba Viagens

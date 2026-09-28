@@ -178,6 +178,8 @@ class SavedTripResponse(BaseModel):
     # Cache do geocoding do destino (clima). Não vem do LLM.
     destination_lat: float | None = None
     destination_lng: float | None = None
+    # Feed Explorar. O client não escreve — só o Admin SDK.
+    is_public: bool = False
 
 
 class CloneTripResponse(BaseModel):
@@ -223,6 +225,28 @@ class TripOpResponse(BaseModel):
 
     applied: bool
     trip: SavedTripResponse
+
+
+class InviteCreatedResponse(BaseModel):
+    """Plaintext uma vez. O Firestore guarda só o sha256."""
+
+    token: str
+    expires_at: datetime
+
+
+class InvitePreviewResponse(BaseModel):
+    """Tela de aceite — sem days, notas ou lista de UIDs."""
+
+    trip_id: str
+    owner_name: str = ""
+    destination: str = ""
+    title: str = ""
+    day_count: int = 0
+    already_member: bool = False
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str = Field(..., min_length=20, max_length=200)
 
 
 def has_completed_place(days: list[PersistedDay], place_id: str) -> bool:

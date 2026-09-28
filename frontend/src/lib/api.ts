@@ -7,6 +7,12 @@
 import EventSource from "react-native-sse";
 
 import { auth } from "@/lib/firebase";
+import {
+  routeLegKey,
+  type LatLng,
+  type RouteLeg,
+  type TravelMode,
+} from "@/lib/routeLegs";
 import { usePaywallStore } from "@/stores/paywallStore";
 
 // Sem fallback para localhost: em device físico (Expo Go) localhost aponta
@@ -168,6 +174,21 @@ export type PlaceReviewCreate = {
   place_name?: string;
 };
 
+export type NearbyPlace = {
+  place_id: string;
+  name: string;
+  type_label: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+export type NearbyPlacesResponse = {
+  radius_meters: number;
+  places: NearbyPlace[];
+};
+
+export type { RouteLeg, TravelMode };
+
 export type PlaceReviewResponse = {
   id: string;
   place_id: string;
@@ -185,6 +206,9 @@ const placeDetailsCache = new Map<string, PlaceDetailsResponse>();
 const placeFullDetailsCache = new Map<string, PlaceFullDetailsResponse>();
 // Autocomplete: apagar e redigitar a mesma query não cobra de novo.
 const placeAutocompleteCache = new Map<string, PlaceAutocompleteItem[]>();
+// Pernas do dia — sessão. Não entra no pin offline.
+const routeLegCache = new Map<string, RouteLeg>();
+const nearbyCache = new Map<string, NearbyPlacesResponse>();
 
 function placeCacheKey(
   query: string,
@@ -329,6 +353,113 @@ export async function autocompletePlaces(
   return predictions;
 }
 
+export function peekRouteLeg(key: string): RouteLeg | undefined {
+  return routeLegCache.get(key);
+}
+
+/**
+ * POST /routes/calculate — pernas do dia (ou de um trecho contínuo).
+ * Grava cada perna no cache de sessão. Falha não entra no cache.
+ */
+export async function calculateRouteLegs(
+  travelMode: TravelMode,
+  stops: LatLng[],
+  signal?: AbortSignal,
+): Promise<RouteLeg[]> {
+  if (stops.length < 2) return [];
+
+  const response = await authFetch("/routes/calculate", {
+    method: "POST",
+    body: JSON.stringify({
+      travel_mode: travelMode,
+      stops: stops.map((stop) => ({
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+      })),
+    }),
+    signal,
+  });
+  const data = (await response.json()) as { legs?: RouteLeg[] };
+  const raw = Array.isArray(data.legs) ? data.legs : [];
+  if (raw.length !== stops.length - 1) {
+    throw new ApiError(502, "Resposta de rotas incompleta.");
+  }
+  const legs: RouteLeg[] = raw.map((leg) => {
+    if (
+      typeof leg?.distance_meters !== "number" ||
+      typeof leg?.duration_seconds !== "number"
+    ) {
+      throw new ApiError(502, "Resposta de rotas incompleta.");
+    }
+    return {
+      distance_meters: leg.distance_meters,
+      duration_seconds: leg.duration_seconds,
+    };
+  });
+  for (let index = 0; index < legs.length; index++) {
+    routeLegCache.set(routeLegKey(travelMode, stops[index], stops[index + 1]), legs[index]);
+  }
+  return legs;
+}
+
+function nearbyCacheKey(
+  lat: number,
+  lng: number,
+  travelMode: string,
+  interests: string[],
+): string {
+  const tags = [...interests].sort().join(",");
+  return `${travelMode}|${lat.toFixed(4)}|${lng.toFixed(4)}|${tags}`;
+}
+
+/**
+ * GET /places/nearby — sugestões da vibe perto da âncora.
+ * Cacheia lista vazia; não cacheia falha de rede.
+ */
+export async function getNearbyPlaces(
+  lat: number,
+  lng: number,
+  travelMode: TravelMode,
+  interests: string[],
+  signal?: AbortSignal,
+): Promise<NearbyPlacesResponse> {
+  const key = nearbyCacheKey(lat, lng, travelMode, interests);
+  const cached = nearbyCache.get(key);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    travel_mode: travelMode,
+  });
+  for (const interest of interests) {
+    params.append("interests", interest);
+  }
+  const response = await authFetch(`/places/nearby?${params.toString()}`, {
+    method: "GET",
+    signal,
+  });
+  const data = (await response.json()) as NearbyPlacesResponse;
+  const places = Array.isArray(data.places)
+    ? data.places.filter(
+        (place) =>
+          typeof place?.place_id === "string" &&
+          place.place_id.trim().length >= 10 &&
+          typeof place?.name === "string" &&
+          place.name.trim().length > 0 &&
+          typeof place.latitude === "number" &&
+          typeof place.longitude === "number",
+      )
+    : [];
+  const result: NearbyPlacesResponse = {
+    radius_meters:
+      typeof data.radius_meters === "number" ? data.radius_meters : 0,
+    places,
+  };
+  nearbyCache.set(key, result);
+  return result;
+}
+
 /** GET /places/{place_id}/details — painel rico (cache de sessão). */
 export async function getPlaceFullDetails(
   placeId: string,
@@ -426,6 +557,21 @@ export type SavedTripApi = {
   last_change_day?: number | null;
   role?: string;
   day_count?: number;
+  is_public?: boolean;
+};
+
+export type TripInviteCreated = {
+  token: string;
+  expires_at: string;
+};
+
+export type TripInvitePreview = {
+  trip_id: string;
+  owner_name: string;
+  destination: string;
+  title: string;
+  day_count: number;
+  already_member: boolean;
 };
 
 export type CloneTripResponse = {
@@ -488,6 +634,53 @@ export async function cloneTripApi(
     { method: "POST" },
   );
   return (await response.json()) as CloneTripResponse;
+}
+
+/** POST /trips/{id}/invites — plaintext do token volta uma vez. */
+export async function createTripInviteApi(
+  tripId: string,
+): Promise<TripInviteCreated> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/invites`,
+    { method: "POST" },
+  );
+  return (await response.json()) as TripInviteCreated;
+}
+
+/** GET /trips/invites/{token} — tela de aceite, sem o roteiro. */
+export async function previewTripInviteApi(
+  token: string,
+  signal?: AbortSignal,
+): Promise<TripInvitePreview> {
+  const response = await authFetch(
+    `/trips/invites/${encodeURIComponent(token.trim())}`,
+    { method: "GET", signal },
+  );
+  return (await response.json()) as TripInvitePreview;
+}
+
+/** POST /trips/{id}/invite/accept — Solo vira sala. */
+export async function acceptTripInviteApi(
+  tripId: string,
+  token: string,
+): Promise<SavedTripApi> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/invite/accept`,
+    { method: "POST", body: JSON.stringify({ token }) },
+  );
+  return (await response.json()) as SavedTripApi;
+}
+
+/** POST/DELETE /trips/{id}/publish — cartão do Explorar. */
+export async function setTripPublicApi(
+  tripId: string,
+  isPublic: boolean,
+): Promise<SavedTripApi> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/publish`,
+    { method: isPublic ? "POST" : "DELETE" },
+  );
+  return (await response.json()) as SavedTripApi;
 }
 
 export type TripOpBody = {

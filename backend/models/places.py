@@ -77,3 +77,20 @@ class PlaceFullDetailsResponse(BaseModel):
         default=None,
         description="URL do cardápio quando o Google expõe (raro; null se ausente)",
     )
+
+
+class NearbyPlace(BaseModel):
+    """Sugestão perto de uma parada — sem foto (SKU à parte)."""
+
+    place_id: str
+    name: str
+    type_label: str | None = None
+    latitude: float
+    longitude: float
+
+
+class NearbyPlacesResponse(BaseModel):
+    """Raio vem do servidor (o client não escolhe). Lista vazia é 200."""
+
+    radius_meters: int = Field(..., ge=1)
+    places: list[NearbyPlace] = Field(default_factory=list)

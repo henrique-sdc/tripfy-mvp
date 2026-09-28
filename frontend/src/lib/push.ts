@@ -5,6 +5,7 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import { isRunningInExpoGo } from "expo";
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { getCalendars } from "expo-localization";
 import { Platform } from "react-native";
 
@@ -21,6 +22,8 @@ let notificationsPromise: Promise<NotificationsModule | null> | null = null;
 export function pushNativeAvailable(): boolean {
   if (Platform.OS === "web") return false;
   if (Platform.OS === "android" && isRunningInExpoGo()) return false;
+  // Sem esse módulo o import de expo-notifications derruba o JS (dev client velho).
+  if (!requireOptionalNativeModule("ExpoPushTokenManager")) return false;
   return true;
 }
 

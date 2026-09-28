@@ -267,7 +267,11 @@ export default function WizardSoloScreen() {
           end_date: payload.end_date,
         });
         clearWizardSoloDraft();
-        router.replace("/trip-detail" as Href);
+        // tripId vazio: o replace não pode herdar o id da viagem anterior.
+        router.replace({
+          pathname: "/trip-detail",
+          params: { fresh: String(Date.now()), tripId: "" },
+        } as Href);
       },
       (error) => {
         closeStreamRef.current = null;

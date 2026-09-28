@@ -41,6 +41,8 @@ export type SavedTrip = ItineraryResponse & {
   /** `member` = ponteiro da Home, sem `days`. */
   role?: string;
   day_count?: number;
+  member_uids?: string[];
+  is_public?: boolean;
 };
 
 function optionalMatchId(value: unknown): string | undefined {
@@ -253,6 +255,10 @@ export function tripFromDoc(
       typeof data.last_change_day === "number" ? data.last_change_day : null,
     role: typeof data.role === "string" ? data.role : undefined,
     day_count: asDayCount(data.day_count, days),
+    member_uids: Array.isArray(data.member_uids)
+      ? data.member_uids.filter((item): item is string => typeof item === "string")
+      : [],
+    is_public: data.is_public === true,
   };
 }
 

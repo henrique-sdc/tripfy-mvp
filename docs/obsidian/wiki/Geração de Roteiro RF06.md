@@ -21,7 +21,7 @@ Missão 6: endpoint de geração com LLM trocável, Structured Output, streaming
 
 > [!info] Escopo deste commit
 > Backend (cérebro) + Frontend (consumidor SSE + UX mágica + `/trip-detail`).
-> Google Maps HTTP **não** entra neste commit — estimativa de deslocamento fica no prompt (`description`).
+> A estimativa no prompt (`description`) continua. O número real (Routes API) é [[Deslocamento e Alternativas]], fora do stream.
 
 ## Endpoint
 
@@ -106,12 +106,12 @@ System Prompt = Concierge Digital + trava explícita anti-jailbreak.
 Dados do usuário em `<perfil_viajante>` / `<parametros_viagem>` após `sanitize_user_text`.
 Sem Markdown na resposta — só JSON do schema.
 
-### Deslocamento (RF06.1 — fase prompt)
+### Deslocamento (RF06.1)
 
-> [!todo] Maps HTTP adiado
-> Sem chamada Google Maps no stream (não bloqueia TTFT).
-> A IA estima tempo/meio na `description` com base em `transport_modes`.
-> Distância exata → app/Maps depois.
+> [!info] Número real fora do stream
+> O prompt ainda pede uma estimativa na `description` (não bloqueia o primeiro token e serve de fallback).
+> Tempo e distância do badge vêm da Routes API em [[Deslocamento e Alternativas]].
+> Vale no dia aberto e na vista Todos (só entre paradas do mesmo dia).
 
 ### Headroom
 
@@ -144,6 +144,7 @@ Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSou
 - [[Home e Bottom Tabs]] — Wizard Solo (RF05) e navegação
 - [[Match de Viajantes RF11 RF12]] — dois perfis no mesmo Structured Output/SSE
 - [[Afiliados RF10]] — `requires_ticket` no prompt; datas da viagem no Firestore
+- [[Deslocamento e Alternativas]] — Routes API no dia aberto; a descrição da IA fica como fallback
 
 ## Structured Output
 ### Coordenadas (mapa)

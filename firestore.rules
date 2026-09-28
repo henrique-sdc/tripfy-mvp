@@ -65,6 +65,9 @@ service cloud.firestore {
                   'last_change',
                   'last_change_day',
                   'role',
+                  'is_public',
+                  'published_at',
+                  'invite_hash',
                 ]);
         }
 
@@ -103,9 +106,25 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Convite de edição — só Admin SDK. O id do doc é o sha256 do token.
+    match /trip_invites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    // Cartão do Explorar. Sem days, notas ou UID. Escrita só pela API.
+    match /explore_trips/{tripId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // Índice de deep link / clone — client escreve o próprio; leitura só Admin.
     match /trip_shares/{tripId} {
-      allow create, update: if request.auth != null
+      allow create: if request.auth != null
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.trip_id == tripId;
+      // Update não troca o dono — senão outro uid sequestra o deep link.
+      allow update: if request.auth != null
+        && resource.data.owner_uid == request.auth.uid
         && request.resource.data.owner_uid == request.auth.uid
         && request.resource.data.trip_id == tripId;
       allow delete: if request.auth != null

@@ -6,6 +6,7 @@ Soft delete: `deleted_at` (null = ativo). Lixeira = 30 dias.
 """
 from __future__ import annotations
 
+import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -19,6 +20,12 @@ from models.trip import (
     PersistedDay,
     SavedTripResponse,
 )
+from services.trip_invite import (
+    decide_join,
+    destination_key,
+    invite_doc_id,
+    valid_invite_token,
+)
 from services.trip_ops import (
     TripOpError,
     apply_op,
@@ -28,7 +35,10 @@ from services.trip_ops import (
 )
 
 _SHARES = "trip_shares"
+_INVITES = "trip_invites"
+_EXPLORE = "explore_trips"
 _TRASH_DAYS = 30
+_INVITE_DAYS = 7
 
 
 def _trips_col(uid: str):
@@ -231,6 +241,7 @@ def _doc_to_saved(
         day_count=day_count,
         destination_lat=_as_coord(data.get("destination_lat")),
         destination_lng=_as_coord(data.get("destination_lng")),
+        is_public=_as_bool(data.get("is_public")),
     )
 
 
@@ -512,6 +523,10 @@ async def clone_trip(source_trip_id: str, new_owner_uid: str) -> str | None:
             }
         )
         _write_share_index(new_ref.id, new_owner_uid)
+        try:
+            _bump_explore_clone(source_trip_id)
+        except Exception:
+            logger.warning("explore clone_count: trip_id={}", source_trip_id)
         logger.info(
             "Trip clonado: from={} to_uid={} new_id={}",
             source_trip_id,
@@ -558,6 +573,10 @@ class TripAccessError(Exception):
 
 class TripMissingError(Exception):
     """Doc ou índice de share não existe."""
+
+
+class InviteFullError(Exception):
+    """Sala já tem dono + 1. 3+ é Premium futuro."""
 
 
 class CollabConflict(Exception):
@@ -806,3 +825,358 @@ async def apply_trip_op(
         return _doc_to_saved(trip_id, stored, viewer_uid=uid), applied_box["applied"]
 
     return await run_in_threadpool(_run)
+
+
+def _bump_explore_clone(source_trip_id: str) -> None:
+    """Contador do feed. Sem cartão, não faz nada. Falha não desfaz o clone."""
+    ref = db.collection(_EXPLORE).document(source_trip_id)
+    if not ref.get().exists:
+        return
+    ref.update({"clone_count": firestore.Increment(1)})
+
+
+def _owned_trip(trip_id: str, uid: str) -> tuple[str, dict[str, Any]]:
+    """Doc canônico se `uid` é o dono. Senão TripAccessError / TripMissingError."""
+    owner = _resolve_owner(trip_id)
+    if owner and owner != uid:
+        raise TripAccessError
+    if not owner:
+        snap = _trips_col(uid).document(trip_id).get()
+        if not snap.exists:
+            raise TripMissingError
+        data = snap.to_dict() or {}
+        data.setdefault("owner_uid", uid)
+        if data.get("deleted_at") is not None:
+            raise TripMissingError
+        return uid, data
+    snap = _trips_col(owner).document(trip_id).get()
+    if not snap.exists:
+        raise TripMissingError
+    data = snap.to_dict() or {}
+    data.setdefault("owner_uid", owner)
+    if data.get("deleted_at") is not None:
+        raise TripMissingError
+    return owner, data
+
+
+def _day_count_of(data: dict[str, Any]) -> int:
+    days = data.get("days")
+    if isinstance(days, list) and days:
+        return len([day for day in days if isinstance(day, dict)])
+    try:
+        count = int(data.get("day_count") or 0)
+    except (TypeError, ValueError):
+        return 0
+    return count if count > 0 else 0
+
+
+def _missing_activity_id(days: Any) -> bool:
+    if not isinstance(days, list):
+        return False
+    for day in days:
+        if not isinstance(day, dict):
+            continue
+        for act in day.get("activities") or []:
+            if isinstance(act, dict) and clean_activity_id(act.get("id")) is None:
+                return True
+    return False
+
+
+def _pointer_body(
+    data: dict[str, Any],
+    trip_id: str,
+    owner: str,
+    members: list[str],
+) -> dict[str, Any]:
+    """Ponteiro da Home do convidado. Sem `days` — não conta no teto Free."""
+    body: dict[str, Any] = {
+        "owner_uid": owner,
+        "trip_id": trip_id,
+        "role": "member",
+        "collab": True,
+        "member_uids": members,
+        "destination": data.get("destination") or "",
+        "title": str(data.get("title") or "").strip(),
+        "summary": data.get("summary") or "",
+        "start_date": data.get("start_date"),
+        "end_date": data.get("end_date"),
+        "day_count": _day_count_of(data),
+        "deleted_at": None,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }
+    match_id = data.get("match_id")
+    if isinstance(match_id, str) and match_id.strip():
+        body["match_id"] = match_id.strip()
+    return body
+
+
+def _invite_expired(data: dict[str, Any]) -> bool:
+    expires = _as_datetime(data.get("expires_at"))
+    if expires is None:
+        return True
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return expires <= datetime.now(timezone.utc)
+
+
+async def create_invite(trip_id: str, uid: str) -> tuple[str, datetime]:
+    """Rotaciona o convite. Devolve o plaintext uma vez — não entra em log."""
+
+    def _write() -> tuple[str, datetime]:
+        token = secrets.token_urlsafe(32)
+        digest = invite_doc_id(token)
+        expires = datetime.now(timezone.utc) + timedelta(days=_INVITE_DAYS)
+        ref = _trips_col(uid).document(trip_id)
+        transaction = db.transaction()
+
+        @firestore.transactional
+        def _txn(transaction: Any) -> None:
+            owner = _resolve_owner(trip_id)
+            if owner and owner != uid:
+                raise TripAccessError
+            snap = ref.get(transaction=transaction)
+            if not snap.exists:
+                raise TripMissingError
+            data = snap.to_dict() or {}
+            if data.get("deleted_at") is not None:
+                raise TripMissingError
+            if owner is None and str(data.get("owner_uid") or uid) != uid:
+                raise TripAccessError
+            previous = data.get("invite_hash")
+            if isinstance(previous, str) and previous and previous != digest:
+                transaction.delete(db.collection(_INVITES).document(previous))
+            transaction.set(
+                db.collection(_INVITES).document(digest),
+                {
+                    "trip_id": trip_id,
+                    "owner_uid": uid,
+                    "expires_at": expires,
+                    "created_at": firestore.SERVER_TIMESTAMP,
+                },
+            )
+            transaction.update(
+                ref,
+                {
+                    "invite_hash": digest,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                },
+            )
+
+        _txn(transaction)
+        logger.info("Trip invite criado: uid={} trip_id={}", uid, trip_id)
+        return token, expires
+
+    return await run_in_threadpool(_write)
+
+
+async def read_invite(token: str, viewer_uid: str) -> dict[str, Any] | None:
+    """Preview. None = token inválido, vencido ou viagem na lixeira."""
+
+    def _fetch() -> dict[str, Any] | None:
+        if not valid_invite_token(token):
+            return None
+        snap = db.collection(_INVITES).document(invite_doc_id(token)).get()
+        if not snap.exists:
+            return None
+        invite = snap.to_dict() or {}
+        if _invite_expired(invite):
+            return None
+        trip_id = invite.get("trip_id")
+        owner = invite.get("owner_uid")
+        if not isinstance(trip_id, str) or not isinstance(owner, str):
+            return None
+        trip_snap = _trips_col(owner).document(trip_id).get()
+        if not trip_snap.exists:
+            return None
+        data = trip_snap.to_dict() or {}
+        if data.get("deleted_at") is not None:
+            return None
+        members = _member_uids(data)
+        if owner not in members:
+            members = [owner, *members]
+        logger.info(
+            "Trip invite preview: uid={} trip_id={}",
+            viewer_uid,
+            trip_id,
+        )
+        return {
+            "trip_id": trip_id,
+            "owner_uid": owner,
+            "destination": str(data.get("destination") or ""),
+            "title": str(data.get("title") or "").strip(),
+            "day_count": _day_count_of(data),
+            "already_member": viewer_uid == owner or viewer_uid in members,
+        }
+
+    return await run_in_threadpool(_fetch)
+
+
+async def accept_invite(
+    trip_id: str,
+    uid: str,
+    token: str,
+) -> SavedTripResponse:
+    """Sobe o Solo pra sala e grava o ponteiro. Token não entra em log."""
+
+    def _run() -> SavedTripResponse:
+        if not valid_invite_token(token):
+            raise TripMissingError
+        invite_ref = db.collection(_INVITES).document(invite_doc_id(token))
+        outcome = {"code": "owner", "members": [uid]}
+
+        owner = _resolve_owner(trip_id)
+        invite_snap = invite_ref.get()
+        if not invite_snap.exists:
+            raise TripMissingError
+        invite = invite_snap.to_dict() or {}
+        if invite.get("trip_id") != trip_id or _invite_expired(invite):
+            raise TripMissingError
+        if not owner:
+            raw_owner = invite.get("owner_uid")
+            owner = raw_owner if isinstance(raw_owner, str) and raw_owner else None
+        if not owner:
+            raise TripMissingError
+
+        ref = _trips_col(owner).document(trip_id)
+        transaction = db.transaction()
+
+        @firestore.transactional
+        def _txn(transaction: Any) -> dict[str, Any]:
+            fresh = invite_ref.get(transaction=transaction)
+            if not fresh.exists:
+                raise TripMissingError
+            fresh_invite = fresh.to_dict() or {}
+            if fresh_invite.get("trip_id") != trip_id or _invite_expired(fresh_invite):
+                raise TripMissingError
+            invite_owner = fresh_invite.get("owner_uid")
+            if isinstance(invite_owner, str) and invite_owner != owner:
+                raise TripMissingError
+            snap = ref.get(transaction=transaction)
+            if not snap.exists:
+                raise TripMissingError
+            data = snap.to_dict() or {}
+            data.setdefault("owner_uid", owner)
+            if data.get("deleted_at") is not None:
+                raise TripMissingError
+            code, members = decide_join(_member_uids(data), owner, uid)
+            outcome["code"] = code
+            outcome["members"] = members
+            if code == "full":
+                raise InviteFullError
+            if code == "owner":
+                return data
+            pointer_ref = _trips_col(uid).document(trip_id)
+            # Leitura antes de qualquer write — o Firestore recusa o contrário.
+            pointer_exists = pointer_ref.get(transaction=transaction).exists
+            try:
+                revision = int(data.get("revision") or 0)
+            except (TypeError, ValueError):
+                revision = 0
+            updates: dict[str, Any] = {
+                "collab": True,
+                "member_uids": members,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+            if code == "join":
+                if data.get("revision") is None:
+                    updates["revision"] = revision
+                if not isinstance(data.get("recent_op_ids"), list):
+                    updates["recent_op_ids"] = []
+                if _missing_activity_id(data.get("days")):
+                    updates["days"] = stamp_activity_ids(
+                        data.get("days") if isinstance(data.get("days"), list) else []
+                    )
+                    data["days"] = updates["days"]
+            data.update(
+                {
+                    "collab": True,
+                    "member_uids": members,
+                    "revision": updates.get("revision", data.get("revision") or 0),
+                    "recent_op_ids": updates.get(
+                        "recent_op_ids",
+                        data.get("recent_op_ids") or [],
+                    ),
+                }
+            )
+            transaction.update(ref, updates)
+            pointer = _pointer_body(data, trip_id, owner, members)
+            if not pointer_exists:
+                pointer["created_at"] = firestore.SERVER_TIMESTAMP
+            transaction.set(pointer_ref, pointer, merge=True)
+            return data
+
+        stored = _txn(transaction)
+        if outcome["code"] != "owner":
+            _grant_presence(trip_id, outcome["members"])
+        logger.info(
+            "Trip invite accept: uid={} trip_id={} result={}",
+            uid,
+            trip_id,
+            outcome["code"],
+        )
+        return _doc_to_saved(trip_id, stored, viewer_uid=uid)
+
+    return await run_in_threadpool(_run)
+
+
+async def set_trip_public(
+    trip_id: str,
+    uid: str,
+    *,
+    owner_name: str,
+    public: bool,
+) -> SavedTripResponse:
+    """Liga ou tira o cartão do feed. Não mexe em trip_shares."""
+
+    def _write() -> SavedTripResponse:
+        owner, data = _owned_trip(trip_id, uid)
+        ref = _trips_col(owner).document(trip_id)
+        card = db.collection(_EXPLORE).document(trip_id)
+        if public:
+            name = owner_name.strip()[:80]
+            card_body: dict[str, Any] = {
+                "destination": str(data.get("destination") or ""),
+                "destination_key": destination_key(str(data.get("destination") or "")),
+                "title": str(data.get("title") or "").strip(),
+                "summary": str(data.get("summary") or ""),
+                "day_count": _day_count_of(data),
+                "owner_name": name,
+            }
+            existing = card.get()
+            if existing.exists:
+                card.set(card_body, merge=True)
+            else:
+                card.set(
+                    {
+                        **card_body,
+                        "published_at": firestore.SERVER_TIMESTAMP,
+                        "clone_count": 0,
+                    }
+                )
+            fields: dict[str, Any] = {
+                "is_public": True,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+            if data.get("published_at") is None:
+                fields["published_at"] = firestore.SERVER_TIMESTAMP
+            ref.update(fields)
+            data.update({"is_public": True})
+        else:
+            ref.update(
+                {
+                    "is_public": False,
+                    "published_at": None,
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+            )
+            card.delete()
+            data["is_public"] = False
+        logger.info(
+            "Trip explore: uid={} trip_id={} public={}",
+            uid,
+            trip_id,
+            public,
+        )
+        return _doc_to_saved(trip_id, data, viewer_uid=uid)
+
+    return await run_in_threadpool(_write)

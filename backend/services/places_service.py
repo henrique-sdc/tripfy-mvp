@@ -15,11 +15,14 @@ from loguru import logger
 
 from core.config import settings
 from models.places import (
+    NearbyPlace,
+    NearbyPlacesResponse,
     PlaceAutocompleteItem,
     PlaceAutocompleteResponse,
     PlaceDetailsResponse,
     PlaceFullDetailsResponse,
 )
+from models.user import Interest, TransportMode
 
 _SEARCH_URL_NEW = "https://places.googleapis.com/v1/places:searchText"
 _SEARCH_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/textsearch/json"
@@ -972,3 +975,251 @@ async def autocomplete_places(term: str) -> PlaceAutocompleteResponse:
         len(predictions),
     )
     return PlaceAutocompleteResponse(predictions=predictions)
+
+
+_NEARBY_URL_NEW = "https://places.googleapis.com/v1/places:searchNearby"
+_NEARBY_URL_LEGACY = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+_FIELD_MASK_NEARBY = (
+    "places.id,places.displayName,places.primaryTypeDisplayName,places.location"
+)
+_NEARBY_MAX = 8
+_NEARBY_TYPES_CAP = 5
+_RADIUS_WALK_M = 1200
+_RADIUS_OTHER_M = 2500
+# Tipos sem entrada própria caem em tourist_attraction (praia, trilha, mirante…).
+_INTEREST_TYPES: dict[Interest, tuple[str, ...]] = {
+    Interest.ART_MUSEUMS: ("museum", "art_gallery"),
+    Interest.CAFES: ("cafe",),
+    Interest.STREET_FOOD: ("restaurant",),
+    Interest.FINE_DINING: ("restaurant",),
+    Interest.BARS: ("bar",),
+    Interest.NIGHTLIFE: ("bar",),
+    Interest.HISTORY_ARCHITECTURE: ("historical_landmark",),
+    Interest.SHOPPING: ("shopping_mall",),
+    Interest.WELLNESS: ("spa",),
+}
+_LEGACY_SKIP_TYPES = frozenset({"point_of_interest", "establishment"})
+
+
+def nearby_radius_meters(mode: TransportMode) -> int:
+    """A pé fica no quarteirão. Carro e transporte público abrem um pouco mais."""
+    if mode == TransportMode.WALKING:
+        return _RADIUS_WALK_M
+    return _RADIUS_OTHER_M
+
+
+def included_types_for(interests: list[Interest]) -> list[str]:
+    """União dos interesses, no máximo 5 tipos. Lista vazia → atração genérica."""
+    found: list[str] = []
+    for interest in interests:
+        for place_type in _INTEREST_TYPES.get(interest, ("tourist_attraction",)):
+            if place_type in found:
+                continue
+            found.append(place_type)
+            if len(found) >= _NEARBY_TYPES_CAP:
+                return found
+    if not found:
+        return ["tourist_attraction"]
+    return found
+
+
+def _text_field(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if isinstance(value, dict):
+        text = value.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+    return None
+
+
+def map_nearby_new(payload: dict[str, Any]) -> list[NearbyPlace]:
+    """Places (New). Descarta item sem id, nome ou ponto."""
+    out: list[NearbyPlace] = []
+    for place in payload.get("places") or []:
+        if not isinstance(place, dict):
+            continue
+        raw_id = place.get("id")
+        place_id = (
+            normalize_place_id(raw_id) if isinstance(raw_id, str) else None
+        )
+        if place_id is None:
+            place_id = extract_place_id_new(place)
+        name = _text_field(place.get("displayName"))
+        loc = place.get("location") if isinstance(place.get("location"), dict) else {}
+        lat = _as_float(loc.get("latitude")) if isinstance(loc, dict) else None
+        lng = _as_float(loc.get("longitude")) if isinstance(loc, dict) else None
+        if not place_id or not name or lat is None or lng is None:
+            continue
+        out.append(
+            NearbyPlace(
+                place_id=place_id,
+                name=name,
+                type_label=_text_field(place.get("primaryTypeDisplayName")),
+                latitude=lat,
+                longitude=lng,
+            )
+        )
+        if len(out) >= _NEARBY_MAX:
+            break
+    return out
+
+
+def map_nearby_legacy(payload: dict[str, Any]) -> list[NearbyPlace]:
+    """Nearby Search clássico. O primeiro tipo útil vira o rótulo."""
+    out: list[NearbyPlace] = []
+    for result in payload.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        raw_id = result.get("place_id")
+        place_id = normalize_place_id(raw_id) if isinstance(raw_id, str) else None
+        name = result.get("name")
+        geometry = result.get("geometry") if isinstance(result.get("geometry"), dict) else {}
+        loc = geometry.get("location") if isinstance(geometry, dict) else {}
+        lat = _as_float(loc.get("lat")) if isinstance(loc, dict) else None
+        lng = _as_float(loc.get("lng")) if isinstance(loc, dict) else None
+        if not place_id or not isinstance(name, str) or not name.strip():
+            continue
+        if lat is None or lng is None:
+            continue
+        label: str | None = None
+        for place_type in result.get("types") or []:
+            if isinstance(place_type, str) and place_type not in _LEGACY_SKIP_TYPES:
+                label = place_type
+                break
+        out.append(
+            NearbyPlace(
+                place_id=place_id,
+                name=name.strip(),
+                type_label=label,
+                latitude=lat,
+                longitude=lng,
+            )
+        )
+        if len(out) >= _NEARBY_MAX:
+            break
+    return out
+
+
+async def _nearby_places_new(
+    client: httpx.AsyncClient,
+    api_key: str,
+    lat: float,
+    lng: float,
+    radius: int,
+    types: list[str],
+) -> list[NearbyPlace]:
+    response = await client.post(
+        _NEARBY_URL_NEW,
+        json={
+            "includedTypes": types,
+            "maxResultCount": _NEARBY_MAX,
+            "rankPreference": "DISTANCE",
+            "languageCode": "pt-BR",
+            "locationRestriction": {
+                "circle": {
+                    "center": {"latitude": lat, "longitude": lng},
+                    "radius": float(radius),
+                }
+            },
+        },
+        headers={
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": _FIELD_MASK_NEARBY,
+            "Content-Type": "application/json",
+        },
+    )
+    if _is_places_new_blocked(response.status_code, response.text):
+        raise RuntimeError("places_new_blocked")
+    if response.status_code != 200:
+        logger.warning("Places Nearby falhou: status={}", response.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar lugares próximos.",
+        )
+    return map_nearby_new(response.json())
+
+
+async def _nearby_places_legacy(
+    client: httpx.AsyncClient,
+    api_key: str,
+    lat: float,
+    lng: float,
+    radius: int,
+    place_type: str,
+) -> list[NearbyPlace]:
+    # Legacy aceita um type só. Ficamos com o primeiro da vibe.
+    response = await client.get(
+        _NEARBY_URL_LEGACY,
+        params={
+            "location": f"{lat},{lng}",
+            "radius": radius,
+            "type": place_type,
+            "language": "pt-BR",
+            "key": api_key,
+        },
+    )
+    if response.status_code != 200:
+        logger.warning("Places Nearby legacy falhou: status={}", response.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar lugares próximos.",
+        )
+    payload = response.json()
+    legacy_status = payload.get("status") if isinstance(payload, dict) else None
+    if legacy_status == "ZERO_RESULTS":
+        return []
+    if legacy_status != "OK":
+        logger.warning("Places Nearby legacy status={}", legacy_status)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao consultar lugares próximos.",
+        )
+    return map_nearby_legacy(payload)
+
+
+async def search_nearby(
+    *,
+    lat: float,
+    lng: float,
+    travel_mode: TransportMode,
+    interests: list[Interest],
+    client: httpx.AsyncClient | None = None,
+) -> NearbyPlacesResponse:
+    """searchNearby (New) com fallback legacy. Não loga coordenada."""
+    api_key = _require_api_key()
+    radius = nearby_radius_meters(travel_mode)
+    types = included_types_for(interests)
+
+    async def _run(http: httpx.AsyncClient) -> list[NearbyPlace]:
+        try:
+            return await _nearby_places_new(http, api_key, lat, lng, radius, types)
+        except RuntimeError as exc:
+            if str(exc) != "places_new_blocked":
+                raise
+            return await _nearby_places_legacy(
+                http, api_key, lat, lng, radius, types[0]
+            )
+
+    try:
+        if client is not None:
+            places = await _run(client)
+        else:
+            async with httpx.AsyncClient(timeout=12.0) as owned:
+                places = await _run(owned)
+    except HTTPException:
+        raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Timeout no Places Nearby")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timeout ao consultar lugares próximos.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.error("Erro de rede no Places Nearby: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha de rede ao consultar lugares próximos.",
+        ) from exc
+
+    return NearbyPlacesResponse(radius_meters=radius, places=places)

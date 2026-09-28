@@ -1,5 +1,15 @@
 # Log — Tripfy Wiki
 
+## [2026-09-28] ingest | Convite e Explorar
+
+Sala a partir de um roteiro Solo, com token separado do link de leitura. Feed em cartões, sem collection group.
+[[Edição Conjunta]], [[Home e Bottom Tabs]], [[Detalhe da Viagem RF07]], [[index]] e [[changelog]].
+
+## [2026-09-28] ingest | Deslocamento e Alternativas
+
+Tempo e distância reais no dia aberto (Routes API). Sugestões Nearby pela vibe. Fora do pin offline.
+[[Deslocamento e Alternativas]], [[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]], [[Modo Offline]], [[index]] e [[changelog]].
+
 ## [2026-09-27] ingest | Testar Notificações
 
 Guia de teste do push. Segredo e uid ficam no ambiente, não na página.

@@ -9,10 +9,12 @@ from loguru import logger
 from core.auth_middleware import CurrentUser, get_current_user
 from core.rate_limit import limiter
 from models.places import (
+    NearbyPlacesResponse,
     PlaceAutocompleteResponse,
     PlaceDetailsResponse,
     PlaceFullDetailsResponse,
 )
+from models.user import Interest, TransportMode
 from models.review import PlaceReviewCreate, PlaceReviewResponse
 from models.trip import user_has_completed_place
 from repositories import review_repository, trips_repository
@@ -23,6 +25,7 @@ router = APIRouter(prefix="/places", tags=["places"])
 
 _LOOKUP_LIMIT = "30/minute"
 _AUTOCOMPLETE_LIMIT = "60/minute"
+_NEARBY_LIMIT = "10/minute"
 _DETAILS_LIMIT = "20/minute"
 _REVIEWS_GET_LIMIT = "30/minute"
 _REVIEWS_WRITE_LIMIT = "10/minute"
@@ -78,6 +81,37 @@ async def autocomplete_places(
         term[:80],
     )
     return await places_service.autocomplete_places(term)
+
+
+@router.get("/nearby", response_model=NearbyPlacesResponse)
+@limiter.limit(_NEARBY_LIMIT)
+async def nearby_places(
+    request: Request,
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    travel_mode: TransportMode = Query(...),
+    interests: list[Interest] = Query(default_factory=list),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> NearbyPlacesResponse:
+    """Lugares perto da âncora, filtrados pela vibe. Raio sai do modo de transporte."""
+    logger.info(
+        "Places nearby: uid={} mode={} interests={}",
+        current_user.uid,
+        travel_mode.value,
+        len(interests),
+    )
+    result = await places_service.search_nearby(
+        lat=lat,
+        lng=lng,
+        travel_mode=travel_mode,
+        interests=interests,
+    )
+    logger.info(
+        "Places nearby ok: uid={} n={}",
+        current_user.uid,
+        len(result.places),
+    )
+    return result
 
 
 @router.get("/reviews/me", response_model=list[PlaceReviewResponse])
