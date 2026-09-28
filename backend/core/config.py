@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Mock de checkout do TCC (sem StoreKit/Play). False = 503 nas rotas /checkout.
     CHECKOUT_MOCK_ENABLED: bool = True
 
+    # Cron do tick de push. Vazio = o endpoint recusa (fail closed).
+    NOTIFICATIONS_CRON_SECRET: str = ""
+    # Opcional. Sem isso a Expo aceita o envio; com isso a API exige o token.
+    EXPO_ACCESS_TOKEN: str = ""
+
     class Config:
         # Carrega automaticamente do arquivo .env na raiz do backend
         env_file = ".env"

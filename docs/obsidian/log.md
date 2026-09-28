@@ -1,5 +1,20 @@
 # Log — Tripfy Wiki
 
+## [2026-09-27] ingest | Testar Notificações
+
+Guia de teste do push. Segredo e uid ficam no ambiente, não na página.
+[[Testar Notificações]], [[Notificações Contextuais]] e [[changelog]].
+
+## [2026-09-27] ingest | Notificações contextuais
+
+Lembrete, avaliação e chuva pelo roteiro salvo. Tick HTTP + Expo Push. Sem GPS em background.
+[[Notificações Contextuais]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-09-27] update | Convite de Match na Home
+
+O banner deixa de abrir o lobby do dono. O companheiro convidado aceita na Home.
+[[Match de Viajantes RF11 RF12]], [[Home e Bottom Tabs]] e [[changelog]].
+
 ## [2026-09-27] update | Gestão dos roteiros offline
 
 Pílula Offline na aba Viagens. Neste celular abre uma tela para excluir as cópias.

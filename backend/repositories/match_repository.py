@@ -13,7 +13,12 @@ from loguru import logger
 from starlette.concurrency import run_in_threadpool
 
 from core.firebase import db
-from models.match import CreateMatchRequest, MatchInDB, MatchStatus
+from models.match import (
+    CreateMatchRequest,
+    MatchInDB,
+    MatchStatus,
+    participant_matches_invite,
+)
 from models.trip import ItineraryResponse
 
 _MATCHES_COLLECTION = "matches"
@@ -34,6 +39,14 @@ class MatchUnavailableError(Exception):
 
 class MatchOwnerJoinError(Exception):
     """O criador tentou aceitar o próprio convite."""
+
+
+class MatchNotOwnerError(Exception):
+    """Quem chamou não é o dono da sala."""
+
+
+class MatchInviteRestrictedError(Exception):
+    """A sala está marcada para outra pessoa, ou quem recusou não é o convidado."""
 
 
 class GenerationInProgressError(Exception):
@@ -84,6 +97,74 @@ async def list_pending_by_owner(owner_uid: str) -> list[MatchInDB]:
         return pending
 
     return await run_in_threadpool(_list)
+
+
+async def list_waiting_for_invitee(invitee_uid: str) -> list[MatchInDB]:
+    """Salas waiting em que este UID foi marcado e ainda não entrou.
+
+    Filtra status em memória — mesmo teto do list do dono.
+    """
+
+    def _list() -> list[MatchInDB]:
+        snapshots = (
+            db.collection(_MATCHES_COLLECTION)
+            .where("invitee_uid", "==", invitee_uid)
+            .stream()
+        )
+        waiting: list[MatchInDB] = []
+        for snapshot in snapshots:
+            match = _match_from_snapshot(snapshot)
+            if (
+                match.status == MatchStatus.WAITING
+                and invitee_uid not in match.participants
+            ):
+                waiting.append(match)
+        waiting.sort(key=lambda m: m.created_at, reverse=True)
+        return waiting
+
+    return await run_in_threadpool(_list)
+
+
+async def set_invitee(
+    match_id: str,
+    owner_uid: str,
+    companion_uid: str,
+) -> MatchInDB:
+    """Marca o companheiro convidado. Substitui um convite anterior."""
+
+    def _set() -> MatchInDB:
+        document = db.collection(_MATCHES_COLLECTION).document(match_id)
+        snapshot = document.get()
+        if not snapshot.exists:
+            raise MatchNotFoundError
+        match = _match_from_snapshot(snapshot)
+        if match.owner_uid != owner_uid:
+            raise MatchNotOwnerError
+        if match.status != MatchStatus.WAITING or len(match.participants) >= 2:
+            raise MatchUnavailableError
+        document.update({"invitee_uid": companion_uid})
+        return match.model_copy(update={"invitee_uid": companion_uid})
+
+    return await run_in_threadpool(_set)
+
+
+async def clear_invitee(match_id: str, invitee_uid: str) -> MatchInDB:
+    """O convidado recusa. Zera a marca enquanto a sala ainda espera."""
+
+    def _clear() -> MatchInDB:
+        document = db.collection(_MATCHES_COLLECTION).document(match_id)
+        snapshot = document.get()
+        if not snapshot.exists:
+            raise MatchNotFoundError
+        match = _match_from_snapshot(snapshot)
+        if match.invitee_uid != invitee_uid:
+            raise MatchInviteRestrictedError
+        if match.status != MatchStatus.WAITING:
+            raise MatchUnavailableError
+        document.update({"invitee_uid": None})
+        return match.model_copy(update={"invitee_uid": None})
+
+    return await run_in_threadpool(_clear)
 
 
 async def create_match(owner_uid: str, request: CreateMatchRequest) -> MatchInDB:
@@ -139,6 +220,8 @@ async def join_match(
                 raise MatchFullError
             if match.status != MatchStatus.WAITING:
                 raise MatchUnavailableError
+            if not participant_matches_invite(match.invitee_uid, participant_uid):
+                raise MatchInviteRestrictedError
 
             participants = [*match.participants, participant_uid]
             transaction.update(

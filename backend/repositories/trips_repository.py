@@ -117,6 +117,13 @@ def _as_datetime(value: Any) -> datetime | None:
     return None
 
 
+def _as_coord(value: Any) -> float | None:
+    """Coordenada gravada pelo tick de clima. Bool não é número."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
 def _payload_day_field(value: Any) -> int | None:
     try:
         day = int(value)
@@ -222,6 +229,8 @@ def _doc_to_saved(
         last_change_day=_payload_day_field(data.get("last_change_day")),
         role=role,
         day_count=day_count,
+        destination_lat=_as_coord(data.get("destination_lat")),
+        destination_lng=_as_coord(data.get("destination_lng")),
     )
 
 
@@ -314,6 +323,23 @@ def _resolve_owner(trip_id: str) -> str | None:
         if isinstance(owner, str) and owner:
             return owner
     return None
+
+
+async def cache_destination_coords(
+    owner_uid: str,
+    trip_id: str,
+    lat: float,
+    lng: float,
+) -> None:
+    """Guarda o geocoding do destino no doc canônico. merge não apaga o roteiro."""
+
+    def _write() -> None:
+        _trips_col(owner_uid).document(trip_id).set(
+            {"destination_lat": lat, "destination_lng": lng},
+            merge=True,
+        )
+
+    await run_in_threadpool(_write)
 
 
 async def list_active(uid: str) -> list[SavedTripResponse]:

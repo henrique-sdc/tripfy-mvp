@@ -1,4 +1,22 @@
 # Changelog — Tripfy Docs
+## 2026-09-27 — Guia para testar o push
+
+- Wiki: [[Testar Notificações]]. Passos com variáveis de ambiente. Nenhum segredo, uid ou token no arquivo.
+
+## 2026-09-27 — Notificações contextuais
+
+- Token Expo em `users/{uid}.push_devices`, só via FastAPI. Permissão depois do roteiro salvo e no switch de Ajustes.
+- `POST /internal/notifications/tick` (segredo) manda lembrete, avaliação e chuva. Sem scheduler dentro do processo.
+- Toque abre o roteiro; avaliação cai na aba Comunidade. Suporte usa o mesmo listener em `/help-support`.
+- Wiki: [[Notificações Contextuais]].
+
+## 2026-09-27 — Convite de Match na Home
+
+- A Home busca convites sozinha a cada 5 s e no pull-to-refresh. Trocar de aba não é mais o único jeito de ver o banner.
+- O campo “Para onde você quer ir?” saiu da Home.
+- Convidar um companheiro grava `invitee_uid`. A Home dele mostra Aceitar / Recusar. Aceitar entra na sala.
+- Wiki: [[Match de Viajantes RF11 RF12]], [[Home e Bottom Tabs]].
+
 ## 2026-09-27 — Lista e gestão dos roteiros offline
 
 - Pílula Offline na aba Viagens, só quando existe pin neste celular.

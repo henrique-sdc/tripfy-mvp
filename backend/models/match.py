@@ -57,6 +57,23 @@ class JoinMatchRequest(BaseModel):
     notes: str = Field(default="", max_length=1000)
 
 
+class InviteMatchRequest(BaseModel):
+    """Corpo de POST /matches/{id}/invite."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    companion_uid: str = Field(..., min_length=1, max_length=128)
+
+
+def participant_matches_invite(
+    invitee_uid: str | None,
+    participant_uid: str,
+) -> bool:
+    """Sem convidado marcado o link segue aberto. Com marca, só essa pessoa entra."""
+    marked = (invitee_uid or "").strip()
+    return not marked or marked == participant_uid
+
+
 class GenerationLock(BaseModel):
     """Lock curto usado para impedir duas gerações pagas da mesma sessão."""
 
@@ -86,6 +103,8 @@ class MatchInDB(BaseModel):
     completed_at: datetime | None = None
     # Viagem canônica criada no complete. Ausente = Match antigo (cópias locais).
     trip_id: str | None = None
+    # Companheiro marcado pelo dono. Ausente = link aberto, como nos matches antigos.
+    invitee_uid: str | None = None
 
     @model_validator(mode="after")
     def validate_participants(self) -> "MatchInDB":
@@ -118,3 +137,12 @@ class MatchPendingSummary(BaseModel):
     days: int
     status: MatchStatus
     created_at: datetime
+
+
+class MatchIncomingInvite(BaseModel):
+    """Convite recebido — banner da Home de quem foi chamado."""
+
+    id: str
+    destination: str
+    owner_name: str = ""
+    owner_photo: str | None = None

@@ -49,7 +49,7 @@ Perfil com dados reais + estatísticas, edição de foto/nome/bio, edição de "
  ├─ Minhas avaliações → /my-reviews
  ├─ Tripfy Pro       (Free: paywall mock; Pro: cancelar simulação)
  ├─ Lixeira          → /trash
- ├─ Notificações   (desabilitado, badge "Em breve" — sem infra de push ainda)
+ ├─ Notificações   (switch deste celular; ver [[Notificações Contextuais]])
  ├─ Tema           (Sistema / Claro / Escuro; default Sistema)
  ├─ Idioma         (só pt-BR no MVP; a linha já existe pra i18n)
  ├─ Vibração       (Switch; default off. Lixeira continua vibrando)

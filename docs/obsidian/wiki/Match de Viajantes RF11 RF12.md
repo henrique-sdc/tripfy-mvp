@@ -15,11 +15,11 @@ essa conciliação para Engenharia de Prompt.
 
 - `POST /api/v1/matches`: recebe `destination`, `days`, `start_date`, `end_date` e `budget`; cria a sessão
   com o UID autenticado em `participants` e status `waiting`.
-- `GET /api/v1/matches/pending`: lista resumos (`id`, `destination`, `days`, `status`, `created_at`)
-  das sessões `waiting` onde o UID autenticado é `owner_uid` (Admin SDK; Home banner).
-  Rota estática registrada **antes** de `/{match_id}`.
-- `POST /api/v1/matches/{match_id}/join`: usa o UID autenticado como convidado,
-  adiciona o segundo participante e muda o status para `generating`.
+- `POST /api/v1/matches/{id}/invite` com `{ companion_uid }`: só o dono, sala `waiting`, companheiro da lista dele. Grava `invitee_uid`.
+- `GET /api/v1/matches/invites`: salas `waiting` em que o UID autenticado é `invitee_uid` e ainda não entrou. Nome e foto do dono.
+- `POST /api/v1/matches/{id}/decline`: o convidado zera `invitee_uid`.
+- `POST /api/v1/matches/{id}/join`: se `invitee_uid` estiver preenchido, só esse UID entra. Sem marca, o link segue aberto. O ingresso adiciona o segundo participante e muda o status para `generating`.
+- `GET /api/v1/matches/pending`: lobbies `waiting` do dono. A Home não usa mais esta lista.
 - `GET /api/v1/matches/{match_id}`: antes do join devolve apenas o resumo da
   viagem; participantes recebem a sessão completa.
 - `POST /api/v1/matches/{match_id}/generate`: exige dois participantes e status

@@ -5,10 +5,10 @@ O formulário de preferências (Seção 3.3 do PRD) alimenta o prompt do Gemini
 com sinais específicos — quanto mais granular, melhor o roteiro (RF06).
 Validação no backend é a fonte da verdade (Seção 6.2).
 """
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Interest(str, Enum):
@@ -74,6 +74,48 @@ class SubscriptionTier(str, Enum):
     PRO = "pro"
 
 
+class PushPlatform(str, Enum):
+    IOS = "ios"
+    ANDROID = "android"
+
+
+# Telefone + tablet. O mais antigo sai.
+MAX_PUSH_DEVICES = 5
+
+
+class PushDevice(BaseModel):
+    """Aparelho que pode receber Expo Push. O client não grava isso no Firestore."""
+
+    token: str
+    platform: PushPlatform
+    timezone: str
+    updated_at: datetime | None = None
+
+
+def merge_push_devices(
+    current: list[PushDevice],
+    incoming: PushDevice,
+    *,
+    limit: int = MAX_PUSH_DEVICES,
+) -> list[PushDevice]:
+    """Substitui o mesmo token e corta a lista no teto, ficando com os mais novos."""
+    kept = [device for device in current if device.token != incoming.token]
+    kept.append(incoming)
+
+    def _stamp(device: PushDevice) -> datetime:
+        stamp = device.updated_at
+        if stamp is None:
+            return datetime.min.replace(tzinfo=UTC)
+        if stamp.tzinfo is None:
+            return stamp.replace(tzinfo=UTC)
+        return stamp
+
+    kept.sort(key=_stamp)
+    if len(kept) > limit:
+        kept = kept[-limit:]
+    return kept
+
+
 class TravelPreferences(BaseModel):
     """Preferências estáveis de viagem salvas em users/{uid}.travel_preferences."""
 
@@ -102,14 +144,42 @@ class UserInDB(BaseModel):
     # Billing — só o backend (Admin SDK) grava. Default cobre docs anteriores ao Pro.
     tier: SubscriptionTier = SubscriptionTier.FREE
     premium_until: datetime | None = None
+    # Push — só o backend grava. Ausente = opt-out (docs antigos).
+    notifications_enabled: bool = False
+    push_devices: list[PushDevice] = Field(default_factory=list)
+
+    @field_validator("push_devices", mode="before")
+    @classmethod
+    def _drop_bad_devices(cls, value: object) -> list:
+        """Um token corrompido não pode derrubar a leitura do usuário inteiro."""
+        if not isinstance(value, list):
+            return []
+        clean: list = []
+        for item in value:
+            if isinstance(item, PushDevice):
+                clean.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            token = item.get("token")
+            platform = item.get("platform")
+            timezone = item.get("timezone")
+            if not isinstance(token, str) or not token.strip():
+                continue
+            if platform not in ("ios", "android"):
+                continue
+            if not isinstance(timezone, str) or not timezone.strip():
+                continue
+            clean.append(item)
+        return clean
 
 
 class UserPublicProfile(BaseModel):
     """
     Fatia segura do perfil para terceiros autenticados.
 
-    Nunca inclui email, created_at, companions, budget, dieta, other_preferences
-    nem status de assinatura (tier / premium_until).
+    Nunca inclui email, created_at, companions, budget, dieta, other_preferences,
+    status de assinatura (tier / premium_until) nem token de push.
     """
 
     uid: str

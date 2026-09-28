@@ -76,6 +76,7 @@ import {
   seedPlaceDetails,
 } from "@/lib/api";
 import { appDeepLink } from "@/lib/deep-links";
+import { maybeOfferNotificationPrompt } from "@/lib/push";
 import { relativeTimeParts } from "@/lib/formatRelativeTime";
 import { openNativeMaps } from "@/lib/openNativeMaps";
 import {
@@ -127,6 +128,11 @@ type LocalItinerary = {
 
 /** null = todos os dias; number = índice do dia em `days`. */
 type DaySelection = null | number;
+
+function oneParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
 
 function failedBecauseOffline(err: unknown, deviceOffline: boolean): boolean {
   if (deviceOffline) return true;
@@ -449,6 +455,10 @@ export default function TripDetailScreen() {
   const params = useLocalSearchParams<{
     itinerary?: string;
     tripId?: string;
+    activityId?: string;
+    placeId?: string;
+    sheet?: string;
+    day?: string;
   }>();
 
   const [itinerary, setItinerary] = useState<LocalItinerary | null>(() =>
@@ -474,6 +484,7 @@ export default function TripDetailScreen() {
   );
   const [offlineMissing, setOfflineMissing] = useState(false);
   const [pinning, setPinning] = useState(false);
+  const [detailsTab, setDetailsTab] = useState<"about" | "community">("about");
   const [detailsPlace, setDetailsPlace] = useState<{
     placeId: string | null;
     activityKey?: string;
@@ -509,6 +520,7 @@ export default function TripDetailScreen() {
     defaultChromeMode(resolveInitialItinerary(params.itinerary)?.start_date),
   );
 
+  const consumedNotificationLink = useRef("");
   const tripIdRef = useRef(tripId);
   const matchIdRef = useRef<string | undefined>(
     peekPendingItinerary() ? (peekPendingMatchId() ?? undefined) : undefined,
@@ -596,6 +608,61 @@ export default function TripDetailScreen() {
   useEffect(() => {
     tripIdRef.current = tripId;
   }, [tripId]);
+
+  useEffect(() => {
+    if (syncStatus !== "saved" || !tripId) return;
+    void maybeOfferNotificationPrompt();
+  }, [syncStatus, tripId]);
+
+  // Toque na notificação: abre o dia e, na avaliação, a aba Comunidade.
+  useEffect(() => {
+    if (!itinerary) return;
+    const dayParam = oneParam(params.day);
+    const activityId = oneParam(params.activityId);
+    const placeId = oneParam(params.placeId);
+    const sheet = oneParam(params.sheet);
+    if (!dayParam && !activityId && !placeId && sheet !== "community") return;
+    const linkKey = `${dayParam}|${activityId}|${placeId}|${sheet}`;
+    if (consumedNotificationLink.current === linkKey) return;
+    consumedNotificationLink.current = linkKey;
+    const dayNum = Number(dayParam);
+    if (Number.isInteger(dayNum)) {
+      const idx = itinerary.days.findIndex((d) => d.day === dayNum);
+      if (idx >= 0) setDaySelection(idx);
+    }
+
+    if (activityId || placeId || sheet === "community") {
+      const flat = itinerary.days.flatMap((d) => d.activities);
+      const found =
+        flat.find((a) => a.id === activityId || a.key === activityId) ??
+        flat.find((a) => placeId && a.place_id === placeId);
+      const resolvedPlace = placeId || found?.place_id || null;
+      setDetailsTab(sheet === "community" && resolvedPlace ? "community" : "about");
+      setDetailsPlace({
+        placeId: resolvedPlace,
+        activityKey: found?.key,
+        fallback: {
+          title: found?.title ?? "",
+          description: found?.description ?? "",
+          location: found?.location ?? "",
+          photoUrl: null,
+        },
+      });
+    }
+
+    router.setParams({
+      day: "",
+      activityId: "",
+      placeId: "",
+      sheet: "",
+    });
+  }, [
+    itinerary,
+    params.activityId,
+    params.day,
+    params.placeId,
+    params.sheet,
+  ]);
 
   // Abre viagem: dono (client SDK) ou visitante (API + trip_shares).
   // Sem rede, só o pin Premium. Espera o AsyncStorage reidratar antes de
@@ -1421,7 +1488,8 @@ export default function TripDetailScreen() {
                   dimmed={isActive}
                   travelMode={travelMode}
                   onDragHandlePressIn={canDrag ? drag : undefined}
-                  onOpenDetails={(payload) =>
+                  onOpenDetails={(payload) => {
+                    setDetailsTab("about");
                     setDetailsPlace({
                       placeId: payload.placeId,
                       activityKey: item.key,
@@ -1431,8 +1499,8 @@ export default function TripDetailScreen() {
                         location: payload.location,
                         photoUrl: payload.photoUrl,
                       },
-                    })
-                  }
+                    });
+                  }}
                   onEdit={
                     planChrome
                       ? () => {
@@ -2099,6 +2167,7 @@ export default function TripDetailScreen() {
       <PlaceDetailsSheet
         placeId={detailsPlace?.placeId ?? null}
         fallback={detailsPlace?.fallback ?? null}
+        initialTab={detailsTab}
         canWriteReview={reviewGate.canWrite}
         reviewLockMessage={reviewGate.lock}
         onClose={() => setDetailsPlace(null)}

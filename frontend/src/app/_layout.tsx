@@ -8,6 +8,7 @@ import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
+import { PushRuntime } from "@/components/notifications/PushRuntime";
 import { PaywallScreen } from "@/components/paywall/PaywallScreen";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
@@ -136,6 +137,7 @@ export default function RootLayout() {
             <Stack.Screen name="my-reviews" options={PUSH_SCREEN_OPTIONS} />
           </Stack.Protected>
         </Stack>
+        <PushRuntime />
         <PaywallScreen />
       </ThemeProvider>
     </GestureHandlerRootView>

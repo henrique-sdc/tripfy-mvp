@@ -47,6 +47,7 @@ import {
   getPublicProfile,
   type ItineraryResponse,
   joinMatch,
+  inviteMatchCompanion,
   type MatchInDB,
   type MatchInviteSummary,
   NetworkError,
@@ -247,6 +248,7 @@ export default function MatchLobbyScreen() {
   );
   const [selectedCompanion, setSelectedCompanion] =
     useState<UserPublicProfile | null>(null);
+  const [invitingUid, setInvitingUid] = useState<string | null>(null);
   const [guestNotes, setGuestNotes] = useState("");
 
   const { companions } = useCompanionsList();
@@ -396,6 +398,13 @@ export default function MatchLobbyScreen() {
 
   const showCompanionPicker =
     isOwner && !connected && companions.length > 0 && !isGenerating;
+
+  useEffect(() => {
+    const marked = fullMatch?.invitee_uid;
+    if (!marked) return;
+    const found = companions.find((c) => c.uid === marked);
+    if (found) setSelectedCompanion(found);
+  }, [fullMatch?.invitee_uid, companions]);
 
   const navigateToSharedTrip = useCallback((sharedTripId: string) => {
     if (navigatedRef.current) return;
@@ -584,9 +593,27 @@ export default function MatchLobbyScreen() {
   }
 
   function inviteCompanion(companion: UserPublicProfile) {
+    if (!matchId || invitingUid) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedCompanion(companion);
-    void shareInvite(companion);
+    setInvitingUid(companion.uid);
+    setErrorKey(null);
+    void (async () => {
+      try {
+        await inviteMatchCompanion(matchId, companion.uid);
+        setSelectedCompanion(companion);
+        void Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
+      } catch (err) {
+        console.error("[match] convite falhou:", err);
+        setErrorKey("match.errors.invite");
+        void Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Error,
+        );
+      } finally {
+        setInvitingUid(null);
+      }
+    })();
   }
 
   async function acceptInvite() {
@@ -869,6 +896,15 @@ export default function MatchLobbyScreen() {
                   );
                 })}
               </ScrollView>
+              {selectedCompanion ? (
+                <AppText tone="secondary" className="text-[13px]">
+                  {t("match.lobby.inviteSent", {
+                    name:
+                      selectedCompanion.name.trim().split(/\s+/)[0] ||
+                      t("profile.fallbackName"),
+                  })}
+                </AppText>
+              ) : null}
             </View>
           ) : null}
 

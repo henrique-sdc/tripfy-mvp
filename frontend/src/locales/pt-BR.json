@@ -192,9 +192,6 @@
     },
     "greetingWithName": "{{greeting}}, {{name}}",
     "avatarA11y": "Seu perfil",
-    "command": {
-      "placeholder": "Para onde você quer ir?"
-    },
     "ticket": {
       "badge": "Último roteiro planejado",
       "days": "{{count}} dias",
@@ -203,17 +200,14 @@
       "emptyTitle": "Você ainda não tem viagens marcadas",
       "emptyBody": "Que tal planejar uma agora?"
     },
-    "pending": {
-      "message": "Seu Match para {{destination}} está esperando um companheiro.",
-      "cta": "Abrir lobby",
-      "dismissA11y": "Dispensar aviso de Match"
-    },
     "invite": {
       "message": "{{name}} te convidou para explorar {{destination}}. Aceitar Match?",
       "accept": "Aceitar",
-      "mockName": "Marina",
-      "mockDestination": "Paris 🇫🇷",
-      "dismissA11y": "Recusar convite"
+      "decline": "Recusar",
+      "dismissA11y": "Recusar convite",
+      "failTitle": "Convite",
+      "failBody": "Não deu pra entrar na sala. Tenta de novo.",
+      "declineFail": "Não deu pra recusar agora."
     },
     "vibe": {
       "title": "Destinos que combinam com você",
@@ -412,6 +406,7 @@
       "connected": "Conectado",
       "inviteFromFriends": "Convidar um companheiro",
       "inviteCompanionA11y": "Convidar {{name}}",
+      "inviteSent": "Convite enviado para {{name}}",
       "reviewVibeTitle": "Revisar minha vibe",
       "reviewVibeHint": "Ajuste interesses e ritmo antes de entrar. Isso entra no Match.",
       "guestNotesLabel": "Algum pedido especial? (Opcional)",
@@ -456,6 +451,7 @@
       "load": "Não foi possível carregar esta sala.",
       "realtime": "A atualização em tempo real foi interrompida. Tente novamente.",
       "share": "Não foi possível abrir o compartilhamento.",
+      "invite": "Não deu pra convidar. Confere se essa pessoa está nos companheiros.",
       "full": "Esta sala já está completa ou começou sem você.",
       "join": "Não foi possível entrar nesta sala.",
       "generation": "A geração foi interrompida. Seu convite continua válido."
@@ -858,6 +854,10 @@
     "offlineClearConfirm": "Excluir todos",
     "appSection": "Preferências do app",
     "notifications": "Notificações",
+    "notificationsHint": "Lembretes do roteiro neste celular.",
+    "notificationsDenied": "O sistema bloqueou. Abre os Ajustes pra liberar.",
+    "notificationsExpoGo": "Push remoto não roda no Expo Go. Use o app de desenvolvimento.",
+    "notificationsError": "Não deu pra salvar agora.",
     "haptics": "Vibração",
     "hapticsHint": "Toques e navegação.",
     "theme": "Tema",
@@ -960,5 +960,11 @@
     },
     "contactSection": "Fale com a gente",
     "legalComingSoon": "Política de Privacidade e Termos de Uso. Em breve."
+  },
+  "pushPrompt": {
+    "title": "Avisar antes de cada parada?",
+    "body": "30 minutos antes, a gente te lembra. Sem isso, o roteiro fica só no app.",
+    "enable": "Ativar lembretes",
+    "later": "Agora não"
   }
 }

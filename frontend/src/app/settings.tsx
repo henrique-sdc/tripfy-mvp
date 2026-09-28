@@ -4,12 +4,12 @@
 // numa área própria de Configurações.
 
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { signOut } from "firebase/auth";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Switch, useColorScheme } from "react-native";
+import { Alert, Linking, Switch, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
@@ -18,6 +18,13 @@ import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/use-theme";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 import { auth } from "@/lib/firebase";
+import {
+  disablePush,
+  enablePush,
+  pushNativeAvailable,
+  readPushPermission,
+  unregisterCurrentPushToken,
+} from "@/lib/push";
 import * as Haptics from "@/lib/haptics";
 import { cancelCheckout } from "@/lib/api";
 import { deleteUserAccount } from "@/lib/profile";
@@ -95,12 +102,56 @@ export default function SettingsScreen() {
   const openPaywall = usePaywallStore((s) => s.open);
   const haptics = usePreferencesStore((s) => s.haptics);
   const setHaptics = usePreferencesStore((s) => s.setHaptics);
+  const pushOptIn = usePreferencesStore((s) => s.pushOptIn);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
 
+  const [pushPermission, setPushPermission] = useState<
+    "granted" | "denied" | "undetermined"
+  >("undetermined");
+  const [pushBusy, setPushBusy] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const refreshPushPermission = useCallback(() => {
+    void readPushPermission().then(setPushPermission);
+  }, []);
+
+  useFocusEffect(refreshPushPermission);
+
+  const nativePush = pushNativeAvailable();
+
+  async function onTogglePush(next: boolean) {
+    if (pushBusy || !nativePush) return;
+    setPushBusy(true);
+    setFormError(null);
+    try {
+      if (!next) {
+        await disablePush();
+        setPushPermission(await readPushPermission());
+        return;
+      }
+      if (pushPermission === "denied") {
+        await Linking.openSettings();
+        return;
+      }
+      const result = await enablePush();
+      setPushPermission(await readPushPermission());
+      if (result === "denied") {
+        await Linking.openSettings();
+        return;
+      }
+      if (result === "unavailable") {
+        setFormError("settings.notificationsError");
+      }
+    } catch (err) {
+      console.error("[settings] push:", err);
+      setFormError("settings.notificationsError");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   function onAskSignOut() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -120,6 +171,7 @@ export default function SettingsScreen() {
     setSigningOut(true);
     setFormError(null);
     try {
+      await unregisterCurrentPushToken();
       await signOut(auth);
       // Limpa store na hora — onAuthStateChanged também reage, mas não
       // dependemos só dele pra não piscar estado intermediário.
@@ -361,12 +413,40 @@ export default function SettingsScreen() {
               {t("settings.localePtBR")}
             </AppText>
           </View>
-          <SettingsRow
-            icon="notifications-outline"
-            label={t("settings.notifications")}
-            disabled
-            badge={t("settings.comingSoon")}
-          />
+          <View
+            className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: `${theme.accent}18` }}
+            >
+              <Ionicons name="notifications-outline" size={18} color={theme.accent} />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <AppText className="text-[15px] font-medium">
+                {t("settings.notifications")}
+              </AppText>
+              <AppText tone="secondary" className="text-[12px] leading-4">
+                {!nativePush
+                  ? t("settings.notificationsExpoGo")
+                  : pushPermission === "denied"
+                    ? t("settings.notificationsDenied")
+                    : t("settings.notificationsHint")}
+              </AppText>
+            </View>
+            <Switch
+              value={nativePush && pushOptIn && pushPermission === "granted"}
+              onValueChange={(value) => {
+                void onTogglePush(value);
+              }}
+              disabled={pushBusy || !nativePush}
+              trackColor={{ false: theme.border, true: theme.accent }}
+              thumbColor={theme.surface}
+              ios_backgroundColor={theme.border}
+              accessibilityLabel={t("settings.notifications")}
+            />
+          </View>
           <View
             className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
             style={{ backgroundColor: theme.surface, borderColor: theme.border }}

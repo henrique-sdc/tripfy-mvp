@@ -175,6 +175,9 @@ class SavedTripResponse(BaseModel):
     role: str = "owner"
     # Ponteiro não carrega `days`; a lista usa isto no card.
     day_count: int = 0
+    # Cache do geocoding do destino (clima). Não vem do LLM.
+    destination_lat: float | None = None
+    destination_lng: float | None = None
 
 
 class CloneTripResponse(BaseModel):

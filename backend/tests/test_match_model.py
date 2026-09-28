@@ -6,11 +6,11 @@ from pydantic import ValidationError
 
 from core.prompt_engineering import build_match_prompt
 from models.match import (
-    CreateMatchRequest,
     MatchInDB,
     MatchInviteSummary,
     MatchPendingSummary,
     MatchStatus,
+    participant_matches_invite,
 )
 from models.user import (
     BudgetRange,
@@ -34,6 +34,12 @@ class MatchModelTest(unittest.TestCase):
         )
 
         self.assertEqual(request.destination, "Lisboa")
+
+    def test_open_link_allows_anyone_until_invitee_is_set(self) -> None:
+        self.assertTrue(participant_matches_invite(None, "ana"))
+        self.assertTrue(participant_matches_invite("", "ana"))
+        self.assertTrue(participant_matches_invite("ana", "ana"))
+        self.assertFalse(participant_matches_invite("ana", "bruno"))
 
     def test_create_request_rejects_days_mismatch(self) -> None:
         with self.assertRaises(ValidationError):

@@ -10,8 +10,10 @@ from core.rate_limit import limiter
 from core.sse import itinerary_sse_stream
 from models.match import (
     CreateMatchRequest,
+    InviteMatchRequest,
     JoinMatchRequest,
     MatchInDB,
+    MatchIncomingInvite,
     MatchInviteSummary,
     MatchPendingSummary,
 )
@@ -52,6 +54,16 @@ async def list_pending_matches(
     return await match_service.list_pending_matches(current_user.uid)
 
 
+@router.get("/invites", response_model=list[MatchIncomingInvite])
+@limiter.limit(_RATE_LIMIT)
+async def list_incoming_invites(
+    request: Request,  # exigido pelo slowapi para identificar o IP
+    current_user: CurrentUser = Depends(get_current_user),
+) -> list[MatchIncomingInvite]:
+    """Convites waiting endereçados ao usuário autenticado."""
+    return await match_service.list_incoming_invites(current_user.uid)
+
+
 @router.get("/{match_id}", response_model=MatchInDB | MatchInviteSummary)
 @limiter.limit(_RATE_LIMIT)
 async def get_match(
@@ -79,6 +91,33 @@ async def join_match(
     )
     notes = body.notes if body is not None else ""
     return await match_service.join_match(match_id, current_user.uid, notes)
+
+
+@router.post("/{match_id}/invite", response_model=MatchInDB)
+@limiter.limit(_RATE_LIMIT)
+async def invite_companion(
+    request: Request,  # exigido pelo slowapi para identificar o IP
+    match_id: MatchId,
+    body: InviteMatchRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> MatchInDB:
+    """Marca um companheiro como convidado desta sala."""
+    return await match_service.invite_companion(
+        match_id,
+        current_user.uid,
+        body.companion_uid,
+    )
+
+
+@router.post("/{match_id}/decline", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(_RATE_LIMIT)
+async def decline_invite(
+    request: Request,  # exigido pelo slowapi para identificar o IP
+    match_id: MatchId,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> None:
+    """O convidado recusa e o banner some da Home."""
+    await match_service.decline_invite(match_id, current_user.uid)
 
 
 @router.post("/{match_id}/generate")

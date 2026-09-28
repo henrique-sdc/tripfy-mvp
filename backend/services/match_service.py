@@ -17,6 +17,7 @@ from core.prompt_engineering import build_match_prompt
 from models.match import (
     CreateMatchRequest,
     MatchInDB,
+    MatchIncomingInvite,
     MatchInviteSummary,
     MatchPendingSummary,
     MatchStatus,
@@ -66,6 +67,98 @@ async def list_pending_matches(owner_uid: str) -> list[MatchPendingSummary]:
         )
         for m in matches
     ]
+
+
+async def list_incoming_invites(invitee_uid: str) -> list[MatchIncomingInvite]:
+    """Convites waiting endereçados a este usuário."""
+    matches = await match_repository.list_waiting_for_invitee(invitee_uid)
+    invites: list[MatchIncomingInvite] = []
+    for match in matches:
+        owner = await user_repository.get_public_profile(match.owner_uid)
+        invites.append(
+            MatchIncomingInvite(
+                id=match.id,
+                destination=match.destination,
+                owner_name=(owner.name.strip() if owner and owner.name else ""),
+                owner_photo=owner.photoBase64 if owner else None,
+            )
+        )
+    logger.info(
+        "Convites de Match listados: invitee_uid={} count={}",
+        invitee_uid,
+        len(invites),
+    )
+    return invites
+
+
+async def invite_companion(
+    match_id: str,
+    owner_uid: str,
+    companion_uid: str,
+) -> MatchInDB:
+    """Marca um companheiro como convidado da sala."""
+    target = companion_uid.strip()
+    if not target or target == owner_uid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Escolha um companheiro para convidar.",
+        )
+    owner = await user_repository.get_user(owner_uid)
+    if owner is None or target not in owner.companions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Só dá pra convidar alguém da sua lista de companheiros.",
+        )
+    try:
+        match = await match_repository.set_invitee(match_id, owner_uid, target)
+    except match_repository.MatchNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sessão de Match não encontrada.",
+        ) from exc
+    except match_repository.MatchNotOwnerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Só quem criou a sala pode convidar.",
+        ) from exc
+    except match_repository.MatchUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta sala não aceita convite agora.",
+        ) from exc
+    logger.info(
+        "Convite de Match gravado: match_id={} owner_uid={} invitee_uid={}",
+        match.id,
+        owner_uid,
+        target,
+    )
+    return match
+
+
+async def decline_invite(match_id: str, invitee_uid: str) -> None:
+    """O convidado recusa e some da Home."""
+    try:
+        await match_repository.clear_invitee(match_id, invitee_uid)
+    except match_repository.MatchNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sessão de Match não encontrada.",
+        ) from exc
+    except match_repository.MatchInviteRestrictedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este convite não é seu.",
+        ) from exc
+    except match_repository.MatchUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este convite não está mais aberto.",
+        ) from exc
+    logger.info(
+        "Convite de Match recusado: match_id={} invitee_uid={}",
+        match_id,
+        invitee_uid,
+    )
 
 
 async def get_match_for_viewer(
@@ -138,6 +231,11 @@ async def join_match(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Esta sessão não aceita novos participantes.",
+        ) from exc
+    except match_repository.MatchInviteRestrictedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este convite é para outra pessoa.",
         ) from exc
 
 

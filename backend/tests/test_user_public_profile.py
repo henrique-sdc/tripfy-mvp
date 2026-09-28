@@ -11,6 +11,8 @@ from models.user import (
     DietaryStyle,
     Interest,
     Pace,
+    PushDevice,
+    PushPlatform,
     TravelPreferences,
     TravelerType,
     UserInDB,
@@ -43,6 +45,14 @@ class UserPublicProfileTest(unittest.TestCase):
             photoBase64="abc",
             companions=["uid-x"],
             travel_preferences=_prefs(),
+            notifications_enabled=True,
+            push_devices=[
+                PushDevice(
+                    token="ExponentPushToken[segredo]",
+                    platform=PushPlatform.IOS,
+                    timezone="America/Sao_Paulo",
+                )
+            ],
         )
 
         profile = public_profile_from_user(user)
@@ -65,6 +75,8 @@ class UserPublicProfileTest(unittest.TestCase):
         self.assertNotIn("budget_range", dumped)
         self.assertNotIn("dietary_style", dumped)
         self.assertNotIn("other_preferences", dumped)
+        self.assertNotIn("push_devices", dumped)
+        self.assertNotIn("notifications_enabled", dumped)
 
     def test_projection_without_prefs(self) -> None:
         user = UserInDB(

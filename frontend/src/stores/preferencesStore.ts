@@ -19,9 +19,21 @@ type PreferencesState = {
   themeMode: ThemeMode;
   locale: AppLocale;
   hasHydrated: boolean;
+  /** Opt-in deste aparelho. A permissão do sistema é outra camada. */
+  pushOptIn: boolean;
+  pushToken: string | null;
+  notificationPromptDismissed: boolean;
+  promptVisible: boolean;
+  /** Evita reabrir o mesmo toque em todo cold start. */
+  handledNotificationId: string | null;
   setHaptics: (value: boolean) => void;
   setThemeMode: (value: ThemeMode) => void;
   setLocale: (value: AppLocale) => void;
+  setPushOptIn: (value: boolean) => void;
+  setPushToken: (value: string | null) => void;
+  setPromptVisible: (value: boolean) => void;
+  dismissNotificationPrompt: () => void;
+  setHandledNotificationId: (value: string) => void;
 };
 
 // Expo Router SSR (Node, platform=web) não tem window. AsyncStorage web
@@ -29,9 +41,9 @@ type PreferencesState = {
 const persistStorage =
   Platform.OS === "web" && typeof window === "undefined"
     ? {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {},
+        getItem: () => Promise.resolve(null),
+        setItem: () => Promise.resolve(),
+        removeItem: () => Promise.resolve(),
       }
     : AsyncStorage;
 
@@ -42,7 +54,19 @@ export const usePreferencesStore = create<PreferencesState>()(
       themeMode: "system",
       locale: "pt-BR",
       hasHydrated: false,
+      pushOptIn: false,
+      pushToken: null,
+      notificationPromptDismissed: false,
+      promptVisible: false,
+      handledNotificationId: null,
       setHaptics: (haptics) => set({ haptics }),
+      setPushOptIn: (pushOptIn) => set({ pushOptIn }),
+      setPushToken: (pushToken) => set({ pushToken }),
+      setPromptVisible: (promptVisible) => set({ promptVisible }),
+      dismissNotificationPrompt: () =>
+        set({ notificationPromptDismissed: true, promptVisible: false }),
+      setHandledNotificationId: (handledNotificationId) =>
+        set({ handledNotificationId }),
       setThemeMode: (value) => {
         const themeMode = sanitizeThemeMode(value);
         applyThemeMode(themeMode);
@@ -61,6 +85,10 @@ export const usePreferencesStore = create<PreferencesState>()(
         haptics: state.haptics,
         themeMode: state.themeMode,
         locale: state.locale,
+        pushOptIn: state.pushOptIn,
+        pushToken: state.pushToken,
+        notificationPromptDismissed: state.notificationPromptDismissed,
+        handledNotificationId: state.handledNotificationId,
       }),
       onRehydrateStorage: () => (state, error) => {
         if (error) {

@@ -1,13 +1,18 @@
-// Home — AI Command Center + destinos personalizados + Em Alta (RF04/RF08).
+// Home — saudação, convite de Match, último roteiro e destinos (RF04/RF08).
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { Href, router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useColorScheme, useWindowDimensions } from "react-native";
+import {
+  Alert,
+  RefreshControl,
+  useColorScheme,
+  useWindowDimensions,
+} from "react-native";
 import { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -16,7 +21,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AiCommandBar } from "@/components/home/AiCommandBar";
 import { InviteBanner } from "@/components/home/InviteBanner";
 import { TrendingItineraryCard } from "@/components/home/TrendingItineraryCard";
 import {
@@ -32,9 +36,11 @@ import { AppText } from "@/components/ui/AppText";
 import { TRENDING_ITINERARIES } from "@/constants/trending";
 import { useTheme } from "@/hooks/use-theme";
 import {
-  getMyPendingMatches,
+  declineMatchInvite,
+  getMyMatchInvites,
   getPlaceDetails,
-  type MatchPendingSummary,
+  joinMatch,
+  type MatchIncomingInvite,
 } from "@/lib/api";
 import {
   getUserProfile,
@@ -49,6 +55,9 @@ import { Pressable, ScrollView, View } from "@/tw";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SPRING = { damping: 20, stiffness: 300 };
+// ponytail: poll enquanto a Home está aberta. O convidado não lê `matches`
+// no client (rules). Upgrade: doc de convite que o usuário pode ouvir.
+const INVITE_POLL_MS = 5000;
 
 function greetingKey(): "morning" | "afternoon" | "evening" {
   const h = new Date().getHours();
@@ -79,13 +88,13 @@ export default function HomeScreen() {
   const [latestTrip, setLatestTrip] = useState<SavedTrip | null>(null);
   const [tripPhoto, setTripPhoto] = useState<string | null>(null);
   const [tripLoading, setTripLoading] = useState(true);
-  const [pendingMatch, setPendingMatch] = useState<MatchPendingSummary | null>(
-    null,
-  );
-  const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
+  const [invite, setInvite] = useState<MatchIncomingInvite | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const muteInviteId = useRef<string | null>(null);
 
-  const loadHome = useCallback(async (signal: AbortSignal) => {
-    setTripLoading(true);
+  const loadHome = useCallback(async (signal: AbortSignal, quiet = false) => {
+    if (!quiet) setTripLoading(true);
     try {
       const [nextProfile, trip, pending] = await Promise.all([
         getUserProfile().catch((err) => {
@@ -96,9 +105,9 @@ export default function HomeScreen() {
           console.warn("[Home] Viagens indisponíveis:", err);
           return null;
         }),
-        getMyPendingMatches(signal).catch((err) => {
-          console.warn("[Home] Matches pendentes indisponíveis:", err);
-          return [] as MatchPendingSummary[];
+        getMyMatchInvites(signal).catch((err) => {
+          console.warn("[Home] Convites de Match indisponíveis:", err);
+          return [] as MatchIncomingInvite[];
         }),
       ]);
       if (signal.aborted) return;
@@ -106,8 +115,8 @@ export default function HomeScreen() {
       setProfile(nextProfile);
       setLatestTrip(trip);
 
-      const firstPending = pending[0] ?? null;
-      setPendingMatch(firstPending);
+      const muted = muteInviteId.current;
+      setInvite(pending.find((item) => item.id !== muted) ?? null);
 
       if (!trip?.destination?.trim()) {
         setTripPhoto(null);
@@ -128,7 +137,17 @@ export default function HomeScreen() {
         setTripPhoto(null);
       }
     } finally {
-      if (!signal.aborted) setTripLoading(false);
+      if (!signal.aborted && !quiet) setTripLoading(false);
+    }
+  }, []);
+
+  const refreshInvites = useCallback(async () => {
+    try {
+      const pending = await getMyMatchInvites();
+      const muted = muteInviteId.current;
+      setInvite(pending.find((item) => item.id !== muted) ?? null);
+    } catch (err) {
+      console.warn("[Home] Convites de Match indisponíveis:", err);
     }
   }, []);
 
@@ -136,9 +155,24 @@ export default function HomeScreen() {
     useCallback(() => {
       const controller = new AbortController();
       void loadHome(controller.signal);
-      return () => controller.abort();
-    }, [loadHome]),
+      const timer = setInterval(() => {
+        void refreshInvites();
+      }, INVITE_POLL_MS);
+      return () => {
+        controller.abort();
+        clearInterval(timer);
+      };
+    }, [loadHome, refreshInvites]),
   );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await loadHome(new AbortController().signal, true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const firstName = useMemo(() => {
     const fromProfile = profile?.name?.trim();
@@ -168,8 +202,7 @@ export default function HomeScreen() {
     [profile?.travel_preferences],
   );
 
-  const showPending =
-    pendingMatch != null && pendingMatch.id !== dismissedMatchId;
+  const showInvite = invite != null;
 
   const avatarScale = useSharedValue(1);
   const avatarStyle = useAnimatedStyle(() => ({
@@ -185,9 +218,34 @@ export default function HomeScreen() {
     router.push(href);
   }
 
-  function openPendingLobby() {
-    if (!pendingMatch) return;
-    router.push(`/match/${pendingMatch.id}` as Href);
+  async function acceptInvite() {
+    if (!invite || accepting) return;
+    setAccepting(true);
+    try {
+      await joinMatch(invite.id);
+      router.push(`/match/${invite.id}` as Href);
+    } catch (err) {
+      console.error("[Home] Aceitar convite falhou:", err);
+      Alert.alert(t("home.invite.failTitle"), t("home.invite.failBody"));
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  async function declineInvite() {
+    if (!invite || accepting) return;
+    const current = invite;
+    muteInviteId.current = current.id;
+    setInvite(null);
+    try {
+      await declineMatchInvite(current.id);
+      muteInviteId.current = null;
+    } catch (err) {
+      console.error("[Home] Recusar convite falhou:", err);
+      muteInviteId.current = null;
+      setInvite(current);
+      Alert.alert(t("home.invite.failTitle"), t("home.invite.declineFail"));
+    }
   }
 
   const Header = (
@@ -263,10 +321,31 @@ export default function HomeScreen() {
         stickyHeaderIndices={[0]}
         contentContainerStyle={{ paddingBottom: tabPad }}
         contentInsetAdjustmentBehavior="never"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
       >
         {Header}
 
         <View className="gap-6 pt-2">
+          {showInvite && invite ? (
+            <View className="px-6">
+              <InviteBanner
+                name={invite.owner_name}
+                destination={invite.destination}
+                photoUri={profilePhotoUri({ photoBase64: invite.owner_photo })}
+                accepting={accepting}
+                onAccept={() => void acceptInvite()}
+                onDecline={() => void declineInvite()}
+              />
+            </View>
+          ) : null}
+
           <View className="px-6 gap-4">
             {tripLoading ? (
               <UpcomingTicket
@@ -287,16 +366,6 @@ export default function HomeScreen() {
             ) : (
               <LatestTripEmpty onPress={openSheet} />
             )}
-
-            <AiCommandBar />
-
-            {showPending && pendingMatch ? (
-              <InviteBanner
-                destination={pendingMatch.destination}
-                onAccept={openPendingLobby}
-                onDismiss={() => setDismissedMatchId(pendingMatch.id)}
-              />
-            ) : null}
           </View>
 
           <View className="gap-3">

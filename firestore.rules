@@ -8,8 +8,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Cada usuário só lê/edita o próprio perfil. Billing (tier / premium_until)
-    // e create de viagem nova passam só pelo Admin SDK (FastAPI).
+    // Cada usuário só lê/edita o próprio perfil. Billing (tier / premium_until),
+    // push (push_devices / notifications_enabled) e create de viagem nova
+    // passam só pelo Admin SDK (FastAPI).
     match /users/{uid} {
       function isSelf() {
         return request.auth != null && request.auth.uid == uid;
@@ -18,10 +19,20 @@ service cloud.firestore {
       allow read: if isSelf();
       // Create pelo client não pode plantiar Pro no doc.
       allow create: if isSelf()
-        && !request.resource.data.keys().hasAny(['tier', 'premium_until']);
+        && !request.resource.data.keys().hasAny([
+          'tier',
+          'premium_until',
+          'push_devices',
+          'notifications_enabled',
+        ]);
       allow update: if isSelf()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['tier', 'premium_until']);
+            .hasAny([
+              'tier',
+              'premium_until',
+              'push_devices',
+              'notifications_enabled',
+            ]);
       allow delete: if isSelf();
 
       // Roteiros — create só via API (limite Free). Restore também: o client
@@ -84,6 +95,11 @@ service cloud.firestore {
 
     // Avaliações Tripfy por place_id Google — só Admin SDK (API FastAPI).
     match /place_reviews/{reviewId} {
+      allow read, write: if false;
+    }
+
+    // Dedupe dos pushes. Só o tick (Admin SDK) escreve.
+    match /notification_sends/{sendId} {
       allow read, write: if false;
     }
 

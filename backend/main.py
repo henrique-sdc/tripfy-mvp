@@ -12,6 +12,8 @@ import core.firebase  # noqa: F401
 from api.auth_router import router as auth_router
 from api.checkout_router import router as checkout_router
 from api.match_router import router as match_router
+from api.notification_router import internal_router as notification_internal_router
+from api.notification_router import me_router as notification_me_router
 from api.places_router import router as places_router
 from api.trip_router import router as trip_router
 from api.user_router import router as user_router
@@ -46,6 +48,8 @@ app.include_router(match_router, prefix="/api/v1")
 app.include_router(places_router, prefix="/api/v1")
 app.include_router(trip_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
+app.include_router(notification_me_router, prefix="/api/v1")
+app.include_router(notification_internal_router)
 
 
 @app.get("/health")

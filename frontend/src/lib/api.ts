@@ -579,6 +579,8 @@ export type MatchInDB = {
   guest_notes?: string;
   owner_uid: string;
   participants: string[];
+  /** Companheiro marcado. Ausente = link aberto. */
+  invitee_uid?: string | null;
   created_at: unknown;
   generation_lock?: {
     token: string;
@@ -730,6 +732,47 @@ export async function getMyPendingMatches(
   return (await response.json()) as MatchPendingSummary[];
 }
 
+/** Convite recebido — banner da Home. */
+export type MatchIncomingInvite = {
+  id: string;
+  destination: string;
+  owner_name: string;
+  owner_photo: string | null;
+};
+
+/** GET /matches/invites — salas waiting em que eu fui marcado. */
+export async function getMyMatchInvites(
+  signal?: AbortSignal,
+): Promise<MatchIncomingInvite[]> {
+  const response = await authFetch("/matches/invites", {
+    method: "GET",
+    signal,
+  });
+  return (await response.json()) as MatchIncomingInvite[];
+}
+
+/** POST /matches/{id}/invite — grava o companheiro na sala. */
+export async function inviteMatchCompanion(
+  matchId: string,
+  companionUid: string,
+): Promise<MatchInDB> {
+  const response = await authFetch(
+    `/matches/${encodeURIComponent(matchId)}/invite`,
+    {
+      method: "POST",
+      body: JSON.stringify({ companion_uid: companionUid }),
+    },
+  );
+  return (await response.json()) as MatchInDB;
+}
+
+/** POST /matches/{id}/decline — o convidado recusa. */
+export async function declineMatchInvite(matchId: string): Promise<void> {
+  await authFetch(`/matches/${encodeURIComponent(matchId)}/decline`, {
+    method: "POST",
+  });
+}
+
 /** GET /matches/{id} — resumo pré-join ou visão completa do participante. */
 export async function getMatch(
   matchId: string,
@@ -778,6 +821,26 @@ export async function addCompanion(uid: string): Promise<void> {
 export async function removeCompanion(uid: string): Promise<void> {
   await authFetch(`/users/me/companions/${encodeURIComponent(uid.trim())}`, {
     method: "DELETE",
+  });
+}
+
+/** PUT /me/push-token — Expo Push deste aparelho. O Firestore só o backend grava. */
+export async function registerPushToken(body: {
+  token: string;
+  platform: "ios" | "android";
+  timezone: string;
+}): Promise<void> {
+  await authFetch("/me/push-token", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+/** DELETE /me/push-token — logout ou switch desligado. */
+export async function deletePushToken(token: string): Promise<void> {
+  await authFetch("/me/push-token", {
+    method: "DELETE",
+    body: JSON.stringify({ token }),
   });
 }
 

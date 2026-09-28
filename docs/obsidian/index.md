@@ -22,3 +22,5 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.
 - [[Edição Conjunta]] — um roteiro do Match para dois, ops com revisão, `onSnapshot` e presença no Realtime Database.
 - [[Build iOS EAS iPhone]] — development build no iPhone 13 via EAS (Windows, sem Xcode); Kaspersky + hotspot; certificados na Expo.
+- [[Notificações Contextuais]] — lembrete, avaliação e chuva via Expo Push; tick HTTP no FastAPI, sem GPS em background.
+- [[Testar Notificações]] — development build, suporte via curl e janela do tick. Sem segredo no arquivo.

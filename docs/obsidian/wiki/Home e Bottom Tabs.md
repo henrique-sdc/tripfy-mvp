@@ -40,9 +40,9 @@ Dados reais no `useFocusEffect`:
 
 - **Avatar** — `getUserProfile()` + `profilePhotoUri()` (Firestore `photoBase64` ou Auth `photoURL`); tap → aba Perfil.
 - **Último roteiro** — `getLatestTrip()` (`updated_at` desc); foto via `getPlaceDetails`; skeleton `h-[88]`; empty → CTA `CreateTripSheet`. Sem countdown de datas (YAGNI).
-- **Match pendente** — `GET /api/v1/matches/pending` (owner + `waiting`); banner swipe-dismiss → `/match/{id}`.
+- **Convite de Match** — `GET /api/v1/matches/invites` no foco, a cada 5 s com a Home aberta, e no pull-to-refresh. Banner no topo: Aceitar entra na sala (`POST /join`), Recusar zera `invitee_uid`. Sem swipe.
 - **Destinos da vibe** — `getRecommendedDestinations(travel_preferences)` catálogo estático ranqueado por `interests` ([[Preferências Sua Vibe]]).
-- **AiCommandBar / FAB** — `createTripSheetStore.open()`.
+- **FAB** — `createTripSheetStore.open()`.
 - **Em Alta** — catálogo local → `/trending`.
 
 Ver [[Match de Viajantes RF11 RF12]].
