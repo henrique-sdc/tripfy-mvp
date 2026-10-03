@@ -1,7 +1,15 @@
 """Colisões da edição conjunta — delete x título, reorder x patch."""
 import unittest
 
-from services.trip_ops import TripOpError, apply_op, describe_change, stamp_activity_ids
+from services.trip_ops import (
+    CHANGE_LOG_CAP,
+    CHANGE_LOG_WINDOW_MS,
+    TripOpError,
+    append_change_log,
+    apply_op,
+    describe_change,
+    stamp_activity_ids,
+)
 
 
 def _state() -> dict:
@@ -275,6 +283,38 @@ class TripOpsTest(unittest.TestCase):
         )
         self.assertEqual(kind, "reorder")
         self.assertEqual(day, 2)
+
+    def test_change_log_coalesce_and_cap(self) -> None:
+        base = append_change_log(
+            [], by="Ana", kind="notes", day=None, at_ms=1_000
+        )
+        same = append_change_log(
+            base, by="Ana", kind="notes", day=None, at_ms=2_000
+        )
+        self.assertEqual(len(same), 1)
+        self.assertEqual(same[0]["at_ms"], 2_000)
+
+        other = append_change_log(
+            same, by="Ana", kind="title", day=None, at_ms=2_500
+        )
+        self.assertEqual(len(other), 2)
+
+        later = append_change_log(
+            same,
+            by="Ana",
+            kind="notes",
+            day=None,
+            at_ms=2_000 + CHANGE_LOG_WINDOW_MS,
+        )
+        self.assertEqual(len(later), 2)
+
+        log: list = []
+        for i in range(CHANGE_LOG_CAP + 1):
+            log = append_change_log(
+                log, by="Ana", kind=f"k{i}", day=None, at_ms=i
+            )
+        self.assertEqual(len(log), CHANGE_LOG_CAP)
+        self.assertEqual(log[0]["kind"], "k1")
 
 
 if __name__ == "__main__":

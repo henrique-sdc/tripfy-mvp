@@ -17,9 +17,53 @@ from core.config import settings
 from core.prompt_engineering import SYSTEM_PROMPT
 from loguru import logger
 from models.trip import ItineraryDayResponse, ItineraryResponse
+from models.user import VibePick
 
 # Roteiro multi-dia com coords estoura fácil o default (~4k); gpt-4o-mini aguenta 16k.
 _OPENAI_MAX_TOKENS = 16_384
+
+_VIBE_PLACES_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["places"],
+    "properties": {
+        "places": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["destination", "reason"],
+                "properties": {
+                    "destination": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
+
+def _picks_from_json(raw: str) -> list[VibePick]:
+    from models.user import VibePlacesDraft
+
+    draft = VibePlacesDraft.model_validate_json(raw)
+    picks: list[VibePick] = []
+    seen: set[str] = set()
+    for place in draft.places:
+        destination = place.destination.strip()
+        reason = place.reason.strip()
+        key = destination.casefold()
+        if len(destination) < 2 or len(reason) < 2 or key in seen:
+            continue
+        seen.add(key)
+        picks.append(
+            VibePick(destination=destination[:80], reason=reason[:180], trip_id=None)
+        )
+        if len(picks) == 3:
+            break
+    if len(picks) != 3:
+        raise ValueError("A IA não devolveu 3 cidades distintas.")
+    return picks
 
 # Keywords que a OpenAI strict rejeita/ignora — tiramos do schema Pydantic.
 _OPENAI_STRIP_KEYS = frozenset(
@@ -154,6 +198,11 @@ class LLMProvider(ABC):
         """Yield de tokens textuais do roteiro (para SSE no router)."""
         ...
 
+    @abstractmethod
+    async def suggest_destinations(self, user_prompt: str) -> list[VibePick]:
+        """Três cidades. Sem trip_id."""
+        ...
+
 
 class GeminiProvider(LLMProvider):
     """Structured Output nativo via SDK `google-genai`."""
@@ -196,6 +245,26 @@ class GeminiProvider(LLMProvider):
             text = getattr(chunk, "text", None)
             if text:
                 yield text
+
+    async def suggest_destinations(self, user_prompt: str) -> list[VibePick]:
+        from google.genai import types
+
+        from core.prompt_engineering import VIBE_PICKS_SYSTEM
+        from models.user import VibePlacesDraft
+
+        config = types.GenerateContentConfig(
+            system_instruction=VIBE_PICKS_SYSTEM,
+            temperature=0.7,
+            response_mime_type="application/json",
+            response_schema=VibePlacesDraft,
+        )
+        response = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=user_prompt,
+            config=config,
+        )
+        raw = getattr(response, "text", None) or ""
+        return _picks_from_json(raw)
 
 
 class OpenAIProvider(LLMProvider):
@@ -265,6 +334,29 @@ class OpenAIProvider(LLMProvider):
             len(itinerary.days),
         )
         yield payload
+
+    async def suggest_destinations(self, user_prompt: str) -> list[VibePick]:
+        from core.prompt_engineering import VIBE_PICKS_SYSTEM
+
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": VIBE_PICKS_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+            max_tokens=800,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "vibe_places",
+                    "strict": True,
+                    "schema": _VIBE_PLACES_SCHEMA,
+                },
+            },
+        )
+        raw = response.choices[0].message.content or ""
+        return _picks_from_json(raw)
 
 
 # Instância lazy — evita falhar na importação se a key ainda não estiver no env.

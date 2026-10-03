@@ -1,12 +1,13 @@
-// Lista completa "Em Alta" — busca + categorias + CTA wizard (RF08).
+// Em alta — top 10 roteiros públicos salvos nesta semana.
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   FlatList,
   TextInput,
   useColorScheme,
@@ -16,14 +17,34 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TrendingItineraryCard } from "@/components/home/TrendingItineraryCard";
 import { AppText } from "@/components/ui/AppText";
-import {
-  TRENDING_CATEGORIES,
-  TRENDING_ITINERARIES,
-  type TrendingCategoryId,
-  filterTrendingItineraries,
-} from "@/constants/trending";
 import { useTheme } from "@/hooks/use-theme";
-import { Pressable, ScrollView, View } from "@/tw";
+import { listWeeklyTop, type ExploreCard } from "@/lib/explore";
+import { Pressable, View } from "@/tw";
+
+function TrendingHeader() {
+  const { t } = useTranslation();
+  return (
+    <AppText tone="secondary" className="text-[14px] mb-1">
+      {t("trending.screenSubtitle")}
+    </AppText>
+  );
+}
+
+function TrendingEmpty({ searching }: { searching: boolean }) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  return (
+    <View className="items-center gap-3 mt-16 px-4">
+      <Ionicons name="heart-outline" size={36} color={theme.textMuted} />
+      <AppText className="text-[16px] font-semibold text-center">
+        {t("trending.emptyTitle")}
+      </AppText>
+      <AppText tone="secondary" className="text-[13px] text-center">
+        {searching ? t("trending.emptyBody") : t("home.trending.empty")}
+      </AppText>
+    </View>
+  );
+}
 
 export default function TrendingScreen() {
   const { t } = useTranslation();
@@ -33,26 +54,36 @@ export default function TrendingScreen() {
   const { width } = useWindowDimensions();
 
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<TrendingCategoryId>("all");
+  const [trips, setTrips] = useState<ExploreCard[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = useMemo(
-    () =>
-      filterTrendingItineraries(TRENDING_ITINERARIES, {
-        category,
-        query,
-        resolveTitle: (item) => t(item.titleKey),
-      }),
-    [category, query, t],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    void listWeeklyTop()
+      .then((cards) => {
+        if (!cancelled) setTrips(cards);
+      })
+      .catch((err: unknown) => {
+        console.warn("[trending] lista:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return trips;
+    return trips.filter((item) =>
+      `${item.destination} ${item.title}`.toLowerCase().includes(needle),
+    );
+  }, [query, trips]);
 
   const listWidth = width - 48;
-  const hasFilters = query.trim().length > 0 || category !== "all";
-
-  function clearFilters() {
-    Haptics.selectionAsync();
-    setQuery("");
-    setCategory("all");
-  }
+  const searching = query.trim().length > 0;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -106,11 +137,10 @@ export default function TrendingScreen() {
               paddingVertical: 0,
             }}
             returnKeyType="search"
-            clearButtonMode="never"
             autoCorrect={false}
             autoCapitalize="none"
           />
-          {query.length > 0 ? (
+          {searching ? (
             <Pressable
               onPress={() => {
                 Haptics.selectionAsync();
@@ -123,93 +153,34 @@ export default function TrendingScreen() {
             </Pressable>
           ) : null}
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-        >
-          {TRENDING_CATEGORIES.map((chip) => {
-            const active = category === chip.id;
-            return (
-              <Pressable
-                key={chip.id}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setCategory(chip.id);
-                }}
-                className="h-8 px-3.5 rounded-full border items-center justify-center"
-                style={{
-                  backgroundColor: active ? theme.accent : theme.surface,
-                  borderColor: active ? theme.accent : theme.border,
-                }}
-              >
-                <AppText
-                  className="text-[13px] font-semibold"
-                  style={{
-                    color: active ? "#FFFFFF" : theme.textSecondary,
-                  }}
-                >
-                  {t(chip.labelKey)}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{
-          padding: 24,
-          paddingBottom: insets.bottom + 32,
-          gap: 16,
-          flexGrow: 1,
-        }}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <AppText tone="secondary" className="text-[14px] mb-1">
-            {t("trending.screenSubtitle")}
-          </AppText>
-        }
-        ListEmptyComponent={
-          <View className="items-center gap-3 mt-16 px-4">
-            <Ionicons
-              name="search-outline"
-              size={36}
-              color={theme.textMuted}
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{
+            padding: 24,
+            paddingBottom: insets.bottom + 32,
+            gap: 16,
+            flexGrow: 1,
+          }}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={<TrendingHeader />}
+          ListEmptyComponent={<TrendingEmpty searching={searching} />}
+          renderItem={({ item }) => (
+            <TrendingItineraryCard
+              trip={item}
+              variant="list"
+              width={listWidth}
             />
-            <AppText className="text-[16px] font-semibold text-center">
-              {t("trending.emptyTitle")}
-            </AppText>
-            <AppText tone="secondary" className="text-[13px] text-center">
-              {t("trending.emptyBody")}
-            </AppText>
-            {hasFilters ? (
-              <Pressable
-                onPress={clearFilters}
-                className="mt-2 h-11 px-5 rounded-full items-center justify-center"
-                style={{ backgroundColor: theme.buttonPrimary }}
-              >
-                <AppText
-                  className="text-[13px] font-bold"
-                  style={{ color: theme.buttonText }}
-                >
-                  {t("trending.clearFilters")}
-                </AppText>
-              </Pressable>
-            ) : null}
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TrendingItineraryCard
-            item={item}
-            variant="list"
-            width={listWidth}
-          />
-        )}
-      />
+          )}
+        />
+      )}
     </View>
   );
 }

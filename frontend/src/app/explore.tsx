@@ -2,6 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
+import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import type { QueryDocumentSnapshot } from "firebase/firestore";
 
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
+import { getPlaceDetails } from "@/lib/api";
 import {
   destinationKey,
   listExploreTrips,
@@ -43,29 +45,69 @@ function ExploreCardRow({
   const { t } = useTranslation();
   const theme = useTheme();
   const title = item.title.trim() || item.destination;
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const query = item.destination.trim();
+    if (query.length < 2) {
+      setPhotoUrl(null);
+      return;
+    }
+    const controller = new AbortController();
+    let cancelled = false;
+    void getPlaceDetails(query, undefined, undefined, controller.signal)
+      .then((place) => {
+        if (!cancelled) setPhotoUrl(place.photo_url);
+      })
+      .catch((err: unknown) => {
+        if (cancelled || controller.signal.aborted) return;
+        console.warn("[explore] foto:", err);
+        setPhotoUrl(null);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [item.destination]);
+
   return (
     <Pressable
       onPress={onPress}
-      className="rounded-2xl px-4 py-3 mb-3"
-      style={{ backgroundColor: theme.surface }}
+      className="flex-row rounded-2xl overflow-hidden mb-3"
+      style={{ backgroundColor: theme.surface, minHeight: 96 }}
       accessibilityRole="button"
       accessibilityLabel={title}
     >
-      <AppText className="text-[16px] font-semibold" numberOfLines={2}>
-        {title}
-      </AppText>
-      <AppText tone="secondary" className="text-[13px] mt-1">
-        {t("explore.meta", {
-          destination: item.destination,
-          count: item.dayCount,
-          name: item.ownerName || t("tripDetail.presence.someone"),
-        })}
-      </AppText>
-      {item.summary ? (
-        <AppText tone="secondary" className="text-[13px] mt-1" numberOfLines={2}>
-          {item.summary}
+      <View style={{ width: 104, minHeight: 96, backgroundColor: theme.border }}>
+        {photoUrl ? (
+          <Image
+            source={{ uri: photoUrl }}
+            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+            contentFit="cover"
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Ionicons name="image-outline" size={22} color={theme.textMuted} />
+          </View>
+        )}
+      </View>
+      <View className="flex-1 px-3 py-3 justify-center">
+        <AppText className="text-[16px] font-semibold" numberOfLines={2}>
+          {title}
         </AppText>
-      ) : null}
+        <AppText tone="secondary" className="text-[13px] mt-1">
+          {t("explore.meta", {
+            destination: item.destination,
+            count: item.dayCount,
+            name: item.ownerName || t("tripDetail.presence.someone"),
+          })}
+        </AppText>
+        {item.summary ? (
+          <AppText tone="secondary" className="text-[13px] mt-1" numberOfLines={2}>
+            {item.summary}
+          </AppText>
+        ) : null}
+      </View>
     </Pressable>
   );
 }

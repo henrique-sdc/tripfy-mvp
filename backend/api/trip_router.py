@@ -15,6 +15,7 @@ from models.trip import (
     GenerateTripRequest,
     InviteCreatedResponse,
     InvitePreviewResponse,
+    ExploreSaveResponse,
     SavedTripResponse,
     TripOpRequest,
     TripOpResponse,
@@ -30,6 +31,7 @@ _CLONE_LIMIT = "10/minute"
 _OPS_LIMIT = "60/minute"
 _INVITE_LIMIT = "10/minute"
 _PUBLISH_LIMIT = "10/minute"
+_SAVE_LIMIT = "30/minute"
 
 
 @router.get("", response_model=list[SavedTripResponse])
@@ -204,6 +206,36 @@ async def unpublish_trip(
         trip_id,
         current_user.uid,
         public=False,
+    )
+
+
+@router.post("/{trip_id}/save", response_model=ExploreSaveResponse)
+@limiter.limit(_SAVE_LIMIT)
+async def save_public_trip(
+    request: Request,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> ExploreSaveResponse:
+    """Coração no Explorar. A segunda vez na mesma viagem não soma de novo."""
+    return await trip_service.set_explore_saved(
+        trip_id,
+        current_user.uid,
+        saved=True,
+    )
+
+
+@router.delete("/{trip_id}/save", response_model=ExploreSaveResponse)
+@limiter.limit(_SAVE_LIMIT)
+async def unsave_public_trip(
+    request: Request,
+    trip_id: str = Path(..., min_length=8, max_length=128),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> ExploreSaveResponse:
+    """Tira o coração. Na mesma semana o contador desce."""
+    return await trip_service.set_explore_saved(
+        trip_id,
+        current_user.uid,
+        saved=False,
     )
 
 

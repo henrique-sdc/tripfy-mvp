@@ -29,26 +29,34 @@ import {
 } from "@/components/home/UpcomingTicket";
 import {
   VibeDestinationCard,
-  type VibeDestination,
 } from "@/components/home/VibeDestinationCard";
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { AppText } from "@/components/ui/AppText";
-import { TRENDING_ITINERARIES } from "@/constants/trending";
 import { useTheme } from "@/hooks/use-theme";
 import {
   declineMatchInvite,
+  generateTripStream,
   getMyMatchInvites,
   getPlaceDetails,
+  isPremiumRequired,
   joinMatch,
+  openVibePickApi,
+  refreshVibePicks,
   type MatchIncomingInvite,
+  type VibePick,
 } from "@/lib/api";
+import { stashPendingItinerary } from "@/lib/pendingItinerary";
+import {
+  listRecentExplore,
+  listWeeklyTop,
+  type ExploreCard,
+} from "@/lib/explore";
 import {
   getUserProfile,
   profilePhotoUri,
   type UserProfile,
 } from "@/lib/profile";
 import { getLatestTrip, type SavedTrip } from "@/lib/trips";
-import { getRecommendedDestinations } from "@/lib/vibeDestinations";
 import { useAuthStore } from "@/stores/authStore";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import { Pressable, ScrollView, View } from "@/tw";
@@ -89,6 +97,13 @@ export default function HomeScreen() {
   const [tripPhoto, setTripPhoto] = useState<string | null>(null);
   const [tripLoading, setTripLoading] = useState(true);
   const [invite, setInvite] = useState<MatchIncomingInvite | null>(null);
+  const [explorePreview, setExplorePreview] = useState<ExploreCard[]>([]);
+  const [weeklyTop, setWeeklyTop] = useState<ExploreCard[]>([]);
+  const [vibePicks, setVibePicks] = useState<VibePick[]>([]);
+  const [vibeReady, setVibeReady] = useState(false);
+  const [vibeBusy, setVibeBusy] = useState<number | null>(null);
+  const vibeStream = useRef<(() => void) | null>(null);
+  const refreshAbort = useRef<AbortController | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const muteInviteId = useRef<string | null>(null);
@@ -96,7 +111,7 @@ export default function HomeScreen() {
   const loadHome = useCallback(async (signal: AbortSignal, quiet = false) => {
     if (!quiet) setTripLoading(true);
     try {
-      const [nextProfile, trip, pending] = await Promise.all([
+      const [nextProfile, trip, pending, recent, weekly] = await Promise.all([
         getUserProfile().catch((err) => {
           console.warn("[Home] Perfil indisponível:", err);
           return null;
@@ -109,11 +124,21 @@ export default function HomeScreen() {
           console.warn("[Home] Convites de Match indisponíveis:", err);
           return [] as MatchIncomingInvite[];
         }),
+        listRecentExplore().catch((err) => {
+          console.warn("[Home] Explorar indisponível:", err);
+          return [] as ExploreCard[];
+        }),
+        listWeeklyTop().catch((err) => {
+          console.warn("[Home] Em alta indisponível:", err);
+          return [] as ExploreCard[];
+        }),
       ]);
       if (signal.aborted) return;
 
       setProfile(nextProfile);
       setLatestTrip(trip);
+      setExplorePreview(recent);
+      setWeeklyTop(weekly);
 
       const muted = muteInviteId.current;
       setInvite(pending.find((item) => item.id !== muted) ?? null);
@@ -141,6 +166,19 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const loadVibe = useCallback(async (signal: AbortSignal) => {
+    try {
+      const picks = await refreshVibePicks(signal);
+      if (signal.aborted) return;
+      setVibePicks(picks);
+    } catch (err) {
+      if (signal.aborted) return;
+      console.warn("[Home] vibe:", err);
+    } finally {
+      if (!signal.aborted) setVibeReady(true);
+    }
+  }, []);
+
   const refreshInvites = useCallback(async () => {
     try {
       const pending = await getMyMatchInvites();
@@ -155,21 +193,31 @@ export default function HomeScreen() {
     useCallback(() => {
       const controller = new AbortController();
       void loadHome(controller.signal);
+      void loadVibe(controller.signal);
       const timer = setInterval(() => {
         void refreshInvites();
       }, INVITE_POLL_MS);
       return () => {
         controller.abort();
+        refreshAbort.current?.abort();
         clearInterval(timer);
+        vibeStream.current?.();
       };
-    }, [loadHome, refreshInvites]),
+    }, [loadHome, refreshInvites, loadVibe]),
   );
 
   async function onRefresh() {
+    refreshAbort.current?.abort();
+    const controller = new AbortController();
+    refreshAbort.current = controller;
     setRefreshing(true);
     try {
-      await loadHome(new AbortController().signal, true);
+      await Promise.all([
+        loadHome(controller.signal, true),
+        loadVibe(controller.signal),
+      ]);
     } finally {
+      if (refreshAbort.current === controller) refreshAbort.current = null;
       setRefreshing(false);
     }
   }
@@ -195,12 +243,59 @@ export default function HomeScreen() {
 
   const vibeCardWidth = screenWidth * 0.72;
   const trendCardWidth = screenWidth * 0.68;
-  const homeTrending = TRENDING_ITINERARIES.slice(0, 3);
+  const homeWeekly = weeklyTop.slice(0, 3);
 
-  const vibeDestinations: VibeDestination[] = useMemo(
-    () => getRecommendedDestinations(profile?.travel_preferences),
-    [profile?.travel_preferences],
-  );
+  async function onVibePress(index: number) {
+    if (vibeBusy != null) return;
+    setVibeBusy(index);
+    try {
+      const opened = await openVibePickApi(index);
+      if (opened.trip_id) {
+        router.push({
+          pathname: "/trip-detail",
+          params: { tripId: opened.trip_id },
+        } as Href);
+        return;
+      }
+      if (!opened.generate || !opened.start_date || !opened.end_date) return;
+      await new Promise<void>((resolve, reject) => {
+        vibeStream.current?.();
+        vibeStream.current = generateTripStream(
+          {
+            destination: opened.destination,
+            days: opened.days,
+            start_date: opened.start_date ?? "",
+            end_date: opened.end_date ?? "",
+            budget: opened.budget,
+          },
+          undefined,
+          (itinerary) => {
+            stashPendingItinerary({
+              ...itinerary,
+              start_date: opened.start_date,
+              end_date: opened.end_date,
+            });
+            router.replace({
+              pathname: "/trip-detail",
+              params: {
+                fresh: String(Date.now()),
+                tripId: "",
+                vibePick: String(index),
+              },
+            } as Href);
+            resolve();
+          },
+          reject,
+        );
+      });
+    } catch (err) {
+      if (!isPremiumRequired(err)) {
+        Alert.alert(t("home.vibe.failTitle"), t("home.vibe.failBody"));
+      }
+    } finally {
+      setVibeBusy(null);
+    }
+  }
 
   const showInvite = invite != null;
 
@@ -250,64 +345,69 @@ export default function HomeScreen() {
 
   const Header = (
     <View
-      className="flex-row items-center justify-between px-6 pb-4"
+      className="px-6 pb-3"
       style={{
         paddingTop: insets.top + 8,
         backgroundColor: theme.background,
       }}
     >
-      <AppText
-        className="flex-1 pr-3 font-bold"
-        style={{
-          fontSize: 28,
-          lineHeight: 34,
-          letterSpacing: -0.6,
-          color: theme.textPrimary,
-        }}
-        numberOfLines={2}
-      >
-        {headline}
-      </AppText>
+      <View className="h-11 items-center justify-center">
+        <AppText
+          accessibilityRole="header"
+          className="font-bold text-center"
+          style={{
+            fontSize: 24,
+            lineHeight: 28,
+            letterSpacing: -0.4,
+            color: theme.textPrimary,
+          }}
+          numberOfLines={1}
+        >
+          {t("common.appName")}
+        </AppText>
 
-      <AnimatedPressable
-        accessibilityLabel={t("home.avatarA11y")}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push("/(tabs)/profile" as Href);
-        }}
-        onPressIn={() => {
-          avatarScale.value = withSpring(0.92, SPRING);
-        }}
-        onPressOut={() => {
-          avatarScale.value = withSpring(1, SPRING);
-        }}
-        style={[
-          avatarStyle,
-          {
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: theme.surface,
-            borderWidth: 1,
-            borderColor: theme.border,
-            overflow: "hidden",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        ]}
-      >
-        {avatarUri ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={{ width: 44, height: 44 }}
-            contentFit="cover"
-          />
-        ) : (
-          <AppText className="text-[15px] font-bold" tone="secondary">
-            {initialsFromName(displayName)}
-          </AppText>
-        )}
-      </AnimatedPressable>
+        <AnimatedPressable
+          accessibilityLabel={t("home.avatarA11y")}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/(tabs)/profile" as Href);
+          }}
+          onPressIn={() => {
+            avatarScale.value = withSpring(0.92, SPRING);
+          }}
+          onPressOut={() => {
+            avatarScale.value = withSpring(1, SPRING);
+          }}
+          style={[
+            avatarStyle,
+            {
+              position: "absolute",
+              right: 0,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: theme.surface,
+              borderWidth: 1,
+              borderColor: theme.border,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
+        >
+          {avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={{ width: 44, height: 44 }}
+              contentFit="cover"
+            />
+          ) : (
+            <AppText className="text-[15px] font-bold" tone="secondary">
+              {initialsFromName(displayName)}
+            </AppText>
+          )}
+        </AnimatedPressable>
+      </View>
     </View>
   );
 
@@ -315,10 +415,11 @@ export default function HomeScreen() {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
 
+      {Header}
+
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[0]}
         contentContainerStyle={{ paddingBottom: tabPad }}
         contentInsetAdjustmentBehavior="never"
         refreshControl={
@@ -330,9 +431,20 @@ export default function HomeScreen() {
           />
         }
       >
-        {Header}
-
         <View className="gap-6 pt-2">
+          <AppText
+            className="px-6 font-bold"
+            style={{
+              fontSize: 22,
+              lineHeight: 28,
+              letterSpacing: -0.4,
+              color: theme.textPrimary,
+            }}
+            numberOfLines={2}
+          >
+            {headline}
+          </AppText>
+
           {showInvite && invite ? (
             <View className="px-6">
               <InviteBanner
@@ -372,45 +484,93 @@ export default function HomeScreen() {
             <AppText className="text-[18px] font-bold px-6">
               {t("home.vibe.title")}
             </AppText>
-            <GHScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              // Scroll livre — sem snap. GHScrollView não disputa gesto com o pai.
-              decelerationRate="normal"
-              bounces
-              overScrollMode="never"
-              contentContainerStyle={{ paddingHorizontal: 24 }}
-            >
-              {vibeDestinations.map((dest) => (
-                <VibeDestinationCard
-                  key={dest.id}
-                  dest={dest}
-                  width={vibeCardWidth}
-                />
-              ))}
-            </GHScrollView>
+            {!vibeReady ? (
+              <GHScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 24 }}
+              >
+                {[0, 1, 2].map((slot) => (
+                  <View
+                    key={slot}
+                    style={{
+                      width: vibeCardWidth,
+                      height: vibeCardWidth * 0.62,
+                      marginRight: 12,
+                      borderRadius: 24,
+                      backgroundColor: theme.surface,
+                    }}
+                  />
+                ))}
+              </GHScrollView>
+            ) : vibePicks.length === 0 ? (
+              <AppText tone="secondary" className="text-[14px] px-6">
+                {t("home.vibe.empty")}
+              </AppText>
+            ) : (
+              <GHScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="normal"
+                bounces
+                overScrollMode="never"
+                contentContainerStyle={{ paddingHorizontal: 24 }}
+              >
+                {vibePicks.map((item, index) => (
+                  <VibeDestinationCard
+                    key={`${index}-${item.destination}`}
+                    destination={item.destination}
+                    reason={item.reason}
+                    width={vibeCardWidth}
+                    busy={vibeBusy === index}
+                    onPress={() => void onVibePress(index)}
+                  />
+                ))}
+              </GHScrollView>
+            )}
           </View>
 
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/explore" as Href);
-            }}
-            className="mx-6 rounded-2xl px-4 py-3 flex-row items-center gap-3"
-            style={{ backgroundColor: theme.surface }}
-            accessibilityRole="button"
-          >
-            <Ionicons name="compass-outline" size={20} color={theme.accent} />
-            <View className="flex-1">
-              <AppText className="text-[16px] font-semibold">
+          <View className="gap-3">
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/explore" as Href);
+              }}
+              className="flex-row items-center px-6 gap-1"
+              accessibilityRole="button"
+            >
+              <AppText className="text-[18px] font-bold flex-1">
                 {t("home.explore.title")}
               </AppText>
-              <AppText tone="secondary" className="text-[13px]">
-                {t("home.explore.hint")}
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+            {explorePreview.length === 0 ? (
+              <AppText tone="secondary" className="text-[14px] px-6">
+                {t("home.explore.empty")}
               </AppText>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-          </Pressable>
+            ) : (
+              <GHScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="normal"
+                bounces
+                overScrollMode="never"
+                contentContainerStyle={{ paddingHorizontal: 24 }}
+              >
+                {explorePreview.map((item) => (
+                  <TrendingItineraryCard
+                    key={item.id}
+                    trip={item}
+                    width={trendCardWidth}
+                  />
+                ))}
+              </GHScrollView>
+            )}
+          </View>
 
           <View className="gap-3">
             <Pressable
@@ -430,22 +590,28 @@ export default function HomeScreen() {
                 color={theme.textSecondary}
               />
             </Pressable>
-            <GHScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="normal"
-              bounces
-              overScrollMode="never"
-              contentContainerStyle={{ paddingHorizontal: 24 }}
-            >
-              {homeTrending.map((item) => (
-                <TrendingItineraryCard
-                  key={item.id}
-                  item={item}
-                  width={trendCardWidth}
-                />
-              ))}
-            </GHScrollView>
+            {homeWeekly.length === 0 ? (
+              <AppText tone="secondary" className="text-[14px] px-6">
+                {t("home.trending.empty")}
+              </AppText>
+            ) : (
+              <GHScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="normal"
+                bounces
+                overScrollMode="never"
+                contentContainerStyle={{ paddingHorizontal: 24 }}
+              >
+                {homeWeekly.map((item) => (
+                  <TrendingItineraryCard
+                    key={item.id}
+                    trip={item}
+                    width={trendCardWidth}
+                  />
+                ))}
+              </GHScrollView>
+            )}
           </View>
         </View>
       </ScrollView>

@@ -14,8 +14,11 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { utcWeekId } from "@/lib/utcWeek";
 
 export const EXPLORE_PAGE = 20;
+export const HOME_EXPLORE_PREVIEW = 8;
+export const WEEKLY_TOP = 10;
 
 export type ExploreSort = "recent" | "popular";
 
@@ -63,7 +66,8 @@ export async function listExploreTrips(opts: {
     constraints.push(where("destination_key", "==", key));
     constraints.push(orderBy("published_at", "desc"));
   } else if (opts.sort === "popular") {
-    constraints.push(orderBy("clone_count", "desc"));
+    constraints.push(where("week_id", "==", utcWeekId()));
+    constraints.push(orderBy("week_saves", "desc"));
   } else {
     constraints.push(orderBy("published_at", "desc"));
   }
@@ -80,4 +84,31 @@ export async function listExploreTrips(opts: {
     ),
     cursor: snap.docs.length === EXPLORE_PAGE ? last : null,
   };
+}
+
+export async function listRecentExplore(max = HOME_EXPLORE_PREVIEW): Promise<ExploreCard[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "explore_trips"),
+      orderBy("published_at", "desc"),
+      limit(max),
+    ),
+  );
+  return snap.docs.map((item) =>
+    cardFromDoc(item.id, item.data() as Record<string, unknown>),
+  );
+}
+
+export async function listWeeklyTop(): Promise<ExploreCard[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "explore_trips"),
+      where("week_id", "==", utcWeekId()),
+      orderBy("week_saves", "desc"),
+      limit(WEEKLY_TOP),
+    ),
+  );
+  return snap.docs.map((item) =>
+    cardFromDoc(item.id, item.data() as Record<string, unknown>),
+  );
 }

@@ -4,7 +4,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -19,12 +19,13 @@ export type SyncStatus = "saving" | "saved" | "error";
 
 type Props = {
   status: SyncStatus;
+  onPress?: () => void;
 };
 
 const ENTER = FadeIn.duration(180).easing(Easing.out(Easing.cubic));
 const EXIT = FadeOut.duration(140).easing(Easing.out(Easing.quad));
 
-export function SyncIndicator({ status }: Props) {
+export function SyncIndicator({ status, onPress }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
@@ -49,12 +50,7 @@ export function SyncIndicator({ status }: Props) {
         ? theme.error
         : theme.textSecondary;
 
-  return (
-    <View
-      style={styles.wrap}
-      accessibilityRole="text"
-      accessibilityLabel={label}
-    >
+  const body = (
       <Animated.View
         key={status}
         entering={reduceMotion ? undefined : ENTER}
@@ -83,7 +79,30 @@ export function SyncIndicator({ status }: Props) {
           {label}
         </AppText>
       </Animated.View>
-    </View>
+  );
+
+  if (!onPress) {
+    return (
+      <View
+        style={styles.wrap}
+        accessibilityRole="text"
+        accessibilityLabel={label}
+      >
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.wrap}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={t("tripDetail.history.openA11y")}
+    >
+      {body}
+    </Pressable>
   );
 }
 

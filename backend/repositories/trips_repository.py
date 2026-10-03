@@ -7,6 +7,7 @@ Soft delete: `deleted_at` (null = ativo). Lixeira = 30 dias.
 from __future__ import annotations
 
 import secrets
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -16,10 +17,12 @@ from starlette.concurrency import run_in_threadpool
 
 from core.firebase import db
 from models.trip import (
+    ChangeLogEntry,
     PersistedActivity,
     PersistedDay,
     SavedTripResponse,
 )
+from services.explore_week import apply_week_save, utc_week_id
 from services.trip_invite import (
     decide_join,
     destination_key,
@@ -28,15 +31,18 @@ from services.trip_invite import (
 )
 from services.trip_ops import (
     TripOpError,
+    append_change_log,
     apply_op,
     clean_activity_id,
     describe_change,
+    parse_change_log,
     stamp_activity_ids,
 )
 
 _SHARES = "trip_shares"
 _INVITES = "trip_invites"
 _EXPLORE = "explore_trips"
+_SAVES = "explore_saves"
 _TRASH_DAYS = 30
 _INVITE_DAYS = 7
 
@@ -237,6 +243,10 @@ def _doc_to_saved(
             else None
         ),
         last_change_day=_payload_day_field(data.get("last_change_day")),
+        change_log=[
+            ChangeLogEntry.model_validate(item)
+            for item in parse_change_log(data.get("change_log"))
+        ],
         role=role,
         day_count=day_count,
         destination_lat=_as_coord(data.get("destination_lat")),
@@ -763,6 +773,13 @@ async def apply_trip_op(
             if not applied:
                 return data
             kind, change_day = describe_change(state, new_state, op)
+            change_log = append_change_log(
+                data.get("change_log"),
+                by=name,
+                kind=kind,
+                day=change_day,
+                at_ms=int(time.time() * 1000),
+            )
             data.update(
                 {
                     "days": new_state.get("days") or [],
@@ -779,6 +796,7 @@ async def apply_trip_op(
                     "last_op_type": new_state.get("last_op_type"),
                     "last_change": kind,
                     "last_change_day": change_day,
+                    "change_log": change_log,
                     "updated_by": uid,
                     "updated_by_name": name,
                     "updated_at": firestore.SERVER_TIMESTAMP,
@@ -801,6 +819,7 @@ async def apply_trip_op(
                     "last_op_type": data["last_op_type"],
                     "last_change": kind,
                     "last_change_day": change_day,
+                    "change_log": change_log,
                     "updated_by": uid,
                     "updated_by_name": name,
                     "updated_at": firestore.SERVER_TIMESTAMP,
@@ -1178,5 +1197,67 @@ async def set_trip_public(
             public,
         )
         return _doc_to_saved(trip_id, data, viewer_uid=uid)
+
+    return await run_in_threadpool(_write)
+
+
+def _save_doc_id(trip_id: str, uid: str) -> str:
+    return f"{trip_id}_{uid}"
+
+
+async def set_explore_saved(trip_id: str, uid: str, *, saved: bool) -> bool:
+    """Coração no cartão público. Sem cartão → TripMissingError."""
+
+    def _write() -> bool:
+        card_ref = db.collection(_EXPLORE).document(trip_id)
+        save_ref = db.collection(_SAVES).document(_save_doc_id(trip_id, uid))
+        week = utc_week_id()
+        transaction = db.transaction()
+
+        @firestore.transactional
+        def _txn(transaction: Any) -> bool:
+            card_snap = card_ref.get(transaction=transaction)
+            if not card_snap.exists:
+                raise TripMissingError
+            save_snap = save_ref.get(transaction=transaction)
+            card = card_snap.to_dict() or {}
+            already = save_snap.exists
+            if saved:
+                if already:
+                    return True
+                transaction.update(card_ref, apply_week_save(card, add=1, week=week))
+                transaction.set(
+                    save_ref,
+                    {
+                        "trip_id": trip_id,
+                        "uid": uid,
+                        "week_id": week,
+                        "created_at": firestore.SERVER_TIMESTAMP,
+                    },
+                )
+                return True
+            if not already:
+                return False
+            save_data = save_snap.to_dict() or {}
+            save_week = save_data.get("week_id")
+            if (
+                isinstance(save_week, str)
+                and save_week == week
+                and card.get("week_id") == week
+            ):
+                fields = apply_week_save(card, add=-1, week=week)
+                if fields:
+                    transaction.update(card_ref, fields)
+            transaction.delete(save_ref)
+            return False
+
+        result = _txn(transaction)
+        logger.info(
+            "Explore save: uid={} trip_id={} saved={}",
+            uid,
+            trip_id,
+            result,
+        )
+        return result
 
     return await run_in_threadpool(_write)

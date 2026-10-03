@@ -96,6 +96,12 @@ function skyscannerDate(iso: string): string {
   return `${iso.slice(2, 4)}${iso.slice(5, 7)}${iso.slice(8, 10)}`;
 }
 
+/** Cidade antes da vírgula — "Paris, França" vira "Paris". */
+function cityLabel(destination: string): string {
+  const city = destination.split(",")[0]?.trim() || destination.trim();
+  return city;
+}
+
 function skyscannerPlaceId(destination: string): string {
   const folded = foldPlace(destination);
   const commaParts = destination
@@ -176,6 +182,115 @@ export function buildGetYourGuideUrl(query: string): string {
   return `https://www.getyourguide.com.br/s/?${qs.toString()}`;
 }
 
+export function buildAirbnbStaysUrl({
+  destination,
+  checkIn,
+  checkOut,
+}: TripDateRange): string {
+  const city = encodeURIComponent(cityLabel(destination));
+  const qs = new URLSearchParams({ adults: "2" });
+  const inIso = validIso(checkIn);
+  const outIso = validIso(checkOut);
+  if (inIso) qs.set("checkin", inIso);
+  if (outIso) qs.set("checkout", outIso);
+  return `https://www.airbnb.com.br/s/${city}/homes?${qs.toString()}`;
+}
+
+export function buildViatorSearchUrl(query: string): string {
+  const qs = new URLSearchParams({ text: query.trim() });
+  return `https://www.viator.com/searchResults/all?${qs.toString()}`;
+}
+
+/** Home do Discover Cars aceita location + pickup + dropoff. Não é tarifa. */
+export function buildCarRentalUrl({
+  destination,
+  checkIn,
+  checkOut,
+}: TripDateRange): string {
+  const qs = new URLSearchParams({ location: cityLabel(destination) });
+  const inIso = validIso(checkIn);
+  const outIso = validIso(checkOut);
+  if (inIso) qs.set("pickup", inIso);
+  if (outIso) qs.set("dropoff", outIso);
+  return `https://www.discovercars.com/?${qs.toString()}`;
+}
+
+// Slug da página Airalo (`/france-esim`). Só país — cidade não vira país.
+const AIRALO_SLUGS: Record<string, string> = {
+  franca: "france",
+  france: "france",
+  portugal: "portugal",
+  espanha: "spain",
+  spain: "spain",
+  italia: "italy",
+  italy: "italy",
+  alemanha: "germany",
+  germany: "germany",
+  "reino unido": "united-kingdom",
+  inglaterra: "united-kingdom",
+  "united kingdom": "united-kingdom",
+  "estados unidos": "united-states",
+  eua: "united-states",
+  usa: "united-states",
+  "united states": "united-states",
+  brasil: "brazil",
+  brazil: "brazil",
+  argentina: "argentina",
+  chile: "chile",
+  japao: "japan",
+  japan: "japan",
+  mocambique: "mozambique",
+  mozambique: "mozambique",
+  mexico: "mexico",
+  canada: "canada",
+  turquia: "turkey",
+  turkey: "turkey",
+  "coreia do sul": "south-korea",
+  "south korea": "south-korea",
+  china: "china",
+  grecia: "greece",
+  greece: "greece",
+  holanda: "netherlands",
+  netherlands: "netherlands",
+  australia: "australia",
+  tailandia: "thailand",
+  thailand: "thailand",
+  marrocos: "morocco",
+  morocco: "morocco",
+  irlanda: "ireland",
+  ireland: "ireland",
+  india: "india",
+};
+
+function airaloSlug(destination: string): string | undefined {
+  const parts = destination
+    .split(",")
+    .map((part) => foldPlace(part))
+    .filter(Boolean);
+  const candidates = parts.length > 1 ? [...parts].reverse() : parts;
+  for (const key of candidates) {
+    const hit = AIRALO_SLUGS[key];
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export function buildEsimUrl(destination: string): string {
+  const slug = airaloSlug(destination);
+  if (slug) return `https://www.airalo.com/${slug}-esim`;
+  // `/search` da Airalo responde 404. A home aceita `q` sem quebrar.
+  const qs = new URLSearchParams({ q: cityLabel(destination) });
+  return `https://www.airalo.com/?${qs.toString()}`;
+}
+
+// ponytail: Seguros Promo não recebe destino na query. O card mostra a cidade;
+// a URL é a landing. Upgrade = deep link do afiliado, se o programa existir.
+const INSURANCE_URL = "https://www.segurospromo.com.br/";
+
+export function buildInsuranceUrl(): string {
+  return INSURANCE_URL;
+}
+
 export function runAffiliateSelfCheck(): void {
   const hotels = buildBookingHotelsUrl({
     destination: "São Paulo",
@@ -251,5 +366,87 @@ export function runAffiliateSelfCheck(): void {
   }
   if (!gyg.includes("partner_id=")) {
     throw new Error(`GYG partner: ${gyg}`);
+  }
+
+  const stays = buildAirbnbStaysUrl({
+    destination: "São Paulo, Brasil",
+    checkIn: "2026-07-10",
+    checkOut: "2026-07-15",
+  });
+  const cityPath = encodeURIComponent("São Paulo");
+  if (!stays.includes(`/s/${cityPath}/homes`)) {
+    throw new Error(`Airbnb path: ${stays}`);
+  }
+  if (!stays.includes("checkin=2026-07-10") || !stays.includes("checkout=2026-07-15")) {
+    throw new Error(`Airbnb datas: ${stays}`);
+  }
+  if (stays.includes("Brasil")) {
+    throw new Error(`Airbnb levou o país no path: ${stays}`);
+  }
+  const staysBad = buildAirbnbStaysUrl({
+    destination: "Lisboa",
+    checkIn: "10/07/2026",
+  });
+  if (staysBad.includes("checkin=")) {
+    throw new Error(`Airbnb data inválida: ${staysBad}`);
+  }
+
+  const viator = buildViatorSearchUrl("Museu do Louvre Paris");
+  const viatorEncoded = encodeURIComponent("Museu do Louvre Paris");
+  const viatorForm = viatorEncoded.replaceAll("%20", "+");
+  if (!viator.includes(viatorEncoded) && !viator.includes(viatorForm)) {
+    throw new Error(`Viator encoding: ${viator}`);
+  }
+  if (!viator.includes("text=")) {
+    throw new Error(`Viator text: ${viator}`);
+  }
+
+  const cars = buildCarRentalUrl({
+    destination: "Paris, França",
+    checkIn: "2026-07-10",
+    checkOut: "2026-07-15",
+  });
+  if (!cars.startsWith("https://www.discovercars.com/?")) {
+    throw new Error(`carro host: ${cars}`);
+  }
+  if (!cars.includes("location=Paris")) {
+    throw new Error(`carro cidade: ${cars}`);
+  }
+  if (!cars.includes("pickup=2026-07-10") || !cars.includes("dropoff=2026-07-15")) {
+    throw new Error(`carro datas: ${cars}`);
+  }
+  if (cars.includes("Fran")) {
+    throw new Error(`carro levou o país: ${cars}`);
+  }
+  const carsBad = buildCarRentalUrl({
+    destination: "Lisboa",
+    checkIn: "nope",
+  });
+  if (carsBad.includes("pickup=")) {
+    throw new Error(`carro data inválida: ${carsBad}`);
+  }
+
+  const esim = buildEsimUrl("Paris, França");
+  if (esim !== "https://www.airalo.com/france-esim") {
+    throw new Error(`eSIM país: ${esim}`);
+  }
+  const esimCity = buildEsimUrl("Paris");
+  if (!esimCity.startsWith("https://www.airalo.com/?")) {
+    throw new Error(`eSIM fallback: ${esimCity}`);
+  }
+  if (!esimCity.includes("q=Paris") || esimCity.includes("/search")) {
+    throw new Error(`eSIM query: ${esimCity}`);
+  }
+  const esimMz = buildEsimUrl("Moçambique");
+  if (esimMz !== "https://www.airalo.com/mozambique-esim") {
+    throw new Error(`eSIM país solto: ${esimMz}`);
+  }
+
+  const insurance = buildInsuranceUrl();
+  if (insurance !== "https://www.segurospromo.com.br/") {
+    throw new Error(`seguro: ${insurance}`);
+  }
+  if (insurance.includes("Paris") || insurance.includes("?")) {
+    throw new Error(`seguro ganhou destino: ${insurance}`);
   }
 }

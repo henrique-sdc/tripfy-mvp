@@ -40,7 +40,7 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | **Minhas avaliações**    | `GET /places/reviews/me` → `/my-reviews` (editar/excluir)                                                                              |
 | **Compartilhar / Clone** | Dono: sheet (editar / cópia / Explorar). Visitante: link de leitura. Quem abre a cópia vê read-only + “Clonar pra mim” (clone também passa no teto Free). Ver [[Edição Conjunta]] |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
-| **Parceiros (RF10)**     | `PartnerReserveRow` (hotéis Booking / voos Skyscanner) + CTA GetYourGuide se `requires_ticket`. Ver [[Afiliados RF10]]                 |
+| **Parceiros (RF10)**     | Card no topo da lista abre a Central de Reservas. Ingresso no card se `requires_ticket`, e botão fixo na aba Sobre. Ver [[Afiliados RF10]] |
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
 | **Deslocamento**         | Badge entre cards do dia aberto. `POST /routes/calculate`. Ver [[Deslocamento e Alternativas]]                                          |
 | **Sugestões**            | Botão no título do dia → sheet Nearby. `GET /places/nearby`                                                                             |
@@ -128,6 +128,7 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 
 - `components/trip/PlaceDetailsSheet.tsx` — Modal + pan dismiss (física CreateTripSheet).
 - Abas **Sobre** (fotos, rating, **preço médio**, menu se houver, resumo, endereço, horários) e **Comunidade**.
+- Ingresso (`requiresTicket`): botão fixo abaixo do scroll, só em Sobre. GetYourGuide e, em texto, Viator.
 - Tap no hero do `ActivityCard` abre o sheet **sempre** — com `place_id` ou só com fallback do roteiro.
 - Fallback: se Places falha ou devolve endereço como nome (`Cl. 82 #12 -21`), usa título/descrição/local da parada (`lib/placeDisplay.ts`).
 - Lookup Places: `título, endereço` (endereço sozinho casa pin genérico).
@@ -186,5 +187,5 @@ DELETE /api/v1/places/{place_id}/reviews/me → remove o próprio (10/min)
 - [[Geração de Roteiro RF06]] — schema + SSE + lat/lng no prompt
 - [[Deslocamento e Alternativas]] — conector do dia e sugestões da vibe
 - [[Modo Viagem]] — Planejar/Viajar, checklist, trava de review
-- [[Afiliados RF10]] — PartnerReserveRow + requires_ticket
+- [[Afiliados RF10]] — Central de Reservas + requires_ticket
 - [[Home e Bottom Tabs]] — entrada pelo Wizard Solo / aba Viagens

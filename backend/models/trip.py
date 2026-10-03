@@ -137,6 +137,15 @@ class PersistedDay(BaseModel):
     activities: list[PersistedActivity] = Field(default_factory=list)
 
 
+class ChangeLogEntry(BaseModel):
+    """Uma linha do histórico. A frase fica no app; aqui só o rótulo."""
+
+    by: str = ""
+    kind: str
+    day: int | None = None
+    at_ms: int = 0
+
+
 class SavedTripResponse(BaseModel):
     """Viagem em users/{uid}/trips/{id} (listagem / detalhe / lixeira)."""
 
@@ -171,6 +180,8 @@ class SavedTripResponse(BaseModel):
     # Rótulo da última op (title, reorder, …). A frase fica no app.
     last_change: str | None = None
     last_change_day: int | None = None
+    # Linhas de texto (rótulo + hora). Teto 40. Sem snapshot e sem desfazer.
+    change_log: list[ChangeLogEntry] = Field(default_factory=list)
     # owner | member | viewer — member no ponteiro da Home do convidado.
     role: str = "owner"
     # Ponteiro não carrega `days`; a lista usa isto no card.
@@ -247,6 +258,12 @@ class InvitePreviewResponse(BaseModel):
 
 class AcceptInviteRequest(BaseModel):
     token: str = Field(..., min_length=20, max_length=200)
+
+
+class ExploreSaveResponse(BaseModel):
+    """Coração no roteiro público. Uma vez por pessoa."""
+
+    saved: bool
 
 
 def has_completed_place(days: list[PersistedDay], place_id: str) -> bool:

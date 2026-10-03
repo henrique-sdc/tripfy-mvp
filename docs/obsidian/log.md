@@ -1,5 +1,30 @@
 # Log — Tripfy Wiki
 
+## [2026-10-03] update | Central de Reservas
+
+Sheet no detalhe da viagem no lugar das duas linhas de parceiro. Deep links novos, sem API de preço. Botão de ingresso fixo na aba Sobre.
+[[Afiliados RF10]], [[Detalhe da Viagem RF07]] e [[changelog]].
+
+## [2026-10-03] update | Histórico de alterações
+
+Lista em texto no doc da viagem, teto 40, aberta pelo balão Salvo. Sem desfazer.
+[[Edição Conjunta]] e [[changelog]].
+
+## [2026-10-03] update | Marca no topo da Home
+
+Wordmark fixo acima do scroll, centralizado, para o spinner do iPhone não ficar atrás dele. Saudação no scroll. Coração dos cards públicos sobre a foto. A lista de Explorar mostra a foto do destino.
+[[Home e Bottom Tabs]] e [[changelog]].
+
+## [2026-10-03] update | Destinos da vibe
+
+Três cidades pela IA. O roteiro só no toque, e o card guarda o id.
+[[Home e Bottom Tabs]] e [[changelog]].
+
+## [2026-10-03] update | Explorar na Home e Em alta da semana
+
+Carrossel de foto no lugar da faixa. Em alta é o top 10 de corações na semana UTC.
+[[Home e Bottom Tabs]] e [[changelog]].
+
 ## [2026-09-28] ingest | Convite e Explorar
 
 Sala a partir de um roteiro Solo, com token separado do link de leitura. Feed em cartões, sem collection group.

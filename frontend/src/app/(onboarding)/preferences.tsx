@@ -29,7 +29,7 @@ import {
   TRAVELER_OPTIONS,
 } from "@/constants/travel-preferences";
 import { useTheme } from "@/hooks/use-theme";
-import { NetworkError, savePreferences, type TravelPreferences } from "@/lib/api";
+import { NetworkError, refreshVibePicks, savePreferences, type TravelPreferences } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { ScrollView, View } from "@/tw";
 
@@ -115,6 +115,11 @@ export default function PreferencesScreen() {
 
     try {
       await savePreferences(payload);
+      try {
+        await refreshVibePicks();
+      } catch (err) {
+        console.warn("[preferences] vibe:", err);
+      }
       setHasPreferences(true);
     } catch (error) {
       console.error("[preferences] Falha ao salvar preferências:", error);

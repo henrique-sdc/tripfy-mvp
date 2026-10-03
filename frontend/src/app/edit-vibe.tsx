@@ -26,7 +26,7 @@ import {
   TRAVELER_OPTIONS,
 } from "@/constants/travel-preferences";
 import { useTheme } from "@/hooks/use-theme";
-import { NetworkError, savePreferences } from "@/lib/api";
+import { NetworkError, refreshVibePicks, savePreferences } from "@/lib/api";
 import { getUserProfile } from "@/lib/profile";
 import { Pressable, ScrollView, TextInput, View } from "@/tw";
 
@@ -107,6 +107,11 @@ export default function EditVibeScreen() {
         traveler_type: travelerType,
         other_preferences: otherPreferences.trim(),
       });
+      try {
+        await refreshVibePicks();
+      } catch (err) {
+        console.warn("[edit-vibe] vibe:", err);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err) {

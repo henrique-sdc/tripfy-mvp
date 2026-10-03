@@ -211,6 +211,9 @@
     },
     "vibe": {
       "title": "Destinos que combinam com você",
+      "empty": "Ainda não achei três cidades pra você.",
+      "failTitle": "Não deu pra montar o roteiro",
+      "failBody": "Confira a conexão e tente de novo.",
       "favoriteA11y": "Salvar na lista de desejos",
       "promptTitle": "Montar roteiro?",
       "promptBody": "Quer que a IA monte um roteiro para {{city}} agora?",
@@ -228,12 +231,14 @@
     },
     "explore": {
       "title": "Explorar",
-      "hint": "Roteiros de outras pessoas"
+      "hint": "Roteiros de outras pessoas",
+      "empty": "Nenhum roteiro público ainda."
     },
     "trending": {
       "title": "Em alta na Tripfy",
       "copy": "Copiar este roteiro",
       "saved": "Salvo nos desejos",
+      "empty": "Nenhum roteiro salvo nesta semana.",
       "items": {
         "ba": {
           "title": "4 dias em Buenos Aires",
@@ -344,16 +349,17 @@
   },
   "trending": {
     "screenTitle": "Em alta",
-    "screenSubtitle": "Roteiros curados pra inspirar. Filtre, busque e gere o seu.",
-    "searchPlaceholder": "Buscar destino ou roteiro…",
+    "screenSubtitle": "Os roteiros públicos mais salvos nesta semana.",
+    "searchPlaceholder": "Buscar destino",
     "clearSearchA11y": "Limpar busca",
     "clearFilters": "Limpar filtros",
     "emptyTitle": "Nada por aqui",
-    "emptyBody": "Tente outro destino ou categoria.",
+    "emptyBody": "Quando alguém salvar um roteiro do Explorar, ele aparece nesta semana.",
     "createTrip": "Usar este roteiro",
     "createA11y": "Usar este roteiro no wizard",
     "saveA11y": "Salvar ou remover dos desejos",
-    "daysHint": "{{count}} dias sugeridos",
+    "cardMeta": "por {{name}} · {{count}} dias",
+    "cardAuthor": "por {{name}}",
     "categories": {
       "all": "Todos",
       "brasil": "Brasil",
@@ -559,6 +565,12 @@
       "saved": "Salvo",
       "error": "Erro"
     },
+    "history": {
+      "title": "Alterações",
+      "empty": "Nenhuma alteração ainda.",
+      "close": "Fechar",
+      "openA11y": "Ver alterações"
+    },
     "placeSheet": {
       "tabAbout": "Sobre",
       "tabCommunity": "Comunidade",
@@ -665,15 +677,38 @@
       "someone": "Alguém"
     },
     "partners": {
-      "sectionA11y": "Reservar hospedagem e voos",
-      "hotelsTitle": "Hotéis em {{destination}}",
-      "flightsTitle": "Voos para {{destination}}",
+      "hubTitle": "Central de Reservas",
+      "hubA11y": "Abrir a central de reservas de {{destination}}",
+      "hubSubtitleDates": "{{destination}} · {{dates}}",
+      "sectionStay": "Hospedagem",
+      "sectionFlights": "Voos",
+      "sectionTickets": "Ingressos",
+      "sectionExtras": "Complementares",
+      "emptyTickets": "Nenhuma parada com ingresso pago.",
+      "staySubtitle": "Compare hospedagem em {{destination}}",
+      "flightsSubtitle": "Compare voos para {{destination}}",
       "hotelsPartner": "Booking.com",
       "flightsPartner": "Skyscanner",
       "hotelsA11y": "Ver hotéis em {{destination}} no Booking.com",
       "flightsA11y": "Buscar voos para {{destination}} no Skyscanner",
+      "airbnbPartner": "Airbnb",
+      "airbnbA11y": "Ver hospedagem em {{destination}} no Airbnb",
       "tickets": "Ingressos no GetYourGuide",
       "ticketsA11y": "Buscar ingresso de {{title}} no GetYourGuide",
+      "ticketRowSubtitle": "GetYourGuide",
+      "ticketsCta": "Buscar ingressos",
+      "ticketsViator": "Também no Viator",
+      "ticketsViatorA11y": "Buscar ingresso de {{title}} no Viator",
+      "esimTitle": "Chip de internet",
+      "esimSubtitle": "Airalo · eSIM para {{destination}}",
+      "esimA11y": "Ver chip de internet para {{destination}} na Airalo",
+      "insuranceTitle": "Seguro viagem",
+      "insuranceSubtitle": "Seguros Promo · cotação para {{destination}}",
+      "insuranceA11y": "Cotar seguro viagem para {{destination}} na Seguros Promo",
+      "carsTitle": "Aluguel de carro",
+      "carsSubtitle": "Discover Cars · compare carros em {{destination}}",
+      "carsA11y": "Comparar aluguel de carro em {{destination}} no Discover Cars",
+      "offlineHint": "Sem conexão. Os parceiros abrem quando a rede voltar.",
       "disclaimer": "Você será redirecionado para o site do parceiro."
     },
     "share": "Compartilhar",

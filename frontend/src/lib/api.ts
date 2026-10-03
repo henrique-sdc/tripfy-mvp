@@ -555,6 +555,7 @@ export type SavedTripApi = {
   updated_by_name?: string;
   last_change?: string | null;
   last_change_day?: number | null;
+  change_log?: { by: string; kind: string; day: number | null; at_ms: number }[];
   role?: string;
   day_count?: number;
   is_public?: boolean;
@@ -681,6 +682,18 @@ export async function setTripPublicApi(
     { method: isPublic ? "POST" : "DELETE" },
   );
   return (await response.json()) as SavedTripApi;
+}
+
+/** POST/DELETE /trips/{id}/save — coração do ranking semanal. */
+export async function setExploreSavedApi(
+  tripId: string,
+  saved: boolean,
+): Promise<{ saved: boolean }> {
+  const response = await authFetch(
+    `/trips/${encodeURIComponent(tripId.trim())}/save`,
+    { method: saved ? "POST" : "DELETE" },
+  );
+  return (await response.json()) as { saved: boolean };
 }
 
 export type TripOpBody = {
@@ -891,6 +904,56 @@ export async function savePreferences(
   await authFetch("/auth/preferences", {
     method: "PUT",
     body: JSON.stringify({ preferences }),
+  });
+}
+
+export type VibePick = {
+  destination: string;
+  reason: string;
+  trip_id: string | null;
+};
+
+export type VibePickOpen = {
+  trip_id: string | null;
+  generate: boolean;
+  destination: string;
+  budget: string;
+  days: number;
+  start_date: string | null;
+  end_date: string | null;
+};
+
+/** POST /users/me/vibe-picks — 3 cidades. Sem LLM se a vibe não mudou. */
+export async function refreshVibePicks(
+  signal?: AbortSignal,
+): Promise<VibePick[]> {
+  const response = await authFetch("/users/me/vibe-picks", {
+    method: "POST",
+    signal,
+  });
+  const data = (await response.json()) as { picks?: VibePick[] };
+  if (!Array.isArray(data.picks)) return [];
+  return data.picks.filter(
+    (pick) => pick && typeof pick.destination === "string" && pick.destination.trim(),
+  );
+}
+
+/** POST /users/me/vibe-picks/{index}/open — abre ou libera a geração. */
+export async function openVibePickApi(index: number): Promise<VibePickOpen> {
+  const response = await authFetch(`/users/me/vibe-picks/${index}/open`, {
+    method: "POST",
+  });
+  return (await response.json()) as VibePickOpen;
+}
+
+/** POST /users/me/vibe-picks/{index}/trip — lembra o roteiro do card. */
+export async function bindVibePickApi(
+  index: number,
+  tripId: string,
+): Promise<void> {
+  await authFetch(`/users/me/vibe-picks/${index}/trip`, {
+    method: "POST",
+    body: JSON.stringify({ trip_id: tripId }),
   });
 }
 

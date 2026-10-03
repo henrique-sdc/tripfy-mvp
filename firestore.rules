@@ -24,6 +24,8 @@ service cloud.firestore {
           'premium_until',
           'push_devices',
           'notifications_enabled',
+          'vibe_picks',
+          'vibe_picks_key',
         ]);
       allow update: if isSelf()
         && !request.resource.data.diff(resource.data).affectedKeys()
@@ -32,6 +34,8 @@ service cloud.firestore {
               'premium_until',
               'push_devices',
               'notifications_enabled',
+              'vibe_picks',
+              'vibe_picks_key',
             ]);
       allow delete: if isSelf();
 
@@ -43,6 +47,14 @@ service cloud.firestore {
           return request.auth != null
             && resource.data.member_uids is list
             && request.auth.uid in resource.data.member_uids;
+        }
+
+        function changeLogOk() {
+          return !('change_log' in request.resource.data)
+            || (
+              request.resource.data.change_log is list
+              && request.resource.data.change_log.size() <= 40
+            );
         }
 
         function soloUpdate() {
@@ -68,7 +80,8 @@ service cloud.firestore {
                   'is_public',
                   'published_at',
                   'invite_hash',
-                ]);
+                ])
+            && changeLogOk();
         }
 
         // Dono pode mandar a viagem conjunta pra lixeira. O miolo não.
@@ -115,6 +128,11 @@ service cloud.firestore {
     match /explore_trips/{tripId} {
       allow read: if request.auth != null;
       allow write: if false;
+    }
+
+    // Quem salvou um cartão. O client não lê nem escreve.
+    match /explore_saves/{saveId} {
+      allow read, write: if false;
     }
 
     // Índice de deep link / clone — client escreve o próprio; leitura só Admin.

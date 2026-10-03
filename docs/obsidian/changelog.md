@@ -1,4 +1,36 @@
 # Changelog — Tripfy Docs
+## 2026-10-03 — Central de Reservas
+
+- O topo do roteiro abre um sheet com hospedagem (Booking e Airbnb), voos, ingressos das paradas pagas e complementares (eSIM, seguro, carro).
+- Sem preço no app. O link abre a busca do parceiro com destino e datas.
+- Parada com ingresso ganha um botão fixo na aba Sobre do local.
+- Wiki: [[Afiliados RF10]], [[Detalhe da Viagem RF07]].
+
+## 2026-10-03 — Histórico de alterações em texto
+
+- O balão Salvo abre a lista do que mudou no roteiro. Vale para solo e Match. Sozinho não mostra a faixa ao vivo.
+- A lista mora em `change_log` no doc que já é gravado, com teto de 40. Sem versão para voltar.
+- Wiki: [[Edição Conjunta]].
+
+## 2026-10-03 — Marca no topo da Home
+
+- O header sticky centraliza o nome Tripfy, com o avatar à direita. A saudação rola com o conteúdo.
+- O coração de Explorar e Em alta fica sobre a foto. Autor e dias cabem numa linha.
+- A lista de Explorar mostra a foto do destino junto do título e do resumo.
+- O header da Home ficou fora do scroll para o spinner de recarregar no iPhone aparecer inteiro.
+- Wiki: [[Home e Bottom Tabs]].
+
+## 2026-10-03 — Três destinos da vibe
+
+- A Home pede 3 cidades à IA a partir das preferências. O roteiro só nasce no toque e fica ligado ao card.
+- Wiki: [[Home e Bottom Tabs]].
+
+## 2026-10-03 — Explorar na Home e Em alta da semana
+
+- A Home mostra Explorar e Em alta no mesmo carrossel de foto. O catálogo falso saiu.
+- Em alta é o top 10 de corações no roteiro público na semana UTC (`week_saves`). Um salvamento por pessoa.
+- Wiki: [[Home e Bottom Tabs]].
+
 ## 2026-09-28 — Link de compartilhar não reusa o id anterior
 
 - Gerar outro roteiro com a tela de detalhe já aberta herdava o `tripId` da viagem anterior. A mensagem mostrava o destino novo e o link abria a viagem velha.
@@ -54,7 +86,7 @@
 ## 2026-09-26 — Aviso de quem editou a viagem
 
 - A op grava `updated_by_name` e `last_change`. A outra tela mostra a frase e some.
-- Debaixo do título: "Ana editou agora". Sem histórico. Wiki: [[Edição Conjunta]].
+- Debaixo do título: "Ana editou agora". Wiki: [[Edição Conjunta]].
 
 ## 2026-09-26 — Collab: poll se o listener do convidado falhar
 

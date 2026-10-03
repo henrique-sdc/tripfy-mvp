@@ -463,6 +463,86 @@ def _describe_meta(
     return "meta", None
 
 
+# ponytail: teto 40 no próprio doc. Acima disso toda leitura da viagem cresce.
+# Upgrade = subcoleção, que passa a custar read.
+CHANGE_LOG_CAP = 40
+CHANGE_LOG_WINDOW_MS = 120_000
+
+
+def parse_change_log(raw: Any) -> list[dict[str, Any]]:
+    """Lista já gravada → itens mínimos. Lixo e excesso caem fora."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or "").strip()[:32]
+        if not kind:
+            continue
+        by = str(item.get("by") or "").strip()[:80]
+        day_n: int | None
+        try:
+            day_n = int(item["day"]) if item.get("day") is not None else None
+        except (TypeError, ValueError, KeyError):
+            day_n = None
+        if day_n is not None and day_n < 1:
+            day_n = None
+        try:
+            at_ms = int(item.get("at_ms") or 0)
+        except (TypeError, ValueError):
+            at_ms = 0
+        out.append({"by": by, "kind": kind, "day": day_n, "at_ms": at_ms})
+    return out[-CHANGE_LOG_CAP:]
+
+
+def append_change_log(
+    log: Any,
+    *,
+    by: str,
+    kind: str,
+    day: int | None,
+    at_ms: int,
+) -> list[dict[str, Any]]:
+    """Acrescenta uma linha no mesmo write do roteiro.
+
+    Mesmo kind + dia + pessoa em menos de 2 min só atualiza a hora.
+    Senão um debounce de notas enche as 40 vagas.
+    """
+    cleaned_kind = str(kind or "").strip()[:32]
+    current = parse_change_log(log)
+    if not cleaned_kind:
+        return current
+    try:
+        day_n = int(day) if day is not None else None
+    except (TypeError, ValueError):
+        day_n = None
+    if day_n is not None and day_n < 1:
+        day_n = None
+    try:
+        at = int(at_ms)
+    except (TypeError, ValueError):
+        at = 0
+    entry = {
+        "by": str(by or "").strip()[:80],
+        "kind": cleaned_kind,
+        "day": day_n,
+        "at_ms": at,
+    }
+    if current:
+        last = current[-1]
+        if (
+            last["kind"] == entry["kind"]
+            and last["day"] == entry["day"]
+            and last["by"] == entry["by"]
+            and 0 <= at - int(last["at_ms"]) < CHANGE_LOG_WINDOW_MS
+        ):
+            current[-1] = entry
+            return current
+    current.append(entry)
+    return current[-CHANGE_LOG_CAP:]
+
+
 def _day_title_map(state: dict[str, Any]) -> dict[int, str]:
     titles: dict[int, str] = {}
     for day in state.get("days") or []:

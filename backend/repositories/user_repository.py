@@ -17,6 +17,7 @@ from models.user import (
     TravelPreferences,
     UserInDB,
     UserPublicProfile,
+    VibePick,
 )
 
 _USERS_COLLECTION = "users"
@@ -201,5 +202,75 @@ async def update_subscription(
     if updated is None:
         raise RuntimeError(f"Documento do usuário {uid} sumiu após update de assinatura.")
     return updated
+
+
+def _as_picks(raw: object) -> list[VibePick]:
+    if not isinstance(raw, list):
+        return []
+    picks: list[VibePick] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        destination = str(item.get("destination") or "").strip()
+        reason = str(item.get("reason") or "").strip() or destination
+        if len(destination) < 2 or len(reason) < 2:
+            continue
+        trip_raw = item.get("trip_id")
+        trip_id = trip_raw.strip() if isinstance(trip_raw, str) and trip_raw.strip() else None
+        picks.append(
+            VibePick(
+                destination=destination[:80],
+                reason=reason[:180],
+                trip_id=trip_id,
+            )
+        )
+    return picks[:3]
+
+
+async def read_vibe_picks(uid: str) -> tuple[str | None, list[VibePick]]:
+    def _read() -> tuple[str | None, list[VibePick]]:
+        snap = db.collection(_USERS_COLLECTION).document(uid).get()
+        data = snap.to_dict() if snap.exists else {}
+        if not isinstance(data, dict):
+            return None, []
+        key = data.get("vibe_picks_key")
+        stored = key.strip() if isinstance(key, str) and key.strip() else None
+        return stored, _as_picks(data.get("vibe_picks"))
+
+    return await run_in_threadpool(_read)
+
+
+async def write_vibe_picks(uid: str, key: str, picks: list[VibePick]) -> None:
+    def _write() -> None:
+        db.collection(_USERS_COLLECTION).document(uid).set(
+            {
+                "vibe_picks_key": key,
+                "vibe_picks": [pick.model_dump(mode="json") for pick in picks],
+            },
+            merge=True,
+        )
+
+    await run_in_threadpool(_write)
+    logger.info("Vibe picks gravados: uid={} n={}", uid, len(picks))
+
+
+async def bind_vibe_pick_trip(uid: str, index: int, trip_id: str) -> list[VibePick]:
+    """Grava o id no card. Não mexe nos outros."""
+
+    def _write() -> list[VibePick]:
+        ref = db.collection(_USERS_COLLECTION).document(uid)
+        snap = ref.get()
+        data = snap.to_dict() if snap.exists else {}
+        picks = _as_picks(data.get("vibe_picks") if isinstance(data, dict) else None)
+        if index < 0 or index >= len(picks):
+            raise IndexError
+        picks[index] = picks[index].model_copy(update={"trip_id": trip_id})
+        ref.set(
+            {"vibe_picks": [pick.model_dump(mode="json") for pick in picks]},
+            merge=True,
+        )
+        return picks
+
+    return await run_in_threadpool(_write)
 
 

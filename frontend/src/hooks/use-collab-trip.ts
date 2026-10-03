@@ -18,6 +18,7 @@ import {
   type CollabOpType,
 } from "@/lib/collabQueue";
 import { auth, db } from "@/lib/firebase";
+import type { ChangeEntry } from "@/lib/changeLog";
 import { tripFromDoc, type SavedTrip } from "@/lib/trips";
 
 export type CollabEnqueue = {
@@ -33,6 +34,7 @@ type Options = {
   ownerUid: string | null;
   initialRevision: number;
   onRemote: (trip: SavedTrip) => void;
+  onChangeLog?: (log: ChangeEntry[]) => void;
   onConflict: (code: string) => void;
   onStatus: (status: "saving" | "saved" | "error") => void;
 };
@@ -58,6 +60,7 @@ function apiTripToSaved(trip: SavedTripApi): SavedTrip {
     updated_by_name: trip.updated_by_name,
     last_change: trip.last_change,
     last_change_day: trip.last_change_day,
+    change_log: Array.isArray(trip.change_log) ? trip.change_log : undefined,
     updated_at: trip.updated_at,
     role: trip.role,
     day_count: trip.day_count ?? days.length,
@@ -113,6 +116,7 @@ export function useCollabTrip(opts: Options) {
     });
     if (decision === "echo") {
       knownRevision.current = remote.revision ?? knownRevision.current;
+      if (remote.change_log) optsRef.current.onChangeLog?.(remote.change_log);
       return;
     }
     if (decision === "ignore") return;
@@ -144,6 +148,7 @@ export function useCollabTrip(opts: Options) {
     });
     if (decision === "echo") {
       knownRevision.current = held.revision ?? knownRevision.current;
+      if (held.change_log) optsRef.current.onChangeLog?.(held.change_log);
       return;
     }
     if (decision !== "apply") return;
@@ -184,9 +189,10 @@ export function useCollabTrip(opts: Options) {
         const revision = result.trip.revision ?? knownRevision.current;
         knownRevision.current = revision;
         queueRef.current = bumpQueuedBases(queueRef.current, revision);
+        const saved = apiTripToSaved(result.trip);
+        if (saved.change_log) optsRef.current.onChangeLog?.(saved.change_log);
         // Patch não remonta (eco). Reorder/delete pode ter rebaseado ids no servidor.
         if (result.applied && next.type !== "patch_activity" && next.type !== "patch_meta") {
-          const saved = apiTripToSaved(result.trip);
           if (dragRef.current || queueRef.current.length > 0 || pendingDebounce()) {
             const held = heldRef.current;
             if (!held || (saved.revision ?? 0) >= (held.revision ?? 0)) {

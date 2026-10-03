@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { Alert, useColorScheme, useWindowDimensions } from "react-native";
@@ -12,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
-import { useWishlistStore } from "@/stores/wishlistStore";
+import { useWishlistStore, type WishlistItem } from "@/stores/wishlistStore";
 import { Pressable, ScrollView, View } from "@/tw";
 
 export default function SavedScreen() {
@@ -28,6 +29,12 @@ export default function SavedScreen() {
   const gap = 10;
   const pad = 24;
   const colW = (width - pad * 2 - gap) / 2;
+
+  function openSaved(item: WishlistItem) {
+    if (item.kind !== "itinerary") return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/trip/${item.id}` as Href);
+  }
 
   function confirmRemove(id: string, title: string) {
     Alert.alert(t("saved.removeTitle"), t("saved.removeBody", { title }), [
@@ -86,9 +93,14 @@ export default function SavedScreen() {
             {items.map((item, i) => {
               const tall = i % 3 === 0;
               const h = tall ? colW * 1.35 : colW * 1.05;
+              const canOpen = item.kind === "itinerary";
               return (
-                <View
+                <Pressable
                   key={item.id}
+                  onPress={() => openSaved(item)}
+                  disabled={!canOpen}
+                  accessibilityRole={canOpen ? "button" : undefined}
+                  accessibilityLabel={canOpen ? item.title : undefined}
                   style={{ width: colW, height: h }}
                   className="rounded-2xl overflow-hidden"
                 >
@@ -136,7 +148,7 @@ export default function SavedScreen() {
                       </AppText>
                     ) : null}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>

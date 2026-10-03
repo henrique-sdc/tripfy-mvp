@@ -31,7 +31,9 @@ ponytail: se um doc passar de ~400 KB, aí sim `activities/{id}` vira subcoleç�
 
 O convidado escuta o doc do dono. Sem `firebase deploy --only firestore:rules`, o SDK recusa a leitura e o app faz poll em `GET /trips/{id}` a cada 2 s. Com as regras no ar, o `onSnapshot` é o caminho principal.
 
-Quando o snapshot chega e a revisão não é sua, uma faixa some sozinha: "Ana alterou o título", "Ana reordenou o Dia 2". Debaixo do título fica "Ana editou agora" / "há 2 h", usando `updated_by_name` e `last_change` gravados na op. Sem linha do tempo.
+Quando o snapshot chega e a revisão não é sua, uma faixa some sozinha: "Ana alterou o título", "Ana reordenou o Dia 2". Debaixo do título, "Ana editou agora" / "há 2 h" só aparece se a outra pessoa editou. No roteiro solo essa linha não existe.
+
+O mesmo rótulo entra em `change_log` no doc canônico (teto 40, `{ by, kind, day, at_ms }`). A frase continua no app. O balão Salvo abre a lista, do mais novo para o mais antigo. Sozinho não mostra a faixa: o auto-save só acrescenta a linha no mesmo `setDoc`. Sem snapshot antigo e sem desfazer. Repetir o mesmo rótulo em menos de 2 min só atualiza a hora. O ponteiro do convidado e o cartão do Explorar não copiam o campo.
 
 No complete do Match o backend cria a viagem canônica e grava `trip_id` em `matches/{id}`. Os dois abrem esse id. Match antigo, sem `trip_id`, ainda cai na cópia local.
 

@@ -7,6 +7,14 @@
         { "fieldPath": "destination_key", "order": "ASCENDING" },
         { "fieldPath": "published_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "explore_trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "week_id", "order": "ASCENDING" },
+        { "fieldPath": "week_saves", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

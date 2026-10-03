@@ -37,6 +37,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/ui/AppText";
 import { useTheme } from "@/hooks/use-theme";
+import { buildGetYourGuideUrl, buildViatorSearchUrl } from "@/lib/affiliates";
+import { openPartnerUrl } from "@/lib/openPartnerUrl";
 import {
   ApiError,
   deleteOwnPlaceReview,
@@ -86,6 +88,10 @@ type Props = {
   canWriteReview?: boolean;
   /** Por que o CTA está bloqueado (só quando canWriteReview é false). */
   reviewLockMessage?: string | null;
+  /** RF10 — ingresso pago, marcado pela LLM. Sem isso o rodapé some. */
+  requiresTicket?: boolean;
+  /** Destino da viagem, entra na busca do ingresso junto do título. */
+  destination?: string;
   onClose: () => void;
 };
 
@@ -95,6 +101,8 @@ export function PlaceDetailsSheet({
   initialTab = "about",
   canWriteReview = false,
   reviewLockMessage = null,
+  requiresTicket = false,
+  destination = "",
   onClose,
 }: Props) {
   const { t } = useTranslation();
@@ -305,6 +313,11 @@ export function PlaceDetailsSheet({
   // Erro só se Places falhou E não temos nada do roteiro pra mostrar.
   const showHardError = error && !hasFallback;
   const showContent = !loading && !showHardError;
+  const ticketQuery = [fallback?.title?.trim(), destination.trim()]
+    .filter(Boolean)
+    .join(" ");
+  const showTicketCta =
+    requiresTicket && tab === "about" && Boolean(ticketQuery) && !showHardError;
   const canUseCommunity = Boolean(placeId);
   const canEditOrWrite = ownReview != null || canWriteReview;
 
@@ -522,6 +535,49 @@ export function PlaceDetailsSheet({
                   </AppText>
                 ) : null}
               </ScrollView>
+
+              {showTicketCta ? (
+                <RNView style={styles.ticketFooter}>
+                  <RNPressable
+                    onPress={() => {
+                      void openPartnerUrl(buildGetYourGuideUrl(ticketQuery));
+                    }}
+                    accessibilityRole="link"
+                    accessibilityLabel={t("tripDetail.partners.ticketsA11y", {
+                      title: fallback?.title?.trim() || ticketQuery,
+                    })}
+                    style={[
+                      styles.primaryBtn,
+                      { backgroundColor: theme.buttonPrimary },
+                    ]}
+                  >
+                    <AppText
+                      className="text-[15px] font-semibold"
+                      style={{ color: theme.buttonText }}
+                    >
+                      {t("tripDetail.partners.ticketsCta")}
+                    </AppText>
+                  </RNPressable>
+                  <RNPressable
+                    onPress={() => {
+                      void openPartnerUrl(buildViatorSearchUrl(ticketQuery));
+                    }}
+                    hitSlop={6}
+                    accessibilityRole="link"
+                    accessibilityLabel={t(
+                      "tripDetail.partners.ticketsViatorA11y",
+                      { title: fallback?.title?.trim() || ticketQuery },
+                    )}
+                  >
+                    <AppText
+                      tone="accent"
+                      className="text-[13px] font-semibold text-center"
+                    >
+                      {t("tripDetail.partners.ticketsViator")}
+                    </AppText>
+                  </RNPressable>
+                </RNView>
+              ) : null}
             </Animated.View>
           </GestureDetector>
         </RNView>
@@ -1112,6 +1168,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+  },
+  ticketFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 8,
   },
   formBox: {
     borderWidth: StyleSheet.hairlineWidth,

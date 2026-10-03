@@ -16,6 +16,8 @@ import {
   where,
 } from "firebase/firestore";
 
+import type { ChangeEntry } from "@/lib/changeLog";
+import { parseChangeLog } from "@/lib/changeLog";
 import type { ItineraryResponse } from "@/lib/api";
 import { newActivityId } from "@/lib/activityId";
 import { createTripApi, restoreTripApi } from "@/lib/api";
@@ -38,6 +40,8 @@ export type SavedTrip = ItineraryResponse & {
   updated_by_name?: string;
   last_change?: string | null;
   last_change_day?: number | null;
+  /** Rótulos das alterações. Ausente no ponteiro e em viagem antiga. */
+  change_log?: ChangeEntry[];
   /** `member` = ponteiro da Home, sem `days`. */
   role?: string;
   day_count?: number;
@@ -96,7 +100,7 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
 export async function saveTrip(
   itinerary: ItineraryResponse,
   tripId?: string,
-  opts?: { matchId?: string },
+  opts?: { matchId?: string; changeLog?: ChangeEntry[] },
 ): Promise<string> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Usuário não autenticado.");
@@ -122,6 +126,7 @@ export async function saveTrip(
       trip_id: ref.id,
       updated_at: serverTimestamp(),
       ...(matchId ? { match_id: matchId } : {}),
+      ...(opts?.changeLog ? { change_log: opts.changeLog } : {}),
     },
     { merge: true },
   );
@@ -253,6 +258,8 @@ export function tripFromDoc(
     last_change: typeof data.last_change === "string" ? data.last_change : null,
     last_change_day:
       typeof data.last_change_day === "number" ? data.last_change_day : null,
+    change_log:
+      "change_log" in data ? parseChangeLog(data.change_log) : undefined,
     role: typeof data.role === "string" ? data.role : undefined,
     day_count: asDayCount(data.day_count, days),
     member_uids: Array.isArray(data.member_uids)

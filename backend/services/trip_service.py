@@ -19,6 +19,7 @@ from models.trip import (
     GenerateTripRequest,
     InviteCreatedResponse,
     InvitePreviewResponse,
+    ExploreSaveResponse,
     SavedTripResponse,
     TripOpRequest,
     TripOpResponse,
@@ -279,3 +280,19 @@ async def publish_saved_trip(trip_id: str, uid: str, *, public: bool) -> SavedTr
         raise _missing_trip() from exc
     except TripAccessError as exc:
         raise _not_owner() from exc
+
+
+async def set_explore_saved(
+    trip_id: str,
+    uid: str,
+    *,
+    saved: bool,
+) -> ExploreSaveResponse:
+    try:
+        flag = await trips_repository.set_explore_saved(trip_id, uid, saved=saved)
+    except TripMissingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Este roteiro não está no Explorar.",
+        ) from exc
+    return ExploreSaveResponse(saved=flag)

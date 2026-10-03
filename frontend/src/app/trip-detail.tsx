@@ -42,13 +42,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { ActivityCard } from "@/components/trip/ActivityCard";
 import { AddActivityModal } from "@/components/trip/AddActivityModal";
+import { ChangeLogSheet } from "@/components/trip/ChangeLogSheet";
 import { EditActivityModal } from "@/components/trip/EditActivityModal";
 import {
   EditDayTitleModal,
   EditTripMetaModal,
 } from "@/components/trip/EditTripMetaModal";
+import {
+  BookingHubSheet,
+  BookingHubTeaser,
+} from "@/components/trip/BookingHubSheet";
 import { NearbySuggestionsSheet } from "@/components/trip/NearbySuggestionsSheet";
-import { PartnerReserveRow } from "@/components/trip/PartnerReserveRow";
 import { PlaceDetailsSheet } from "@/components/trip/PlaceDetailsSheet";
 import {
   PresenceAvatars,
@@ -67,6 +71,11 @@ import { useIsOffline } from "@/hooks/use-is-offline";
 import { useTheme } from "@/hooks/use-theme";
 import { useTripPresence } from "@/hooks/use-trip-presence";
 import { newActivityId } from "@/lib/activityId";
+import {
+  appendChangeLog,
+  describeLocalChanges,
+  type ChangeEntry,
+} from "@/lib/changeLog";
 import type {
   ActivityResponse,
   ItineraryResponse,
@@ -83,6 +92,7 @@ import {
   peekRouteLeg,
   seedPlaceDetails,
   setTripPublicApi,
+  bindVibePickApi,
 } from "@/lib/api";
 import { db } from "@/lib/firebase";
 import { appDeepLink } from "@/lib/deep-links";
@@ -501,6 +511,7 @@ export default function TripDetailScreen() {
     sheet?: string;
     day?: string;
     fresh?: string;
+    vibePick?: string;
   }>();
 
   const [itinerary, setItinerary] = useState<LocalItinerary | null>(() =>
@@ -531,6 +542,7 @@ export default function TripDetailScreen() {
   const [detailsPlace, setDetailsPlace] = useState<{
     placeId: string | null;
     activityKey?: string;
+    requiresTicket?: boolean;
     fallback: {
       title: string;
       description: string;
@@ -538,6 +550,7 @@ export default function TripDetailScreen() {
       photoUrl: string | null;
     };
   } | null>(null);
+  const [hubOpen, setHubOpen] = useState(false);
   const [editingActivityKey, setEditingActivityKey] = useState<string | null>(
     null,
   );
@@ -556,6 +569,7 @@ export default function TripDetailScreen() {
   const [editStamp, setEditStamp] = useState<{
     name: string;
     at: unknown;
+    uid: string;
   } | null>(null);
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
@@ -576,6 +590,8 @@ export default function TripDetailScreen() {
   const [shareOpen, setShareOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [changeLog, setChangeLog] = useState<ChangeEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const consumedNotificationLink = useRef("");
   const tripIdRef = useRef(tripId);
@@ -589,14 +605,27 @@ export default function TripDetailScreen() {
     itineraryRef.current = itinerary;
   }, [itinerary]);
   const persistNowRef = useRef(false);
+  const baselineRef = useRef<ItineraryResponse | null>(null);
+  const changeLogRef = useRef<ChangeEntry[]>([]);
+  const editorNameRef = useRef("");
   const chromeTouchedRef = useRef(false);
   const [saveTick, setSaveTick] = useState(0);
   const isPremium = useAuthStore((s) => s.isPremium);
   const user = useAuthStore((s) => s.user);
+  editorNameRef.current = user?.displayName?.trim() || "";
+
+  const rememberLog = useCallback((log: ChangeEntry[] | undefined) => {
+    if (!log) return;
+    changeLogRef.current = log;
+    setChangeLog(log);
+  }, []);
 
   const applyRemoteTrip = useCallback(
     (remote: SavedTrip) => {
-      setItinerary(stampKeys(remote));
+      const stamped = stampKeys(remote);
+      setItinerary(stamped);
+      baselineRef.current = toPersistable(stamped);
+      rememberLog(remote.change_log);
       setRevision(remote.revision ?? 0);
       if (remote.owner_uid) setOwnerUid(remote.owner_uid);
       setCollab(remote.collab === true);
@@ -604,18 +633,26 @@ export default function TripDetailScreen() {
       setIsPublic(Boolean(remote.is_public));
       setDirty(false);
       setSyncStatus("saved");
-      if (remote.updated_by_name || remote.updated_at) {
+      if (
+        remote.collab &&
+        remote.updated_by &&
+        remote.updated_by !== user?.uid &&
+        remote.updated_by_name?.trim()
+      ) {
         setEditStamp({
-          name: remote.updated_by_name?.trim() || "",
+          name: remote.updated_by_name.trim(),
           at: remote.updated_at,
+          uid: remote.updated_by,
         });
+      } else {
+        setEditStamp(null);
       }
       if (remote.updated_by && remote.updated_by !== user?.uid) {
         const phrase = changeNoticeText(t, remote);
         if (phrase) setLiveNotice(phrase);
       }
     },
-    [t, user?.uid],
+    [rememberLog, t, user?.uid],
   );
 
   const isOffline = useIsOffline();
@@ -631,6 +668,7 @@ export default function TripDetailScreen() {
     ownerUid,
     initialRevision: revision,
     onRemote: applyRemoteTrip,
+    onChangeLog: rememberLog,
     onConflict: (code) => {
       const bodyKey =
         code === "activity_deleted"
@@ -679,18 +717,21 @@ export default function TripDetailScreen() {
     tripIdRef.current = null;
     matchIdRef.current = peekPendingMatchId() ?? undefined;
     setItinerary(stampKeys(pending));
+    baselineRef.current = null;
+    rememberLog([]);
     setTripId(null);
     setDirty(true);
     setSyncStatus("saving");
     setReadOnly(false);
     setCollab(false);
+    setEditStamp(null);
     setOwnerUid(null);
     setMemberUids([]);
     setIsPublic(false);
     setRevision(0);
     setDaySelection(null);
     setLoadingRemote(false);
-  }, [freshToken]);
+  }, [freshToken, rememberLog]);
 
   useEffect(() => {
     if (syncStatus !== "saved" || !tripId) return;
@@ -724,6 +765,7 @@ export default function TripDetailScreen() {
       setDetailsPlace({
         placeId: resolvedPlace,
         activityKey: found?.key,
+        requiresTicket: Boolean(found?.requires_ticket),
         fallback: {
           title: found?.title ?? "",
           description: found?.description ?? "",
@@ -765,6 +807,10 @@ export default function TripDetailScreen() {
       const stamped = stampKeys(remote);
       setOfflineMissing(false);
       setItinerary(stamped);
+      baselineRef.current = toPersistable(stamped);
+      rememberLog(
+        "change_log" in remote ? remote.change_log : undefined,
+      );
       setTripId(remote.id);
       if (remote.match_id) matchIdRef.current = remote.match_id;
       const readOnlyFlag =
@@ -782,13 +828,26 @@ export default function TripDetailScreen() {
       );
       setIsPublic("is_public" in remote && Boolean(remote.is_public));
       setRevision(remote.revision ?? 0);
-      setEditStamp({
-        name:
-          typeof remote.updated_by_name === "string"
-            ? remote.updated_by_name.trim()
-            : "",
-        at: remote.updated_at,
-      });
+      const editorUid =
+        "updated_by" in remote && typeof remote.updated_by === "string"
+          ? remote.updated_by
+          : "";
+      const editorName =
+        typeof remote.updated_by_name === "string"
+          ? remote.updated_by_name.trim()
+          : "";
+      const myUid = user?.uid;
+      if (
+        remote.collab &&
+        editorUid &&
+        editorName &&
+        editorUid !== myUid &&
+        (remote.member_uids ?? []).some((id) => id !== myUid)
+      ) {
+        setEditStamp({ name: editorName, at: remote.updated_at, uid: editorUid });
+      } else {
+        setEditStamp(null);
+      }
       setSyncStatus("saved");
       setDirty(false);
       if (!chromeTouchedRef.current) {
@@ -859,7 +918,7 @@ export default function TripDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [itinerary, params.tripId, t, offlineHydrated, isOffline]);
+  }, [itinerary, params.tripId, t, offlineHydrated, isOffline, rememberLog, user?.uid]);
 
   // Solo aberto: quando o parceiro aceita, collab vira true e o auto-save
   // do client passa a ser recusado. O hook da sala assume daí.
@@ -907,13 +966,42 @@ export default function TripDetailScreen() {
       if (savingLock.current) return;
       savingLock.current = true;
       setSyncStatus("saving");
+      const normalized = toPersistable(snapshot);
+      const creating = !tripIdRef.current;
+      const before = baselineRef.current;
+      const found =
+        !creating && before ? describeLocalChanges(before, normalized) : [];
+      let nextLog = changeLogRef.current;
+      if (found.length > 0) {
+        const now = Date.now();
+        const by = editorNameRef.current;
+        for (const item of found) {
+          nextLog = appendChangeLog(nextLog, {
+            by,
+            kind: item.kind,
+            day: item.day,
+            at_ms: now,
+          });
+        }
+      }
       try {
         const id = await saveTrip(
-          toPersistable(snapshot),
+          normalized,
           tripIdRef.current ?? undefined,
-          matchIdRef.current ? { matchId: matchIdRef.current } : undefined,
+          {
+            ...(matchIdRef.current ? { matchId: matchIdRef.current } : {}),
+            ...(found.length > 0 ? { changeLog: nextLog } : {}),
+          },
         );
         setTripId(id);
+        const pickIndex = Number(oneParam(params.vibePick));
+        if (creating && oneParam(params.vibePick) !== "" && Number.isInteger(pickIndex)) {
+          void bindVibePickApi(pickIndex, id).catch((err) => {
+            console.warn("[trip-detail] vibe pick:", err);
+          });
+        }
+        baselineRef.current = normalized;
+        if (found.length > 0) rememberLog(nextLog);
         if (itineraryRef.current === snapshot) {
           setDirty(false);
           setSyncStatus("saved");
@@ -935,7 +1023,10 @@ export default function TripDetailScreen() {
           try {
             const remote = await getTripApi(tripIdRef.current);
             if (remote.collab) {
-              setItinerary(stampKeys(remote));
+              const stamped = stampKeys(remote);
+              setItinerary(stamped);
+              baselineRef.current = toPersistable(stamped);
+              rememberLog(remote.change_log);
               setCollab(true);
               setOwnerUid(remote.owner_uid ?? null);
               setRevision(remote.revision ?? 0);
@@ -963,7 +1054,7 @@ export default function TripDetailScreen() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [itinerary, dirty, loadingRemote, writesLocked, collab, t, saveTick]);
+  }, [itinerary, dirty, loadingRemote, writesLocked, collab, t, saveTick, params.vibePick, rememberLog]);
 
   // Pin ligado: depois de um save online, atualiza o JSON e busca foto só
   // da parada que ainda não está no pin.
@@ -1012,6 +1103,15 @@ export default function TripDetailScreen() {
     }
     return currentDay?.activities ?? [];
   }, [itinerary, showingAll, currentDay]);
+
+  const ticketStops = useMemo(() => {
+    if (!itinerary) return [];
+    return itinerary.days.flatMap((day) =>
+      day.activities
+        .filter((activity) => activity.requires_ticket)
+        .map((activity) => ({ id: activity.key, title: activity.title })),
+    );
+  }, [itinerary]);
 
   const legSignature = useMemo(() => {
     const coords = activities
@@ -1899,6 +1999,7 @@ export default function TripDetailScreen() {
                     setDetailsPlace({
                       placeId: payload.placeId,
                       activityKey: item.key,
+                      requiresTicket: Boolean(item.requires_ticket),
                       fallback: {
                         title: payload.title,
                         description: payload.description,
@@ -2068,7 +2169,10 @@ export default function TripDetailScreen() {
               ? t("tripDetail.daysCount", { count: itinerary.days.length })
               : t("tripDetail.subtitle")}
           </AppText>
-          {collab && editStamp
+          {collab &&
+          editStamp &&
+          editStamp.uid !== user?.uid &&
+          memberUids.some((id) => id !== user?.uid)
             ? (() => {
                 const line = lastEditLine(t, editStamp.name, editStamp.at);
                 return line ? (
@@ -2119,7 +2223,13 @@ export default function TripDetailScreen() {
                 </AppText>
               </RNPressable>
             ) : (
-              <SyncIndicator status={syncStatus} />
+              <SyncIndicator
+                status={syncStatus}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setHistoryOpen(true);
+                }}
+              />
             )}
             {tripId ? (
               <RNPressable
@@ -2531,10 +2641,11 @@ export default function TripDetailScreen() {
                 autoscrollThreshold={48}
                 ListHeaderComponent={
                   <>
-                    <PartnerReserveRow
+                    <BookingHubTeaser
                       destination={itinerary.destination}
                       startDate={itinerary.start_date}
                       endDate={itinerary.end_date}
+                      onPress={() => setHubOpen(true)}
                     />
                     {!showingAll && planChrome ? (
                       <AppText
@@ -2604,7 +2715,18 @@ export default function TripDetailScreen() {
         initialTab={detailsTab}
         canWriteReview={reviewGate.canWrite}
         reviewLockMessage={reviewGate.lock}
+        requiresTicket={Boolean(detailsPlace?.requiresTicket)}
+        destination={itinerary?.destination ?? ""}
         onClose={() => setDetailsPlace(null)}
+      />
+
+      <BookingHubSheet
+        visible={hubOpen}
+        destination={itinerary?.destination ?? ""}
+        startDate={itinerary?.start_date}
+        endDate={itinerary?.end_date}
+        tickets={ticketStops}
+        onClose={() => setHubOpen(false)}
       />
 
       <EditActivityModal
@@ -2660,6 +2782,12 @@ export default function TripDetailScreen() {
           setTimeout(() => void shareReadLink(), 280);
         }}
         onTogglePublish={onTogglePublish}
+      />
+
+      <ChangeLogSheet
+        visible={historyOpen}
+        entries={changeLog}
+        onClose={() => setHistoryOpen(false)}
       />
 
       <EditTripMetaModal

@@ -130,6 +130,40 @@ class TravelPreferences(BaseModel):
     other_preferences: str = Field(default="", max_length=280)
 
 
+class VibePick(BaseModel):
+    """Cidade sugerida na Home. trip_id preenchido depois do primeiro roteiro."""
+
+    destination: str = Field(..., min_length=2, max_length=80)
+    reason: str = Field(..., min_length=2, max_length=180)
+    trip_id: str | None = None
+
+
+class VibePlacesDraft(BaseModel):
+    """JSON curto do LLM — exatamente 3 cidades."""
+
+    places: list[VibePick]
+
+
+class VibePicksResponse(BaseModel):
+    picks: list[VibePick]
+
+
+class VibePickOpenResponse(BaseModel):
+    """Toque no card. generate false = já existe viagem."""
+
+    trip_id: str | None = None
+    generate: bool = False
+    destination: str = ""
+    budget: str = ""
+    days: int = 4
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class BindVibePickRequest(BaseModel):
+    trip_id: str = Field(..., min_length=8, max_length=128)
+
+
 class UserInDB(BaseModel):
     uid: str
     email: str

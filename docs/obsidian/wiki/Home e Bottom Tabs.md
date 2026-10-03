@@ -38,25 +38,25 @@ Destino via Place Autocomplete (proxy FastAPI, debounce 400ms, lista flutuante).
 
 Dados reais no `useFocusEffect`:
 
-- **Avatar** — `getUserProfile()` + `profilePhotoUri()` (Firestore `photoBase64` ou Auth `photoURL`); tap → aba Perfil.
+- **Header** — wordmark `Tripfy` fixo acima do scroll, centralizado; avatar à direita (`getUserProfile()` + `profilePhotoUri()`, tap → aba Perfil). A saudação (`Bom dia, nome`) rola com o conteúdo. O pull-to-refresh fica abaixo do header, senão o spinner do iOS some atrás dele.
 - **Último roteiro** — `getLatestTrip()` (`updated_at` desc); foto via `getPlaceDetails`; skeleton `h-[88]`; empty → CTA `CreateTripSheet`. Sem countdown de datas (YAGNI).
 - **Convite de Match** — `GET /api/v1/matches/invites` no foco, a cada 5 s com a Home aberta, e no pull-to-refresh. Banner no topo: Aceitar entra na sala (`POST /join`), Recusar zera `invitee_uid`. Sem swipe.
-- **Destinos da vibe** — `getRecommendedDestinations(travel_preferences)` catálogo estático ranqueado por `interests` ([[Preferências Sua Vibe]]).
+- **Destinos da vibe** — `POST /users/me/vibe-picks` devolve 3 cidades (LLM só se a vibe mudou). Foto via `getPlaceDetails`. Toque sem `trip_id` gera 4 dias a partir da próxima segunda e grava o id no card; o toque seguinte abre essa viagem. Teto Free vale antes do stream.
 - **FAB** — `createTripSheetStore.open()`.
-- **Explorar** — card na Home → `/explore`. Feed de roteiros publicados (RF08). Catálogo estático da Em Alta continua separado.
-- **Em Alta** — catálogo local → `/trending`.
+- **Explorar** — carrossel dos publicados recentes (foto via `getPlaceDetails`). Chevron → `/explore`. Toque no card abre `/trip/{id}`. Coração no canto da foto; autor e dias na mesma linha.
+- **Em Alta** — top 10 salvos na semana UTC (`week_id` + `week_saves`). Home mostra os primeiros; `/trending` lista os 10 com o mesmo card. Sem catálogo falso.
 
 ## Explorar
 
-O feed não varre `users/{uid}/trips`. Publicar (`POST /trips/{id}/publish`, só o dono) grava `is_public` no doc canônico e um cartão em `explore_trips/{tripId}`: destino, título, resumo, `day_count`, `owner_name`, `published_at`, `clone_count`. Sem `days`, notas, e-mail ou UID. O client lê (autenticado); escreve só a API. `is_public`, `published_at` e `invite_hash` estão na denylist do auto-save.
+O feed não varre `users/{uid}/trips`. Publicar (`POST /trips/{id}/publish`, só o dono) grava `is_public` no doc canônico e um cartão em `explore_trips/{tripId}`: destino, título, resumo, `day_count`, `owner_name`, `published_at`, `clone_count`, `week_id`, `week_saves`. Sem `days`, notas, e-mail ou UID. O client lê (autenticado); escreve só a API.
 
-- Recentes: `orderBy(published_at desc) limit 20`, página com `startAfter`.
-- Em alta: `orderBy(clone_count desc) limit 20`. O clone incrementa o contador em best-effort.
-- Destino: igualdade em `destination_key` + `published_at`. Índice composto em `firestore.indexes.json`. Prefixo (“lis” → Lisboa) fica de fora.
+- Recentes: `orderBy(published_at desc) limit 20`, página com `startAfter`. A Home pega os 8 primeiros. Cada linha da tela mostra a foto do destino (`getPlaceDetails`) ao lado do título, da meta e do resumo.
+- Em alta: `where(week_id == semana UTC) orderBy(week_saves desc) limit 10`. O coração (`POST/DELETE /trips/{id}/save`) soma uma vez por pessoa. Desfazer na mesma semana diminui. Dedupe em `explore_saves/{tripId}_{uid}`.
+- Destino: igualdade em `destination_key` + `published_at`. Índices em `firestore.indexes.json`. Prefixo (“lis” → Lisboa) fica de fora.
 
-Abrir um card reusa `/trip/{id}` (leitura + clonar). Tirar do feed apaga o cartão e não apaga `trip_shares`.
+`clone_count` continua no clone e não ordena o Em alta. Abrir um card reusa `/trip/{id}` (leitura + clonar). Tirar do feed apaga o cartão e não apaga `trip_shares`.
 
-Deploy: `firebase deploy --only firestore:rules,firestore:indexes`. Sem as rules, o feed não lista; sem o índice, a busca por destino falha.
+Deploy: `firebase deploy --only firestore:rules,firestore:indexes`. Sem o índice `week_id` + `week_saves`, o Em alta não lista.
 
 Ver [[Match de Viajantes RF11 RF12]].
 
