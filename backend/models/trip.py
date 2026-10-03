@@ -8,9 +8,17 @@ e que a TripDetailScreen consome após remontar o SSE.
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from models.user import BudgetRange
+
+# Parágrafo "como um morador". Cortar aqui evita derrubar o roteiro inteiro.
+_LOCAL_LIFE_MAX = 800
+
+
+def clip_local_life(value: object) -> str:
+    return str(value or "").strip()[:_LOCAL_LIFE_MAX]
+
 
 # Teto de produto: viagens longas demais degradam qualidade do roteiro LLM.
 MAX_TRIP_DAYS = 15
@@ -113,7 +121,19 @@ class ItineraryResponse(BaseModel):
             "segurança, clima, deslocamento, costumes locais). Sem genericidades."
         ),
     )
+    local_life: str = Field(
+        ...,
+        description=(
+            "Parágrafo de 3 ou 4 frases no tom de quem mora no destino. "
+            "Não repete tips."
+        ),
+    )
     days: list[ItineraryDayResponse] = Field(..., min_length=1)
+
+    @field_validator("local_life", mode="before")
+    @classmethod
+    def clip_life(cls, value: object) -> str:
+        return clip_local_life(value)
 
 
 class PersistedActivity(ActivityResponse):
@@ -156,8 +176,15 @@ class SavedTripResponse(BaseModel):
     title: str = ""
     summary: str
     tips: list[str] = Field(default_factory=list)
+    # Parágrafo da geração. Vazio em viagem antiga — o cartão some.
+    local_life: str = ""
     # Notas pessoais do dono (não geradas pela LLM).
     notes: str = ""
+
+    @field_validator("local_life", mode="before")
+    @classmethod
+    def clip_life(cls, value: object) -> str:
+        return clip_local_life(value)
     days: list[PersistedDay] = Field(default_factory=list)
     # Metadado da viagem (não vem do LLM) — deep links de OTA (RF10).
     start_date: date | None = None
@@ -207,8 +234,14 @@ class CreateTripRequest(BaseModel):
     title: str = ""
     summary: str = ""
     tips: list[str] = Field(default_factory=list)
+    local_life: str = ""
     notes: str = ""
     days: list[PersistedDay] = Field(default_factory=list)
+
+    @field_validator("local_life", mode="before")
+    @classmethod
+    def clip_life(cls, value: object) -> str:
+        return clip_local_life(value)
     start_date: date | None = None
     end_date: date | None = None
     match_id: str | None = Field(default=None, max_length=128)

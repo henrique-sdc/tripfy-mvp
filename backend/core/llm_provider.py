@@ -144,8 +144,9 @@ def _openai_day_keyed_schema(day_count: int) -> dict[str, Any]:
             "type": "array",
             "items": {"type": "string"},
         },
+        "local_life": {"type": "string"},
     }
-    required = ["destination", "summary", "tips"]
+    required = ["destination", "summary", "tips", "local_life"]
     for i in range(1, day_count + 1):
         key = f"day_{i}"
         properties[key] = {"$ref": "#/$defs/ItineraryDayResponse"}
@@ -181,6 +182,7 @@ def _keyed_json_to_itinerary(raw: str, day_count: int) -> ItineraryResponse:
         destination=data["destination"],
         summary=data["summary"],
         tips=[str(t) for t in (data.get("tips") or []) if str(t).strip()],
+        local_life=str(data.get("local_life") or ""),
         days=days,
     )
 
@@ -451,6 +453,7 @@ if __name__ == "__main__":
         "destination",
         "summary",
         "tips",
+        "local_life",
         "day_1",
         "day_2",
         "day_3",
@@ -469,6 +472,7 @@ if __name__ == "__main__":
     assert "place_id" not in activity_props
     sample = (
         '{"destination":"X","summary":"Y","tips":["a","b","c"],'
+        '"local_life":"O morador almoça no boteco da esquina.",'
         '"day_1":{"day":1,"title":"A","activities":[{"time":"09:00","title":"t",'
         '"description":"d","location":"l","latitude":null,"longitude":null}]},'
         '"day_2":{"day":2,"title":"B","activities":[{"time":"09:00","title":"t",'
@@ -478,6 +482,34 @@ if __name__ == "__main__":
     )
     converted = _keyed_json_to_itinerary(sample, 3)
     assert len(converted.tips) == 3
+    assert "morador" in converted.local_life
     assert len(converted.days) == 3
+    import json
+
+    fat = json.loads(sample)
+    fat["local_life"] = "z" * 900
+    clipped = ItineraryResponse.model_validate(
+        {
+            "destination": fat["destination"],
+            "summary": fat["summary"],
+            "tips": fat["tips"],
+            "local_life": fat["local_life"],
+            "days": [
+                {
+                    "day": 1,
+                    "title": "A",
+                    "activities": [
+                        {
+                            "time": "09:00",
+                            "title": "t",
+                            "description": "d",
+                            "location": "l",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    assert len(clipped.local_life) == 800
     assert converted.days[1].day == 2
     print("llm_provider ok")

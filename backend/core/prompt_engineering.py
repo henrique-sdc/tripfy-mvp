@@ -76,6 +76,10 @@ Regras inegociáveis:
     ticket, shows, tours, parques temáticos. False para restaurantes, cafés,
     bairros, caminhadas, praias livres, shoppings e viewpoints gratuitos.
     Na dúvida, False. Nunca invente URL de parceiro — o app monta o link.
+12. Preencha `local_life` com um parágrafo de 3 ou 4 frases, em português,
+    no tom de quem mora no destino: onde o morador come, um hábito do bairro
+    e o que o turista costuma pular. Específico do lugar e da época.
+    Não repita as `tips`. Proibido "seja respeitoso" ou "leve protetor solar".
 """
 
 
@@ -197,6 +201,7 @@ cada description de ActivityResponse.
 O array `days` deve ter exatamente {trip.days} itens (day=1 até day={trip.days}).
 Inclua `tips` (3–5) específicas deste destino — cultura, segurança, clima
 da época, costumes locais — não genéricas.
+Preencha `local_life` com 3 ou 4 frases de quem mora no destino. Não repita as tips.
 Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 {profile}
@@ -238,6 +243,7 @@ divergirem e produza um roteiro amigável e equilibrado, sem calcular scores.
 Use os meios de transporte informados nas estimativas de deslocamento.
 O array `days` deve ter exatamente {match.days} itens (day=1 até day={match.days}).
 Inclua `tips` (3–5) específicas deste destino e da época para o grupo.
+Preencha `local_life` com 3 ou 4 frases de quem mora no destino. Não repita as tips.
 Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 <perfis_viajantes>
@@ -303,6 +309,8 @@ if __name__ == "__main__":
     assert "data_inicio" in SYSTEM_PROMPT
     assert "requires_ticket" in SYSTEM_PROMPT
     assert "Nunca invente URL" in SYSTEM_PROMPT
+    assert "morador" in SYSTEM_PROMPT
+    assert "local_life" in SYSTEM_PROMPT
     prefs = TravelPreferences(
         interests=[Interest.CAFES],
         pace=Pace.RELAXED,

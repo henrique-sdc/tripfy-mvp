@@ -751,6 +751,9 @@
     "tips": {
       "title": "Dicas Tripfy"
     },
+    "localLife": {
+      "title": "Como um morador local"
+    },
     "loading": "Carregando roteiro…",
     "loadErrorBody": "Não foi possível abrir esta viagem.",
     "savedTitle": "Viagem salva",

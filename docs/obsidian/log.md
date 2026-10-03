@@ -1,5 +1,10 @@
 # Log — Tripfy Wiki
 
+## [2026-10-03] update | Como um morador local
+
+Parágrafo gerado com o roteiro e cartão no detalhe. Sem chamada extra de IA.
+[[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]] e [[changelog]].
+
 ## [2026-10-03] update | Suporte e Central de Reservas
 
 A base do chat passou a explicar o redirecionamento. O histórico da tela (até 8 mensagens) segue em todo envio.

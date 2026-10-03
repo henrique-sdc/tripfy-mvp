@@ -1,4 +1,10 @@
 # Changelog — Tripfy Docs
+## 2026-10-03 — Como um morador local
+
+- O roteiro ganha um parágrafo `local_life` na mesma geração das dicas. O detalhe mostra um segundo cartão, "Como um morador local".
+- Viagem antiga sem o campo continua válida e o cartão fica oculto.
+- Wiki: [[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]].
+
 ## 2026-10-03 — Suporte explica a Central de Reservas
 
 - A base do chat deixou de dizer que o app não reserva. Agora descreve o card no topo do roteiro e o redirecionamento aos parceiros, sem preço.

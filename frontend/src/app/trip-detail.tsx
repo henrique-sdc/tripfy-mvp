@@ -152,6 +152,7 @@ type LocalItinerary = {
   title: string;
   summary: string;
   tips: string[];
+  local_life: string;
   notes: string;
   days: LocalDay[];
   start_date?: string;
@@ -190,6 +191,7 @@ function stampKeys(raw: ItineraryResponse): LocalItinerary {
     tips: Array.isArray(raw.tips)
       ? raw.tips.map((t) => String(t).trim()).filter(Boolean)
       : [],
+    local_life: typeof raw.local_life === "string" ? raw.local_life.trim() : "",
     notes: typeof raw.notes === "string" ? raw.notes : "",
     days: raw.days.map((d) => ({
       day: d.day,
@@ -295,6 +297,7 @@ function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
     title: itinerary.title.trim(),
     summary: itinerary.summary,
     tips: itinerary.tips,
+    local_life: itinerary.local_life,
     notes: itinerary.notes,
     days: itinerary.days.map((d) => ({
       day: d.day,
@@ -448,10 +451,12 @@ function TripTipsFooter({
   tips,
   theme,
   t,
+  tucked,
 }: {
   tips: string[];
   theme: ReturnType<typeof useTheme>;
   t: (key: string) => string;
+  tucked?: boolean;
 }) {
   if (tips.length === 0) return null;
 
@@ -459,6 +464,7 @@ function TripTipsFooter({
     <RNView
       style={[
         styles.tipsCard,
+        tucked ? styles.tipsCardTucked : null,
         {
           backgroundColor: `${theme.accent}12`,
           borderColor: `${theme.accent}40`,
@@ -494,6 +500,54 @@ function TripTipsFooter({
           </AppText>
         </RNView>
       ))}
+    </RNView>
+  );
+}
+
+/** Parágrafo gerado na mesma chamada do roteiro. Some se a viagem for antiga. */
+function LocalLifeCard({
+  text,
+  theme,
+  t,
+}: {
+  text: string;
+  theme: ReturnType<typeof useTheme>;
+  t: (key: string) => string;
+}) {
+  const body = text.trim();
+  if (!body) return null;
+
+  return (
+    <RNView
+      style={[
+        styles.tipsCard,
+        styles.localLifeCard,
+        {
+          backgroundColor: `${theme.accent}12`,
+          borderColor: `${theme.accent}40`,
+        },
+      ]}
+    >
+      <RNView style={styles.tipsHeader}>
+        <RNView
+          style={[styles.tipsBadge, { backgroundColor: `${theme.accent}22` }]}
+        >
+          <Ionicons name="cafe-outline" size={14} color={theme.accent} />
+        </RNView>
+        <AppText
+          className="text-[14px] font-bold"
+          style={{ color: theme.accent, letterSpacing: -0.2 }}
+        >
+          {t("tripDetail.localLife.title")}
+        </AppText>
+      </RNView>
+      <AppText
+        selectable
+        className="text-[13px] leading-5"
+        style={{ color: theme.textPrimary }}
+      >
+        {body}
+      </AppText>
     </RNView>
   );
 }
@@ -2669,7 +2723,19 @@ export default function TripDetailScreen() {
                   </>
                 }
                 ListFooterComponent={
-                  <TripTipsFooter tips={itinerary.tips} theme={theme} t={t} />
+                  <RNView>
+                    <TripTipsFooter
+                      tips={itinerary.tips}
+                      theme={theme}
+                      t={t}
+                      tucked={Boolean(itinerary.local_life.trim())}
+                    />
+                    <LocalLifeCard
+                      text={itinerary.local_life}
+                      theme={theme}
+                      t={t}
+                    />
+                  </RNView>
                 }
               />
             </RNView>
@@ -2895,6 +2961,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: "dashed",
     gap: 10,
+  },
+  tipsCardTucked: {
+    marginBottom: 0,
+  },
+  localLifeCard: {
+    marginTop: 12,
   },
   tipsHeader: {
     flexDirection: "row",
