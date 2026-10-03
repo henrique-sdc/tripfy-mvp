@@ -163,6 +163,9 @@ dados), bloco de direitos LGPD com atalho para a Zona de Perigo, contato via
 `mailto:`, e aviso "Política de Privacidade e Termos de Uso — em breve"
 (conteúdo legal completo fora de escopo do MVP).
 
+O CTA "Falar com nosso Assistente de IA" abre [[Chat de Suporte]]. A FAQ
+estática permanece.
+
 ## Fix: flash branco ao navegar (Dark Mode)
 
 `react-native-screens` usa fundo branco padrão durante a transição nativa de

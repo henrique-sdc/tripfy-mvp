@@ -18,6 +18,7 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Modo Viagem]] — assistente de campo: Planejar/Viajar, checkbox, mapa nativo, trava de review.
 - [[Modo Offline]] — Premium: pin do roteiro no aparelho, fotos de capa, mapa e edição fora quando não há rede.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
+- [[Chat de Suporte]] — chatbot de dúvidas rápidas: KB estática no prompt, SSE, tela nativa.
 - [[Tripfy Pro e Paywall]] — mock de assinatura TCC: teto de 2 viagens ativas, 402, checkout simulado, overlay do paywall.
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.

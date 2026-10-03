@@ -203,6 +203,15 @@ class LLMProvider(ABC):
         """Três cidades. Sem trip_id."""
         ...
 
+    @abstractmethod
+    def stream_support(
+        self,
+        system: str,
+        messages: list[tuple[str, str]],
+    ) -> AsyncIterator[str]:
+        """Yield de texto livre. Sem JSON schema."""
+        ...
+
 
 class GeminiProvider(LLMProvider):
     """Structured Output nativo via SDK `google-genai`."""
@@ -265,6 +274,35 @@ class GeminiProvider(LLMProvider):
         )
         raw = getattr(response, "text", None) or ""
         return _picks_from_json(raw)
+
+    async def stream_support(
+        self,
+        system: str,
+        messages: list[tuple[str, str]],
+    ) -> AsyncIterator[str]:
+        from google.genai import types
+
+        contents = [
+            types.Content(
+                role="user" if role == "user" else "model",
+                parts=[types.Part.from_text(text=text)],
+            )
+            for role, text in messages
+        ]
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=0.2,
+            max_output_tokens=400,
+        )
+        stream = await self._client.aio.models.generate_content_stream(
+            model=self._model,
+            contents=contents,
+            config=config,
+        )
+        async for chunk in stream:
+            text = getattr(chunk, "text", None)
+            if text:
+                yield text
 
 
 class OpenAIProvider(LLMProvider):
@@ -358,6 +396,28 @@ class OpenAIProvider(LLMProvider):
         raw = response.choices[0].message.content or ""
         return _picks_from_json(raw)
 
+    async def stream_support(
+        self,
+        system: str,
+        messages: list[tuple[str, str]],
+    ) -> AsyncIterator[str]:
+        stream = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": system},
+                *[{"role": role, "content": text} for role, text in messages],
+            ],
+            temperature=0.2,
+            max_tokens=400,
+            stream=True,
+        )
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
 
 # Instância lazy — evita falhar na importação se a key ainda não estiver no env.
 _provider: LLMProvider | None = None
@@ -384,6 +444,8 @@ def get_llm_provider() -> LLMProvider:
 if __name__ == "__main__":
     assert issubclass(GeminiProvider, LLMProvider)
     assert issubclass(OpenAIProvider, LLMProvider)
+    assert "stream_support" in GeminiProvider.__dict__
+    assert "stream_support" in OpenAIProvider.__dict__
     schema = _openai_day_keyed_schema(3)
     assert schema["required"] == [
         "destination",

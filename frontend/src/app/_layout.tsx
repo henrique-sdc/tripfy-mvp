@@ -131,6 +131,7 @@ export default function RootLayout() {
             <Stack.Screen name="edit-profile" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="settings" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="help-support" options={PUSH_SCREEN_OPTIONS} />
+            <Stack.Screen name="support-chat" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="edit-vibe" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="companions" options={PUSH_SCREEN_OPTIONS} />
             <Stack.Screen name="profile/[id]" options={PUSH_SCREEN_OPTIONS} />

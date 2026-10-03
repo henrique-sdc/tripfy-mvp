@@ -16,6 +16,7 @@ from api.notification_router import internal_router as notification_internal_rou
 from api.notification_router import me_router as notification_me_router
 from api.places_router import router as places_router
 from api.routes_router import router as routes_router
+from api.support_router import router as support_router
 from api.trip_router import router as trip_router
 from api.user_router import router as user_router
 from core.config import settings
@@ -48,6 +49,7 @@ app.include_router(checkout_router, prefix="/api/v1")
 app.include_router(match_router, prefix="/api/v1")
 app.include_router(places_router, prefix="/api/v1")
 app.include_router(routes_router, prefix="/api/v1")
+app.include_router(support_router, prefix="/api/v1")
 app.include_router(trip_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(notification_me_router, prefix="/api/v1")

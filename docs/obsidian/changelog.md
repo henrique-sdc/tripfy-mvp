@@ -1,4 +1,18 @@
 # Changelog — Tripfy Docs
+## 2026-10-03 — Suporte explica a Central de Reservas
+
+- A base do chat deixou de dizer que o app não reserva. Agora descreve o card no topo do roteiro e o redirecionamento aos parceiros, sem preço.
+- Cada pergunta relê o Markdown. O histórico enviado continua sendo a conversa da tela, até 8 mensagens.
+- Wiki: [[Chat de Suporte]], [[Afiliados RF10]].
+
+## 2026-10-03 — Chat de suporte
+
+- Em Ajuda, o CTA abre um chat. A FAQ estática e o e-mail continuam.
+- A base é um Markdown no system prompt. Sem banco vetorial e sem gravar a conversa.
+- A resposta chega no mesmo SSE do roteiro (`token`, `done`, `error`), em texto livre.
+- Fora de escopo, a frase é fixa: só dúvidas sobre o Tripfy.
+- Wiki: [[Chat de Suporte]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]].
+
 ## 2026-10-03 — Central de Reservas
 
 - O topo do roteiro abre um sheet com hospedagem (Booking e Airbnb), voos, ingressos das paradas pagas e complementares (eSIM, seguro, carro).

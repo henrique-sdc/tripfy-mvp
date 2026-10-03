@@ -1056,7 +1056,18 @@
       "deleteLink": "Ir para Excluir conta"
     },
     "contactSection": "Fale com a gente",
+    "assistantCta": "Falar com nosso Assistente de IA",
+    "assistantHint": "Dúvidas rápidas sobre o app",
     "legalComingSoon": "Política de Privacidade e Termos de Uso. Em breve."
+  },
+  "supportChat": {
+    "title": "Assistente",
+    "empty": "Pergunte sobre roteiros, Match, conta ou privacidade.",
+    "placeholder": "Escreva sua dúvida",
+    "send": "Enviar",
+    "typing": "…",
+    "error": "Não consegui responder agora. Tente de novo.",
+    "retry": "Tentar de novo"
   },
   "pushPrompt": {
     "title": "Avisar antes de cada parada?",

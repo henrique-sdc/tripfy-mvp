@@ -1111,19 +1111,25 @@ export async function listMyCompanions(
   return (await response.json()) as UserPublicProfile[];
 }
 
+type AuthSseHandlers = {
+  onToken?: (token: string) => void;
+  onDone: (accumulated: string) => void;
+  onError: (error: Error) => void;
+};
+
 /**
- * Consome o contrato SSE compartilhado pelas gerações Solo e Match.
+ * POST autenticado no contrato SSE `{token|done|error}`.
  *
- * Retorna uma função `close()` para abortar (unmount / cancelamento).
- * pollingInterval: 0 desliga o auto-reconnect — geração é one-shot.
+ * Retorna `close()` para abortar (unmount / cancelamento).
+ * pollingInterval: 0 desliga o auto-reconnect — cada chamada é one-shot.
  */
-function generateItineraryStream(
+function openAuthSse(
   path: string,
   body: Record<string, unknown> | undefined,
-  onToken: ((token: string) => void) | undefined,
-  onComplete: (itinerary: ItineraryResponse) => void,
-  onError: (error: Error) => void,
+  handlers: AuthSseHandlers,
 ): () => void {
+  const { onToken, onDone, onError } = handlers;
+
   if (!BASE_URL) {
     onError(
       new Error(
@@ -1197,21 +1203,7 @@ function generateItineraryStream(
         }
 
         if (payload.done === true) {
-          try {
-            const itinerary = JSON.parse(accumulated) as ItineraryResponse;
-            if (!itinerary?.destination || !Array.isArray(itinerary.days)) {
-              throw new Error("Roteiro incompleto.");
-            }
-            // Observabilidade local — espelho do log do backend no stream.
-            console.info(
-              "[LLM Response] Roteiro parseado:",
-              JSON.stringify(itinerary, null, 2),
-            );
-            onComplete(itinerary);
-          } catch (err) {
-            console.error("[api] Falha ao parsear roteiro acumulado:", err);
-            onError(new Error("Não foi possível montar o roteiro gerado."));
-          }
+          onDone(accumulated);
           close();
         }
       });
@@ -1249,6 +1241,63 @@ function generateItineraryStream(
     });
 
   return close;
+}
+
+/**
+ * Consome o contrato SSE compartilhado pelas gerações Solo e Match.
+ * No `done`, o texto acumulado é o JSON do roteiro.
+ */
+function generateItineraryStream(
+  path: string,
+  body: Record<string, unknown> | undefined,
+  onToken: ((token: string) => void) | undefined,
+  onComplete: (itinerary: ItineraryResponse) => void,
+  onError: (error: Error) => void,
+): () => void {
+  return openAuthSse(path, body, {
+    onToken,
+    onDone: (accumulated) => {
+      try {
+        const itinerary = JSON.parse(accumulated) as ItineraryResponse;
+        if (!itinerary?.destination || !Array.isArray(itinerary.days)) {
+          throw new Error("Roteiro incompleto.");
+        }
+        // Observabilidade local — espelho do log do backend no stream.
+        console.info(
+          "[LLM Response] Roteiro parseado:",
+          JSON.stringify(itinerary, null, 2),
+        );
+        onComplete(itinerary);
+      } catch (err) {
+        console.error("[api] Falha ao parsear roteiro acumulado:", err);
+        onError(new Error("Não foi possível montar o roteiro gerado."));
+      }
+    },
+    onError,
+  });
+}
+
+export type SupportChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+/** POST /support/chat — texto livre, token a token. Sem parse de JSON. */
+export function supportChatStream(
+  messages: SupportChatTurn[],
+  onToken: (token: string) => void,
+  onDone: () => void,
+  onError: (error: Error) => void,
+): () => void {
+  return openAuthSse(
+    "/support/chat",
+    { messages },
+    {
+      onToken,
+      onDone: () => onDone(),
+      onError,
+    },
+  );
 }
 
 /** POST /trips/generate — geração Solo. */

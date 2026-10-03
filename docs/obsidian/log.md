@@ -1,5 +1,15 @@
 # Log — Tripfy Wiki
 
+## [2026-10-03] update | Suporte e Central de Reservas
+
+A base do chat passou a explicar o redirecionamento. O histórico da tela (até 8 mensagens) segue em todo envio.
+[[Chat de Suporte]], [[Afiliados RF10]] e [[changelog]].
+
+## [2026-10-03] ingest | Chat de Suporte
+
+KB estática no prompt, `POST /api/v1/support/chat` em SSE e tela nativa em `/support-chat`. Sem RAG e sem persistir a conversa.
+[[Chat de Suporte]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]], [[index]] e [[changelog]].
+
 ## [2026-10-03] update | Central de Reservas
 
 Sheet no detalhe da viagem no lugar das duas linhas de parceiro. Deep links novos, sem API de preço. Botão de ingresso fixo na aba Sobre.

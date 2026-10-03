@@ -105,6 +105,29 @@ export default function HelpSupportScreen() {
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/support-chat");
+            }}
+            className="flex-row items-center gap-3 rounded-2xl px-4 py-3.5"
+            style={{ backgroundColor: theme.accent }}
+            accessibilityRole="button"
+          >
+            <Ionicons name="sparkles" size={20} color={theme.presenceText} />
+            <View className="flex-1 gap-0.5">
+              <AppText
+                className="text-[15px] font-semibold"
+                style={{ color: theme.presenceText }}
+              >
+                {t("helpSupport.assistantCta")}
+              </AppText>
+              <AppText className="text-[12px]" style={{ color: theme.presenceText }}>
+                {t("helpSupport.assistantHint")}
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.presenceText} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
             }}
             className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"

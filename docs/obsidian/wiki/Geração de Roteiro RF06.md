@@ -143,6 +143,7 @@ Erros tratados: `401`, `429`, `503`, rede — Alert amigável + fecha o EventSou
 - [[Preferências Sua Vibe]] — modelo de perfil que alimenta o prompt
 - [[Home e Bottom Tabs]] — Wizard Solo (RF05) e navegação
 - [[Match de Viajantes RF11 RF12]] — dois perfis no mesmo Structured Output/SSE
+- [[Chat de Suporte]] — mesmo contrato SSE, em texto livre (sem JSON de roteiro)
 - [[Afiliados RF10]] — `requires_ticket` no prompt; datas da viagem no Firestore
 - [[Deslocamento e Alternativas]] — Routes API no dia aberto; a descrição da IA fica como fallback
 
