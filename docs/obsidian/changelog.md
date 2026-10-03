@@ -1,4 +1,23 @@
 # Changelog — Tripfy Docs
+## 2026-10-03 — Paywall só no botão do anúncio
+
+- Sair do roteiro mostra só o interstitial. A tela do Pro abre no botão do anúncio.
+- O toque que fecha o roteiro não conta como clique nos primeiros 500 ms.
+- Wiki: [[House Ads]].
+
+## 2026-10-03 — Sem anúncios no Pro
+
+- O paywall lista **Sem anúncios** entre os benefícios do Tripfy Pro.
+- A barra do interstitial desce para baixo do relógio. O Pular fica separado do degradê.
+- Wiki: [[Tripfy Pro e Paywall]], [[House Ads]].
+
+## 2026-10-03 — House Ads no plano Free
+
+- Quem não é Pro efetivo vê anúncio interno, sem SDK. O gate é `isPremium` do sync.
+- Ao sair do roteiro, um interstitial de tela cheia segura o Pular por 5 segundos. O toque abre o paywall.
+- A lista de viagens e o fim do roteiro (modo Planejar) ganham um card com o rótulo Patrocinado. No detalhe, o card aponta Booking ou Skyscanner.
+- Wiki: [[House Ads]], [[Tripfy Pro e Paywall]].
+
 ## 2026-10-03 — Como um morador local
 
 - O roteiro ganha um parágrafo `local_life` na mesma geração das dicas. O detalhe mostra um segundo cartão, "Como um morador local".

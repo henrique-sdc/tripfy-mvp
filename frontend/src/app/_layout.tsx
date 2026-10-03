@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { PushRuntime } from "@/components/notifications/PushRuntime";
+import { HouseAdInterstitial } from "@/components/ads/HouseAdInterstitial";
 import { PaywallScreen } from "@/components/paywall/PaywallScreen";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
@@ -142,6 +143,7 @@ export default function RootLayout() {
         </Stack>
         <PushRuntime />
         <PaywallScreen />
+        <HouseAdInterstitial />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

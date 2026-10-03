@@ -17,12 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarPadding } from "@/components/navigation/FloatingTabBar";
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
+import { NativeAdBanner } from "@/components/ads/NativeAdBanner";
 import { TripHistoryCard } from "@/components/trip/TripHistoryCard";
 import { AppText } from "@/components/ui/AppText";
 import { SwipeToDelete } from "@/components/ui/SwipeToDelete";
 import { useTheme } from "@/hooks/use-theme";
 import { softDeleteTripApi } from "@/lib/api";
+import { pickTripsCreative, shouldShowHouseAds } from "@/lib/houseAds";
 import { listTrips, softDeleteTrip, type SavedTrip } from "@/lib/trips";
+import { useAuthStore } from "@/stores/authStore";
 import { useCreateTripSheetStore } from "@/stores/createTripSheetStore";
 import {
   useOfflineTripsStore,
@@ -48,6 +51,8 @@ export default function TripsScreen() {
   const insets = useSafeAreaInsets();
   const tabPad = useTabBarPadding();
   const openCreateSheet = useCreateTripSheetStore((s) => s.open);
+  const isPremium = useAuthStore((s) => s.isPremium);
+  const authLoading = useAuthStore((s) => s.isLoading);
 
   const [trips, setTrips] = useState<SavedTrip[]>([]);
   // Filtro local — Matches = docs com match_id (origem RF11/RF12).
@@ -269,6 +274,17 @@ export default function TripsScreen() {
           paddingHorizontal: 24,
           flexGrow: 1,
         }}
+        ListFooterComponent={
+          shouldShowHouseAds(isPremium, authLoading) &&
+          filter === "all" &&
+          !loading &&
+          !error &&
+          visibleTrips.length > 0 ? (
+            <View className="mt-3">
+              <NativeAdBanner creative={pickTripsCreative()} />
+            </View>
+          ) : null
+        }
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         refreshControl={
           <RefreshControl

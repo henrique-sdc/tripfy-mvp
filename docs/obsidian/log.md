@@ -1,5 +1,20 @@
 # Log — Tripfy Wiki
 
+## [2026-10-03] update | Paywall só no botão do anúncio
+
+O toque de sair do roteiro deixou de abrir o plano. O Pro abre no botão do interstitial.
+[[House Ads]] e [[changelog]].
+
+## [2026-10-03] update | Sem anúncios no Pro
+
+Benefício no paywall. Barra do interstitial abaixo do relógio.
+[[Tripfy Pro e Paywall]], [[House Ads]] e [[changelog]].
+
+## [2026-10-03] ingest | House Ads
+
+Interstitial de 5 segundos ao sair do roteiro e card Patrocinado na lista e no detalhe. Sem AdMob. Gate em `isPremium`.
+[[House Ads]], [[Tripfy Pro e Paywall]], [[index]] e [[changelog]].
+
 ## [2026-10-03] update | Como um morador local
 
 Parágrafo gerado com o roteiro e cartão no detalhe. Sem chamada extra de IA.

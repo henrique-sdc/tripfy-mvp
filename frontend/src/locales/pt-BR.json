@@ -913,6 +913,10 @@
         "title": "Roteiros ilimitados",
         "body": "Salva Lisboa, Tóquio e o fim de semana na praia. Sem apagar um pra caber outro."
       },
+      "noAds": {
+        "title": "Sem anúncios",
+        "body": "Some o vídeo de 5 segundos e o card patrocinado. O roteiro não é interrompido."
+      },
       "match": {
         "title": "Match para grupos",
         "body": "Hoje o Match é em dupla. Grupo de 3 ou mais fica no Pro, numa próxima versão."
@@ -1071,6 +1075,27 @@
     "typing": "…",
     "error": "Não consegui responder agora. Tente de novo.",
     "retry": "Tentar de novo"
+  },
+  "ads": {
+    "sponsored": "Patrocinado",
+    "skipIn": "Pular em {{count}}",
+    "skip": "Pular",
+    "a11y": "{{label}}. {{title}}. {{cta}}",
+    "upsell": {
+      "title": "Tripfy Pro",
+      "body": "Sem anúncios, roteiros além de 2 e o mapa offline.",
+      "cta": "Ver planos"
+    },
+    "booking": {
+      "title": "Hospedagem no Booking",
+      "body": "Busca pronta para {{destination}}.",
+      "cta": "Ver no Booking"
+    },
+    "skyscanner": {
+      "title": "Voos no Skyscanner",
+      "body": "Passagens para {{destination}}.",
+      "cta": "Ver no Skyscanner"
+    }
   },
   "pushPrompt": {
     "title": "Avisar antes de cada parada?",

@@ -17,7 +17,7 @@ aliases:
 
 Demonstra o Freemium da banca **sem** StoreKit/Play Billing. Geração por IA continua livre (PRD 1.4 / 1.6). O teto Free é **2 viagens ativas** (`deleted_at == null`).
 
-Relacionado: [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]], [[Modo Offline]].
+Relacionado: [[Autenticação Full Stack]], [[Detalhe da Viagem RF07]], [[Gerenciamento de Perfil RF03]], [[Geração de Roteiro RF06]], [[Modo Offline]], [[House Ads]].
 
 ## O que o gate cobre
 
@@ -83,6 +83,10 @@ Não usamos 403: o Match já devolve 403 (“só o criador gera”). O intercept
 | `POST /api/v1/checkout/cancel` | `tier=free`, `premium_until=null`. Viagens já salvas ficam |
 
 `CHECKOUT_MOCK_ENABLED` (default `true`). Troca futura: este router vira adapter de IAP; o entitlement não muda.
+
+## Anúncios no Free
+
+Quem não é Pro efetivo vê house ads. O gate é `isPremium` do sync, não o `tier` gravado. O paywall lista **Sem anúncios** junto de roteiros ilimitados e offline. Troca futura por AdMob substitui o criativo e o toque, não o gate nem a espera de 5 segundos. Ver [[House Ads]].
 
 ## Frontend
 

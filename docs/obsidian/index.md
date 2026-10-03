@@ -20,6 +20,7 @@ Bem-vindo à base de conhecimento do Tripfy. Mantida por IA.
 - [[Gerenciamento de Perfil RF03]] — RF03/LGPD: perfil com stats, editar foto/nome/bio/vibe, área de Configurações (suporte, sair, excluir conta).
 - [[Chat de Suporte]] — chatbot de dúvidas rápidas: KB estática no prompt, SSE, tela nativa.
 - [[Tripfy Pro e Paywall]] — mock de assinatura TCC: teto de 2 viagens ativas, 402, checkout simulado, overlay do paywall.
+- [[House Ads]] — anúncio interno no Free: interstitial de 5s ao sair do roteiro e card Patrocinado. Sem AdMob.
 - [[Rede de Companheiros]] — proxy FastAPI de perfil público + lista unilateral `companions` (Passo 1 backend).
 - [[Match de Viajantes RF11 RF12]] — lobby realtime para dois viajantes, deep link, geração single-flight e roteiro compartilhado.
 - [[Edição Conjunta]] — um roteiro para dois (Match ou convite numa viagem Solo), ops com revisão, `onSnapshot` e presença no Realtime Database.

@@ -5,7 +5,7 @@
 import * as Haptics from "@/lib/haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { doc, onSnapshot } from "firebase/firestore";
-import { Href, router, useLocalSearchParams } from "expo-router";
+import { Href, router, useLocalSearchParams, useNavigation } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -39,6 +39,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { NativeAdBanner } from "@/components/ads/NativeAdBanner";
 import { CapsuleSelector } from "@/components/onboarding/CapsuleSelector";
 import { ActivityCard } from "@/components/trip/ActivityCard";
 import { AddActivityModal } from "@/components/trip/AddActivityModal";
@@ -120,9 +121,15 @@ import {
   hasCompletedPlace,
   type TripChromeMode,
 } from "@/lib/travelMode";
+import {
+  pickDetailCreative,
+  pickInterstitialCreative,
+  shouldShowHouseAds,
+} from "@/lib/houseAds";
 import { optionalIsoDate } from "@/lib/tripDates";
 import { getTrip, saveTrip, type SavedTrip } from "@/lib/trips";
 import { useAuthStore } from "@/stores/authStore";
+import { useHouseAdStore } from "@/stores/houseAdStore";
 import {
   downloadTripOffline,
   refreshPinnedTrip,
@@ -557,6 +564,7 @@ export default function TripDetailScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{
     itinerary?: string;
     tripId?: string;
@@ -665,7 +673,24 @@ export default function TripDetailScreen() {
   const chromeTouchedRef = useRef(false);
   const [saveTick, setSaveTick] = useState(0);
   const isPremium = useAuthStore((s) => s.isPremium);
+  const authLoading = useAuthStore((s) => s.isLoading);
   const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    const sub = navigation.addListener("beforeRemove", () => {
+      const auth = useAuthStore.getState();
+      if (
+        !auth.user ||
+        !shouldShowHouseAds(auth.isPremium, auth.isLoading) ||
+        usePaywallStore.getState().visible
+      ) {
+        return;
+      }
+      console.info("[ads] Interstitial ao sair do roteiro");
+      useHouseAdStore.getState().request(pickInterstitialCreative());
+    });
+    return () => sub();
+  }, [navigation]);
   editorNameRef.current = user?.displayName?.trim() || "";
 
   const rememberLog = useCallback((log: ChangeEntry[] | undefined) => {
@@ -2735,6 +2760,21 @@ export default function TripDetailScreen() {
                       theme={theme}
                       t={t}
                     />
+                    {planChrome &&
+                    shouldShowHouseAds(isPremium, authLoading) ? (
+                      <RNView style={{ marginTop: 16 }}>
+                        <NativeAdBanner
+                          creative={pickDetailCreative({
+                            destination: itinerary.destination,
+                            startDate: itinerary.start_date,
+                            endDate: itinerary.end_date,
+                          })}
+                          destination={itinerary.destination}
+                          startDate={itinerary.start_date}
+                          endDate={itinerary.end_date}
+                        />
+                      </RNView>
+                    ) : null}
                   </RNView>
                 }
               />
