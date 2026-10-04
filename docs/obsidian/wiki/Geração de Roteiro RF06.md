@@ -98,7 +98,9 @@ Schema canônico (após conversão OpenAI / nativo Gemini):
 
 - `ActivityResponse` — `time`, `title`, `description`, `location`, `latitude?`, `longitude?`, `requires_ticket` (RF10, default false)
 - `ItineraryDayResponse` — `day`, `title`, `activities[]`
-- `ItineraryResponse` — `destination`, `summary`, `tips[]` (3–5 dicas específicas do destino), `local_life` (parágrafo de 3 ou 4 frases no tom de quem mora ali; não repete as dicas), `days[]` (exatamente N dias do pedido). Datas da viagem **não** entram neste schema — ver [[Afiliados RF10]].
+- `ItineraryResponse` — `destination`, `summary`, `tips[]` (3–5 dicas específicas do destino), `local_life` (parágrafo de 3 ou 4 frases no tom de quem mora ali; não repete as dicas), `green_tip` (duas frases do destino: lixo no lugar e economia local; teto 400), `days[]` (exatamente N dias do pedido). Datas da viagem **não** entram neste schema — ver [[Afiliados RF10]].
+
+Regra 13 do system prompt pede viés sustentável sem furar `pace` nem `transport_modes`. Bicicleta não vira meio da `description` — o enum não tem bike. Ela só cabe como sugestão opcional dentro de `green_tip`, se a cidade tiver sistema real. Roteiro antigo sem a chave continua válido (`green_tip` vazio). O cartão no detalhe some. Ver [[Detalhe da Viagem RF07]].
 
 ### Prompt Injection (PRD 6.2)
 

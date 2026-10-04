@@ -576,6 +576,9 @@ export function PlaceDetailsSheet({
                       {t("tripDetail.partners.ticketsViator")}
                     </AppText>
                   </RNPressable>
+                  <AppText tone="muted" className="text-[11px] text-center">
+                    {t("tripDetail.partners.affiliateTag")}
+                  </AppText>
                 </RNView>
               ) : null}
             </Animated.View>

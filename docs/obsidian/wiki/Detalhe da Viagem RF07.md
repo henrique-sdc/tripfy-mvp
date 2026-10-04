@@ -41,7 +41,9 @@ Tela `/trip-detail` após a geração SSE ([[Geração de Roteiro RF06]]).
 | **Compartilhar / Clone** | Dono: sheet (editar / cópia / Explorar). Visitante: link de leitura. Quem abre a cópia vê read-only + “Clonar pra mim” (clone também passa no teto Free). Ver [[Edição Conjunta]] |
 | Dicas                    | `ListFooterComponent` no detail (check-in / segurança / offline)                                                                       |
 | **Como um morador**      | Segundo cartão no mesmo rodapé. Campo `local_life`, gerado na mesma chamada do roteiro. Viagem antiga sem o campo não mostra o cartão. |
-| **Parceiros (RF10)**     | Card no topo da lista abre a Central de Reservas. Ingresso no card se `requires_ticket`, e botão fixo na aba Sobre. Ver [[Afiliados RF10]] |
+| **Aviso de IA**          | Uma linha muted no topo da lista, antes da Central de Reservas. Copy fixa: sugestão de IA, conferir horário, a Tripfy não vende a reserva. |
+| **Turismo consciente**   | Terceiro cartão do rodapé, antes do anúncio. Campo `green_tip`. Some se vier vazio. Ver [[Geração de Roteiro RF06]]. |
+| **Parceiros (RF10)**     | Card no topo da lista abre a Central de Reservas, com rótulo de afiliado. Ingresso no card se `requires_ticket`, e botão fixo na aba Sobre. Ver [[Afiliados RF10]] |
 | Places proxy             | `GET /places/lookup` — `place_id` + foto/nota/`open_now`                                                                               |
 | **Deslocamento**         | Badge entre cards do dia aberto. `POST /routes/calculate`. Ver [[Deslocamento e Alternativas]]                                          |
 | **Sugestões**            | Botão no título do dia → sheet Nearby. `GET /places/nearby`                                                                             |

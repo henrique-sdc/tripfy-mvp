@@ -80,6 +80,20 @@ Regras inegociáveis:
     no tom de quem mora no destino: onde o morador come, um hábito do bairro
     e o que o turista costuma pular. Específico do lugar e da época.
     Não repita as `tips`. Proibido "seja respeitoso" ou "leve protetor solar".
+13. Viés sustentável, sem furar o ritmo nem os `transport_modes`.
+    Se o ritmo for relaxed ou balanced e walking estiver nos meios, agrupe
+    paradas para deslocamento a pé. Se public_transit e ride_hail coexistirem
+    num trecho urbano curto, prefira o transporte público.
+    Se o ritmo for intense, não estique o dia: no máximo troque ride_hail por
+    public_transit quando o tempo for parecido.
+    A `description` continua presa aos meios do perfil. Não assuma bicicleta
+    como deslocamento. Bicicleta só pode aparecer como sugestão opcional
+    dentro de `green_tip`, e só se a cidade tiver sistema real de bikes
+    compartilhadas.
+    Preencha `green_tip` com duas frases específicas do destino: onde não
+    deixar lixo naquele lugar, e um gasto na economia local (quem mora ali,
+    não uma rede genérica). Proibido slogan ("salve o planeta", "turismo
+    sustentável", "seja consciente").
 """
 
 
@@ -202,6 +216,7 @@ O array `days` deve ter exatamente {trip.days} itens (day=1 até day={trip.days}
 Inclua `tips` (3–5) específicas deste destino — cultura, segurança, clima
 da época, costumes locais — não genéricas.
 Preencha `local_life` com 3 ou 4 frases de quem mora no destino. Não repita as tips.
+Preencha `green_tip` com duas frases deste destino (lixo no lugar + economia local). Sem slogan.
 Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 {profile}
@@ -244,6 +259,7 @@ Use os meios de transporte informados nas estimativas de deslocamento.
 O array `days` deve ter exatamente {match.days} itens (day=1 até day={match.days}).
 Inclua `tips` (3–5) específicas deste destino e da época para o grupo.
 Preencha `local_life` com 3 ou 4 frases de quem mora no destino. Não repita as tips.
+Preencha `green_tip` com duas frases deste destino (lixo no lugar + economia local). Sem slogan.
 Preencha `requires_ticket` em cada ActivityResponse (True só com ingresso pago).
 
 <perfis_viajantes>
@@ -311,6 +327,9 @@ if __name__ == "__main__":
     assert "Nunca invente URL" in SYSTEM_PROMPT
     assert "morador" in SYSTEM_PROMPT
     assert "local_life" in SYSTEM_PROMPT
+    assert "green_tip" in SYSTEM_PROMPT
+    assert "salve o planeta" in SYSTEM_PROMPT
+    assert "bicicleta" in SYSTEM_PROMPT
     prefs = TravelPreferences(
         interests=[Interest.CAFES],
         pace=Pace.RELAXED,
@@ -334,6 +353,7 @@ if __name__ == "__main__":
     assert "outras_preferencias:" in built
     assert "data_inicio: 2026-07-10" in built
     assert "mes_periodo: julho de 2026" in built
+    assert "green_tip" in built
 
     empty_prefs = TravelPreferences(
         interests=[Interest.CAFES],
@@ -343,4 +363,23 @@ if __name__ == "__main__":
     )
     built_empty = build_user_prompt(trip, empty_prefs)
     assert "outras_preferencias: (nenhuma)" in built_empty
+
+    from datetime import UTC, datetime
+
+    from models.match import MatchStatus
+
+    match = MatchInDB(
+        id="m1",
+        destination="Porto",
+        days=3,
+        start_date=date_cls(2026, 7, 10),
+        end_date=date_cls(2026, 7, 12),
+        budget=BudgetRange.ECONOMY,
+        owner_uid="owner",
+        participants=["owner", "guest"],
+        status=MatchStatus.WAITING,
+        created_at=datetime.now(UTC),
+    )
+    built_match = build_match_prompt(match, [prefs, empty_prefs])
+    assert "green_tip" in built_match
     print("prompt_engineering self-check: OK")

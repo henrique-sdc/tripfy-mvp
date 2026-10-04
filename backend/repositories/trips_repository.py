@@ -203,6 +203,7 @@ def _doc_to_saved(
             if isinstance(t, str) and str(t).strip()
         ],
         local_life=str(data.get("local_life") or "").strip()[:800],
+        green_tip=str(data.get("green_tip") or "").strip()[:400],
         notes=str(data.get("notes") or ""),
         days=days,
         start_date=_parse_iso_date(data.get("start_date")),
@@ -317,6 +318,7 @@ def _itinerary_payload(
             if isinstance(t, str) and str(t).strip()
         ],
         "local_life": str(data.get("local_life") or "").strip()[:800],
+        "green_tip": str(data.get("green_tip") or "").strip()[:400],
         "days": days_out,
         "start_date": start.isoformat() if start else None,
         "end_date": end.isoformat() if end else None,

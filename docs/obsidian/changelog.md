@@ -1,4 +1,21 @@
 # Changelog — Tripfy Docs
+## 2026-10-03 — Termos não sequestram o cadastro
+
+- `/legal` saiu de fora dos guards. No intervalo em que a conta existe e as preferências ainda não chegaram, essa tela era a única rota e o voltar não tinha histórico.
+- No cadastro o texto abre num modal. Em Ajuda a rota continua no stack logado.
+
+## 2026-10-03 — Termos e Privacidade curtos
+
+- Cadastro e Ajuda abrem `/legal`. O texto resume IA, afiliados, Match grátis, o que é guardado e a exclusão da conta.
+- Wiki: [[Gerenciamento de Perfil RF03]].
+
+## 2026-10-03 — Compliance em microcopy e turismo consciente
+
+- O roteiro avisa, antes da lista, que horário é sugestão de IA e que a Tripfy não vende a reserva. Parceiros levam o rótulo "Link de afiliado".
+- Ajuda cita a Lei nº 13.709/2018 e a ANPD. A cifra descrita é HTTPS mais repouso do Firebase, não cifra no app.
+- A geração preenche `green_tip`. O detalhe fecha o roteiro com o cartão Turismo consciente. Viagem antiga sem o campo esconde o cartão.
+- Wiki: [[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]], [[Afiliados RF10]], [[Gerenciamento de Perfil RF03]].
+
 ## 2026-10-03 — Paywall só no botão do anúncio
 
 - Sair do roteiro mostra só o interstitial. A tela do Pro abre no botão do anúncio.

@@ -14,10 +14,16 @@ from models.user import BudgetRange
 
 # Parágrafo "como um morador". Cortar aqui evita derrubar o roteiro inteiro.
 _LOCAL_LIFE_MAX = 800
+# Duas frases. Teto menor que local_life: o card é um fechamento, não um ensaio.
+_GREEN_TIP_MAX = 400
 
 
 def clip_local_life(value: object) -> str:
     return str(value or "").strip()[:_LOCAL_LIFE_MAX]
+
+
+def clip_green_tip(value: object) -> str:
+    return str(value or "").strip()[:_GREEN_TIP_MAX]
 
 
 # Teto de produto: viagens longas demais degradam qualidade do roteiro LLM.
@@ -128,12 +134,33 @@ class ItineraryResponse(BaseModel):
             "Não repete tips."
         ),
     )
+    # Obrigatório no schema de geração. Roteiro antigo entra vazio pelo validator.
+    green_tip: str = Field(
+        ...,
+        description=(
+            "Duas frases específicas do destino: descarte de lixo no lugar "
+            "e um gasto na economia local. Sem slogan."
+        ),
+    )
     days: list[ItineraryDayResponse] = Field(..., min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def fill_missing_green_tip(cls, data: object) -> object:
+        """Doc antigo não tem o campo. A geração continua exigindo a chave."""
+        if isinstance(data, dict) and "green_tip" not in data:
+            return {**data, "green_tip": ""}
+        return data
 
     @field_validator("local_life", mode="before")
     @classmethod
     def clip_life(cls, value: object) -> str:
         return clip_local_life(value)
+
+    @field_validator("green_tip", mode="before")
+    @classmethod
+    def clip_tip(cls, value: object) -> str:
+        return clip_green_tip(value)
 
 
 class PersistedActivity(ActivityResponse):
@@ -178,13 +205,10 @@ class SavedTripResponse(BaseModel):
     tips: list[str] = Field(default_factory=list)
     # Parágrafo da geração. Vazio em viagem antiga — o cartão some.
     local_life: str = ""
+    # Fechamento ESG. Vazio em viagem antiga — o cartão some.
+    green_tip: str = ""
     # Notas pessoais do dono (não geradas pela LLM).
     notes: str = ""
-
-    @field_validator("local_life", mode="before")
-    @classmethod
-    def clip_life(cls, value: object) -> str:
-        return clip_local_life(value)
     days: list[PersistedDay] = Field(default_factory=list)
     # Metadado da viagem (não vem do LLM) — deep links de OTA (RF10).
     start_date: date | None = None
@@ -219,6 +243,16 @@ class SavedTripResponse(BaseModel):
     # Feed Explorar. O client não escreve — só o Admin SDK.
     is_public: bool = False
 
+    @field_validator("local_life", mode="before")
+    @classmethod
+    def clip_life(cls, value: object) -> str:
+        return clip_local_life(value)
+
+    @field_validator("green_tip", mode="before")
+    @classmethod
+    def clip_tip(cls, value: object) -> str:
+        return clip_green_tip(value)
+
 
 class CloneTripResponse(BaseModel):
     """Resposta de POST /trips/{id}/clone."""
@@ -235,16 +269,22 @@ class CreateTripRequest(BaseModel):
     summary: str = ""
     tips: list[str] = Field(default_factory=list)
     local_life: str = ""
+    green_tip: str = ""
     notes: str = ""
     days: list[PersistedDay] = Field(default_factory=list)
+    start_date: date | None = None
+    end_date: date | None = None
+    match_id: str | None = Field(default=None, max_length=128)
 
     @field_validator("local_life", mode="before")
     @classmethod
     def clip_life(cls, value: object) -> str:
         return clip_local_life(value)
-    start_date: date | None = None
-    end_date: date | None = None
-    match_id: str | None = Field(default=None, max_length=128)
+
+    @field_validator("green_tip", mode="before")
+    @classmethod
+    def clip_tip(cls, value: object) -> str:
+        return clip_green_tip(value)
 
 
 class TripOpRequest(BaseModel):

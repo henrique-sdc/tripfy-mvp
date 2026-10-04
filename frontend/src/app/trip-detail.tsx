@@ -160,6 +160,7 @@ type LocalItinerary = {
   summary: string;
   tips: string[];
   local_life: string;
+  green_tip: string;
   notes: string;
   days: LocalDay[];
   start_date?: string;
@@ -199,6 +200,7 @@ function stampKeys(raw: ItineraryResponse): LocalItinerary {
       ? raw.tips.map((t) => String(t).trim()).filter(Boolean)
       : [],
     local_life: typeof raw.local_life === "string" ? raw.local_life.trim() : "",
+    green_tip: typeof raw.green_tip === "string" ? raw.green_tip.trim() : "",
     notes: typeof raw.notes === "string" ? raw.notes : "",
     days: raw.days.map((d) => ({
       day: d.day,
@@ -305,6 +307,7 @@ function toPersistable(itinerary: LocalItinerary): ItineraryResponse {
     summary: itinerary.summary,
     tips: itinerary.tips,
     local_life: itinerary.local_life,
+    green_tip: itinerary.green_tip,
     notes: itinerary.notes,
     days: itinerary.days.map((d) => ({
       day: d.day,
@@ -516,10 +519,12 @@ function LocalLifeCard({
   text,
   theme,
   t,
+  tucked,
 }: {
   text: string;
   theme: ReturnType<typeof useTheme>;
   t: (key: string) => string;
+  tucked?: boolean;
 }) {
   const body = text.trim();
   if (!body) return null;
@@ -529,6 +534,7 @@ function LocalLifeCard({
       style={[
         styles.tipsCard,
         styles.localLifeCard,
+        tucked ? styles.tipsCardTucked : null,
         {
           backgroundColor: `${theme.accent}12`,
           borderColor: `${theme.accent}40`,
@@ -546,6 +552,55 @@ function LocalLifeCard({
           style={{ color: theme.accent, letterSpacing: -0.2 }}
         >
           {t("tripDetail.localLife.title")}
+        </AppText>
+      </RNView>
+      <AppText
+        selectable
+        className="text-[13px] leading-5"
+        style={{ color: theme.textPrimary }}
+      >
+        {body}
+      </AppText>
+    </RNView>
+  );
+}
+
+/** Fechamento ESG. Some se a viagem for antiga e vier sem `green_tip`. */
+function GreenTipCard({
+  text,
+  theme,
+  scheme,
+  t,
+}: {
+  text: string;
+  theme: ReturnType<typeof useTheme>;
+  scheme: ReturnType<typeof useColorScheme>;
+  t: (key: string) => string;
+}) {
+  const body = text.trim();
+  if (!body) return null;
+  const green = scheme === "dark" ? "#7dcea0" : "#1f7a4d";
+
+  return (
+    <RNView
+      style={[
+        styles.tipsCard,
+        styles.greenTipCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <RNView style={styles.tipsHeader}>
+        <RNView style={[styles.tipsBadge, { backgroundColor: `${green}1F` }]}>
+          <Ionicons name="leaf-outline" size={14} color={green} />
+        </RNView>
+        <AppText
+          className="text-[14px] font-bold"
+          style={{ color: green, letterSpacing: -0.2 }}
+        >
+          {t("tripDetail.greenTip.title")}
         </AppText>
       </RNView>
       <AppText
@@ -2720,6 +2775,14 @@ export default function TripDetailScreen() {
                 autoscrollThreshold={48}
                 ListHeaderComponent={
                   <>
+                    <AppText
+                      tone="muted"
+                      selectable
+                      className="text-[11px]"
+                      style={styles.aiDisclaimer}
+                    >
+                      {t("tripDetail.aiDisclaimer")}
+                    </AppText>
                     <BookingHubTeaser
                       destination={itinerary.destination}
                       startDate={itinerary.start_date}
@@ -2753,11 +2816,20 @@ export default function TripDetailScreen() {
                       tips={itinerary.tips}
                       theme={theme}
                       t={t}
-                      tucked={Boolean(itinerary.local_life.trim())}
+                      tucked={Boolean(
+                        itinerary.local_life.trim() || itinerary.green_tip.trim(),
+                      )}
                     />
                     <LocalLifeCard
                       text={itinerary.local_life}
                       theme={theme}
+                      t={t}
+                      tucked={Boolean(itinerary.green_tip.trim())}
+                    />
+                    <GreenTipCard
+                      text={itinerary.green_tip}
+                      theme={theme}
+                      scheme={scheme}
                       t={t}
                     />
                     {planChrome &&
@@ -3008,6 +3080,11 @@ const styles = StyleSheet.create({
   localLifeCard: {
     marginTop: 12,
   },
+  greenTipCard: {
+    marginTop: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: "solid",
+  },
   tipsHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -3080,6 +3157,11 @@ const styles = StyleSheet.create({
     marginRight: 4,
     paddingHorizontal: 4,
     height: 28,
+  },
+  aiDisclaimer: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 2,
   },
   dragHint: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
   rowWrap: {

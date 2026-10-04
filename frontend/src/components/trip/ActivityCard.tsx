@@ -554,15 +554,20 @@ export function ActivityCard({
             }}
             hitSlop={6}
             accessibilityRole="link"
-            accessibilityLabel={t("tripDetail.partners.ticketsA11y", {
+            accessibilityLabel={`${t("tripDetail.partners.ticketsA11y", {
               title: activity.title,
-            })}
+            })}. ${t("tripDetail.partners.affiliateTag")}`}
             style={styles.ticketRow}
           >
             <Ionicons name="ticket-outline" size={14} color={theme.accent} />
-            <AppText tone="accent" className="text-[12px] font-semibold">
-              {t("tripDetail.partners.tickets")}
-            </AppText>
+            <View style={styles.ticketCopy}>
+              <AppText tone="accent" className="text-[12px] font-semibold">
+                {t("tripDetail.partners.tickets")}
+              </AppText>
+              <AppText tone="muted" className="text-[11px]">
+                {t("tripDetail.partners.affiliateTag")}
+              </AppText>
+            </View>
           </Pressable>
         ) : null}
       </Pressable>
@@ -668,9 +673,12 @@ const styles = StyleSheet.create({
   },
   ticketRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 6,
     marginTop: 4,
     alignSelf: "flex-start",
+  },
+  ticketCopy: {
+    gap: 1,
   },
 });

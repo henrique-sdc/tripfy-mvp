@@ -141,6 +141,7 @@ export function buildOfflineSnapshot(
     summary: itinerary.summary,
     tips: itinerary.tips,
     local_life: itinerary.local_life,
+    green_tip: itinerary.green_tip,
     notes: itinerary.notes,
     days: itinerary.days,
     start_date: itinerary.start_date,

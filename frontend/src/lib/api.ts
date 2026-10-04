@@ -121,6 +121,8 @@ export type ItineraryResponse = {
   tips?: string[];
   /** Parágrafo "como um morador". Ausente em roteiro antigo. */
   local_life?: string;
+  /** Fechamento ESG. Ausente em roteiro antigo. */
+  green_tip?: string;
   /** Notas pessoais do usuário (não vêm da LLM). */
   notes?: string;
   days: ItineraryDayResponse[];
@@ -539,6 +541,7 @@ export type SavedTripApi = {
   summary: string;
   tips: string[];
   local_life?: string;
+  green_tip?: string;
   notes?: string;
   days: ItineraryDayResponse[];
     start_date?: string | null;
@@ -732,6 +735,7 @@ export async function createTripApi(
       summary: itinerary.summary,
       tips: itinerary.tips ?? [],
       local_life: itinerary.local_life ?? "",
+      green_tip: itinerary.green_tip ?? "",
       notes: itinerary.notes ?? "",
       days: itinerary.days,
       start_date: itinerary.start_date ?? null,

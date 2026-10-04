@@ -49,6 +49,7 @@ function apiTripToSaved(trip: SavedTripApi): SavedTrip {
     summary: trip.summary,
     tips: trip.tips ?? [],
     local_life: trip.local_life ?? "",
+    green_tip: trip.green_tip ?? "",
     notes: trip.notes ?? "",
     days,
     start_date: trip.start_date,

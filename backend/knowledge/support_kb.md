@@ -10,7 +10,7 @@ A IA cruza as preferências do grupo. No plano grátis o Match cobre até 2 viaj
 O perfil (foto, nome, bio e preferências) se edita em Editar perfil. Para excluir a conta, vá em Configurações e toque em excluir conta permanentemente. A exclusão remove perfil, preferências e viagens salvas.
 
 ## Privacidade (LGPD)
-Os dados ficam protegidos e são usados só para personalizar a experiência, conforme a LGPD. A exclusão dos dados pessoais pode ser pedida pelo app, em Configurações. Política de Privacidade e Termos de Uso ainda estão em breve.
+A Lei nº 13.709/2018 (LGPD) é fiscalizada pela ANPD. Preferências de viagem e roteiros ficam na conta da pessoa. O tráfego usa HTTPS e o Firebase guarda os dados com criptografia em repouso. O acesso é só do dono, pelas regras do Firestore. Em Configurações, excluir a conta apaga perfil, preferências e viagens. Termos de Uso e Política de Privacidade estão no cadastro e em Ajuda. São um texto curto do MVP.
 
 ## Reservas e parceiros
 A Tripfy não conclui a reserva dentro do app e não mostra preço. No roteiro aberto, o card Central de Reservas fica no topo da lista. O toque abre as buscas já com destino e datas, e o app redireciona para o site do parceiro:

@@ -70,6 +70,8 @@ export function stripClientKeys(itinerary: ItineraryResponse): ItineraryResponse
       : [],
     local_life:
       typeof itinerary.local_life === "string" ? itinerary.local_life.trim() : "",
+    green_tip:
+      typeof itinerary.green_tip === "string" ? itinerary.green_tip.trim() : "",
     notes: typeof itinerary.notes === "string" ? itinerary.notes.trim() : "",
     days: itinerary.days.map((d) => ({
       day: d.day,
@@ -244,6 +246,7 @@ export function tripFromDoc(
       ? data.tips.map((item: unknown) => String(item)).filter(Boolean)
       : [],
     local_life: typeof data.local_life === "string" ? data.local_life.trim() : "",
+    green_tip: typeof data.green_tip === "string" ? data.green_tip.trim() : "",
     notes: typeof data.notes === "string" ? data.notes : "",
     days: days as SavedTrip["days"],
     start_date: optionalIsoDate(data.start_date),

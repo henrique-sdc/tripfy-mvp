@@ -5,10 +5,11 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as z from "zod";
 
+import { LegalDocument, type LegalDoc } from "@/components/legal/LegalDocument";
 import { AppText } from "@/components/ui/AppText";
 import { AuthLink } from "@/components/ui/AuthLink";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ import { PasswordStrengthBar } from "@/components/ui/PasswordStrengthBar";
 import { useTheme } from "@/hooks/use-theme";
 import { getAuthErrorKey } from "@/lib/auth-errors";
 import { auth } from "@/lib/firebase";
-import { View } from "@/tw";
+import { Pressable, View } from "@/tw";
 
 const NAME_PATTERN = /^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/;
 
@@ -75,6 +76,7 @@ export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
 
   const {
     control,
@@ -280,23 +282,47 @@ export default function RegisterScreen() {
               </AuthLink>
             </View>
 
-            <AppText
-              tone="secondary"
-              className="text-[11px] text-center leading-4"
-            >
-              {t("auth.register.termsPrefix")}
-              <AppText tone="accent" className="text-[11px]">
-                {t("auth.register.termsOfUse")}
+            <View className="flex-row flex-wrap justify-center">
+              <AppText tone="secondary" className="text-[11px] leading-4">
+                {t("auth.register.termsPrefix")}
               </AppText>
-              {t("auth.register.termsMiddle")}
-              <AppText tone="accent" className="text-[11px]">
-                {t("auth.register.termsPrivacy")}
+              <Pressable
+                onPress={() => setLegalDoc("terms")}
+                hitSlop={6}
+                accessibilityRole="link"
+              >
+                <AppText tone="accent" className="text-[11px] leading-4">
+                  {t("auth.register.termsOfUse")}
+                </AppText>
+              </Pressable>
+              <AppText tone="secondary" className="text-[11px] leading-4">
+                {t("auth.register.termsMiddle")}
               </AppText>
-              {t("auth.register.termsSuffix")}
-            </AppText>
+              <Pressable
+                onPress={() => setLegalDoc("privacy")}
+                hitSlop={6}
+                accessibilityRole="link"
+              >
+                <AppText tone="accent" className="text-[11px] leading-4">
+                  {t("auth.register.termsPrivacy")}
+                </AppText>
+              </Pressable>
+              <AppText tone="secondary" className="text-[11px] leading-4">
+                {t("auth.register.termsSuffix")}
+              </AppText>
+            </View>
           </View>
         </View>
       </ScrollView>
+      <Modal
+        visible={legalDoc != null}
+        animationType="slide"
+        onRequestClose={() => setLegalDoc(null)}
+      >
+        {legalDoc ? (
+          <LegalDocument doc={legalDoc} onClose={() => setLegalDoc(null)} />
+        ) : null}
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

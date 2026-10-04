@@ -1,5 +1,4 @@
 // Ajuda & Suporte — FAQ curto, contato e direitos LGPD (RN01/RF03).
-// Sem Política de Privacidade/Termos completos ainda — só o aviso "em breve".
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "@/lib/haptics";
@@ -146,9 +145,35 @@ export default function HelpSupportScreen() {
           </Pressable>
         </View>
 
-        <AppText tone="muted" className="text-[12px] text-center leading-5">
-          {t("helpSupport.legalComingSoon")}
-        </AppText>
+        <View className="flex-row flex-wrap justify-center">
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({ pathname: "/legal", params: { doc: "terms" } });
+            }}
+            hitSlop={6}
+            accessibilityRole="link"
+          >
+            <AppText tone="accent" className="text-[12px] leading-5">
+              {t("auth.register.termsOfUse")}
+            </AppText>
+          </Pressable>
+          <AppText tone="muted" className="text-[12px] leading-5">
+            {t("auth.register.termsMiddle")}
+          </AppText>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({ pathname: "/legal", params: { doc: "privacy" } });
+            }}
+            hitSlop={6}
+            accessibilityRole="link"
+          >
+            <AppText tone="accent" className="text-[12px] leading-5">
+              {t("auth.register.termsPrivacy")}
+            </AppText>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );

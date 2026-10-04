@@ -1,5 +1,20 @@
 # Log — Tripfy Wiki
 
+## [2026-10-03] fix | Termos no cadastro
+
+A rota `/legal` deixou de ficar fora dos guards. O cadastro abre o texto num modal.
+[[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-10-03] update | Termos e Privacidade
+
+Cadastro e Ajuda abrem um texto curto em `/legal`.
+[[Gerenciamento de Perfil RF03]] e [[changelog]].
+
+## [2026-10-03] update | Compliance e turismo consciente
+
+Aviso de IA no topo do roteiro, rótulo de afiliado nos parceiros, LGPD/ANPD na Ajuda e cartão `green_tip`.
+[[Geração de Roteiro RF06]], [[Detalhe da Viagem RF07]], [[Afiliados RF10]], [[Gerenciamento de Perfil RF03]] e [[changelog]].
+
 ## [2026-10-03] update | Paywall só no botão do anúncio
 
 O toque de sair do roteiro deixou de abrir o plano. O Pro abre no botão do interstitial.

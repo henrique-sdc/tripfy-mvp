@@ -159,9 +159,18 @@ reage e o `Stack.Protected` redireciona pro login.
 
 ## Ajuda & Suporte (`/help-support`)
 FAQ curto (geração por IA, Match, custo, segurança de dados, exclusão de
-dados), bloco de direitos LGPD com atalho para a Zona de Perigo, contato via
-`mailto:`, e aviso "Política de Privacidade e Termos de Uso — em breve"
-(conteúdo legal completo fora de escopo do MVP).
+dados), bloco da Lei nº 13.709/2018 com atalho para a Zona de Perigo, contato via
+`mailto:`, e links para Termos de Uso e Política de Privacidade.
+
+Os dois textos são o mesmo componente. No cadastro abrem num modal, para não
+sair da pilha de login. Em Ajuda, `/legal` fica no stack logado e o voltar
+retorna. Resumo do MVP: sugestão de IA, afiliado, o que a conta guarda e como
+apagar. Sem cláusula de isenção.
+
+O bloco e a FAQ de segurança citam a ANPD. A proteção descrita é a que o app
+tem: HTTPS no tráfego, criptografia em repouso do Firebase e regras do
+Firestore só do dono. Não há cifra das preferências no cliente. A base do
+[[Chat de Suporte]] repete o mesmo parágrafo, para o bot não inventar outro.
 
 O CTA "Falar com nosso Assistente de IA" abre [[Chat de Suporte]]. A FAQ
 estática permanece.

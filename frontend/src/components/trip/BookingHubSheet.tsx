@@ -259,9 +259,9 @@ export function BookingHubTeaser({
           onPress();
         }}
         accessibilityRole="button"
-        accessibilityLabel={t("tripDetail.partners.hubA11y", {
+        accessibilityLabel={`${t("tripDetail.partners.hubA11y", {
           destination: city,
-        })}
+        })}. ${t("tripDetail.partners.affiliateTag")}`}
         style={[
           styles.teaser,
           { backgroundColor: theme.surface, borderColor: theme.border },
@@ -273,6 +273,9 @@ export function BookingHubTeaser({
           </AppText>
           <AppText tone="secondary" className="text-[12px]" numberOfLines={1}>
             {subtitle}
+          </AppText>
+          <AppText tone="muted" className="text-[11px]" numberOfLines={1}>
+            {t("tripDetail.partners.affiliateTag")}
           </AppText>
         </View>
         <View style={styles.marks}>

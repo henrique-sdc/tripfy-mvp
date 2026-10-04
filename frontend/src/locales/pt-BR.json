@@ -709,7 +709,8 @@
       "carsSubtitle": "Discover Cars · compare carros em {{destination}}",
       "carsA11y": "Comparar aluguel de carro em {{destination}} no Discover Cars",
       "offlineHint": "Sem conexão. Os parceiros abrem quando a rede voltar.",
-      "disclaimer": "Você será redirecionado para o site do parceiro."
+      "affiliateTag": "Link de afiliado",
+      "disclaimer": "Link de afiliado. A Tripfy pode receber comissão. Preço e reserva são do site do parceiro."
     },
     "share": "Compartilhar",
     "shareMessage": "Olha este roteiro na Tripfy: {{destination}}\n{{link}}",
@@ -748,11 +749,15 @@
     "cloning": "Clonando…",
     "cloneErrorTitle": "Não deu pra clonar",
     "cloneErrorBody": "Confira a conexão e tente de novo.",
+    "aiDisclaimer": "Sugestão gerada por IA. Horários e disponibilidade mudam — confirme no local. A Tripfy não vende ingresso nem reserva.",
     "tips": {
       "title": "Dicas Tripfy"
     },
     "localLife": {
       "title": "Como um morador local"
+    },
+    "greenTip": {
+      "title": "Turismo consciente"
     },
     "loading": "Carregando roteiro…",
     "loadErrorBody": "Não foi possível abrir esta viagem.",
@@ -860,7 +865,7 @@
     "bioCounter": "{{count}}/140",
     "save": "Salvar alterações",
     "dangerZone": "Zona de perigo",
-    "dangerHint": "A exclusão apaga permanentemente sua conta, preferências e roteiros (LGPD).",
+    "dangerHint": "A exclusão apaga permanentemente sua conta, preferências e roteiros, como a Lei nº 13.709/2018 (LGPD) permite.",
     "deleteButton": "Excluir conta permanentemente",
     "deleteTitle": "Excluir conta?",
     "deleteBody": "Isso apaga seu perfil, preferências e viagens salvas. Não dá para desfazer.",
@@ -1050,7 +1055,7 @@
       },
       "dataSafety": {
         "q": "Meus dados estão seguros?",
-        "a": "Sim. Seus dados ficam protegidos e são usados só para personalizar sua experiência, conforme a LGPD."
+        "a": "Preferências e roteiros ficam na sua conta, com HTTPS e criptografia em repouso do Firebase. O acesso é só seu. A ANPD fiscaliza a Lei nº 13.709/2018 (LGPD)."
       },
       "deleteData": {
         "q": "Como excluir minha conta e meus dados?",
@@ -1058,14 +1063,30 @@
       }
     },
     "lgpd": {
-      "title": "Seus direitos (LGPD)",
-      "body": "Você pode solicitar a exclusão dos seus dados pessoais a qualquer momento, direto pelo app.",
+      "title": "Lei nº 13.709/2018 (LGPD)",
+      "body": "Preferências de viagem e roteiros ficam na sua conta. O tráfego usa HTTPS e o Firebase guarda os dados com criptografia em repouso. Só você acessa, pelas regras do Firestore. A ANPD fiscaliza esta lei. Em Configurações você apaga perfil, preferências e viagens a qualquer momento.",
       "deleteLink": "Ir para Excluir conta"
     },
     "contactSection": "Fale com a gente",
     "assistantCta": "Falar com nosso Assistente de IA",
-    "assistantHint": "Dúvidas rápidas sobre o app",
-    "legalComingSoon": "Política de Privacidade e Termos de Uso. Em breve."
+    "assistantHint": "Dúvidas rápidas sobre o app"
+  },
+  "legal": {
+    "termsTitle": "Termos de Uso",
+    "privacyTitle": "Política de Privacidade",
+    "updated": "Texto curto do MVP · outubro de 2026.",
+    "terms": {
+      "p1": "A Tripfy sugere roteiros com inteligência artificial. Horário, preço e disponibilidade mudam. Confira no local ou no site oficial antes de ir.",
+      "p2": "A Tripfy não vende ingresso, hospedagem nem passagem. Links de parceiros são de afiliado: você sai do app e a reserva acontece no site do parceiro. A Tripfy pode receber uma comissão. O preço é o do parceiro.",
+      "p3": "Gerar roteiro com IA é gratuito. No plano grátis, o Match cobre até 2 viajantes.",
+      "p4": "Você pode apagar a conta em Configurações. Isso remove perfil, preferências e viagens."
+    },
+    "privacy": {
+      "p1": "Guardamos o que a conta precisa: nome, e-mail, foto, preferências de viagem e roteiros salvos. Usamos isso só para personalizar o app.",
+      "p2": "O tráfego vai por HTTPS. O Firebase guarda os dados com criptografia em repouso. As regras do Firestore deixam cada pessoa ver só a própria conta.",
+      "p3": "Isso segue a Lei nº 13.709/2018 (LGPD), fiscalizada pela ANPD. Não vendemos seus dados.",
+      "p4": "Em Configurações você apaga a conta a qualquer momento. Dúvida: suporte@tripfy.app."
+    }
   },
   "supportChat": {
     "title": "Assistente",

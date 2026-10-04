@@ -70,17 +70,17 @@ O roteiro já tem o seletor `Planejar | Viajar` e o FAB de nova parada. A centra
 > [!info] Sem preço no app
 > A comparação é dois parceiros com a mesma busca preenchida. A OTA mostra a tarifa. Estimativa da IA fica de fora (CDC).
 
-- Card-resumo: título, destino e datas, monogramas B / S / G, chevron.
+- Card-resumo: título, destino e datas, monogramas B / S / G, chevron. Sob o subtítulo, o rótulo `Link de afiliado`.
 - Sheet em grupos inset (surface + hairline). Cor de marca só no tile; o card segue o tema. Sem blur — o fundo do sheet é opaco.
 - Hospedagem: Booking e Airbnb. Voos: Skyscanner. Ingressos: uma linha por parada com `requires_ticket` (GetYourGuide). Complementares: Airalo, Seguros Promo, Discover Cars.
-- `ActivityCard`: o texto de ingresso continua compacto, só se `requires_ticket`.
-- `PlaceDetailsSheet`: botão fixo **fora** do scroll, só na aba Sobre. Primário GetYourGuide, texto Viator. Some na Comunidade e quando `requires_ticket` é false.
+- `ActivityCard`: o texto de ingresso continua compacto, só se `requires_ticket`, com o mesmo rótulo `Link de afiliado` embaixo.
+- `PlaceDetailsSheet`: botão fixo **fora** do scroll, só na aba Sobre. Primário GetYourGuide, texto Viator, rótulo de afiliado no rodapé do bloco. Some na Comunidade e quando `requires_ticket` é false.
 - Offline: o sheet abre; o toque não chama `Linking`.
-- Copy nunca diz “Reservar na Tripfy”. Disclaimer no fim do sheet.
+- Copy nunca diz “Reservar na Tripfy”. O fim do sheet diz que é link de afiliado, que a Tripfy pode receber comissão e que preço e reserva são do site do parceiro.
 
 ## Legal
 
-Redirecionamento, não agência. Sem preço gerado por IA (CDC). Lei do Turismo: a Tripfy não intermedia a hospedagem.
+Redirecionamento, não agência. Sem preço gerado por IA (CDC). Lei do Turismo: a Tripfy não intermedia a hospedagem. O rótulo de afiliado identifica a publicidade (CDC). O aviso do roteiro pede para conferir horário no local; não é cláusula de isenção.
 
 ## Relacionados
 
